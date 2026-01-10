@@ -1,0 +1,15 @@
+## Additional Questions
+
+### Task 2
+
+> We do not get 0 when we add and subtract the same amount of because of race condition and a lack of read/write locking the variable. This makes so that two functions might want to change a variable at once, unaware that somebody else is also changing the same variable. They will then not register the other functions changes and might end up overriding it.
+
+What does `GOMAXPROCS` do? What happens if you set it to 1?
+
+> `GOMAXPROCS` sets a max amount of CPU cores that the go routine can run at once. Multiple cores will make it possible to run the code in parallel.
+
+> When setting `GOMAXPROCS` to 1, go will behave like c with mutex_lock.
+
+### Task 3
+
+> `pthread_t` is about protecting memory, a single thing. `sem_t` is about limiting the number of threads that can access a resources at the same time. For this task `pthread_t` is the most fitting.
