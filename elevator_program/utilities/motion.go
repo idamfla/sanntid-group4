@@ -3,18 +3,18 @@ package utilities
 type Motion int
 
 const (
-	Stop Motion = iota
-	MoveUp
-	MoveDown
+	MotionStop Motion = iota
+	MotionMoveUp
+	MotionMoveDown
 )
 
 func (m Motion) String() string {
 	switch m {
-	case Stop:
+	case MotionStop:
 		return "stop"
-	case MoveUp:
+	case MotionMoveUp:
 		return "move up"
-	case MoveDown:
+	case MotionMoveDown:
 		return "move down"
 	default:
 		return "unknown"

@@ -12,7 +12,7 @@ type Elevator struct {
 	currentFloor int
 	targetFloor  int
 	currentPosition int
-	status    ElevatorStatus
+	status    ElevatorState
 
 	StatusChan chan utilities.StatusMsg
 	TaskChan chan utilities.TaskMsg
@@ -23,12 +23,12 @@ func (e *Elevator) InitElevator(id int, statusChan chan utilities.StatusMsg, tas
 	e.currentPosition = 4
 	e.targetFloor = 1
 	e.currentFloor = 4
-	e.status = uninitialized
+	e.status = ElevStateUninitialized
 
 	e.MoveElevator()
 
 	e.targetFloor = 0
-	e.status = running
+	e.status = ElevStateRunning
 
 	e.StatusChan = statusChan
 	e.TaskChan = taskChan
@@ -38,11 +38,11 @@ func (e *Elevator) InitElevator(id int, statusChan chan utilities.StatusMsg, tas
 
 func (e Elevator) getMotion() utilities.Motion {
 	if e.targetFloor == 0 || e.currentPosition == e.targetFloor {
-		return utilities.Stop
+		return utilities.MotionStop
 	} else if e.currentFloor < e.targetFloor {
-		return utilities.MoveUp
+		return utilities.MotionMoveUp
 	} else {
-		return utilities.MoveDown
+		return utilities.MotionMoveDown
 	}
 }
 
@@ -53,16 +53,16 @@ func (e *Elevator) MoveElevator() {
 	for range ticker.C {
 		// fmt.Println(e) // TODO: remove db
 		switch e.getMotion() {
-		case utilities.Stop:
+		case utilities.MotionStop:
 			return
-		case utilities.MoveUp:
+		case utilities.MotionMoveUp:
 			if e.currentPosition == -1 {
 				e.currentPosition = e.currentFloor + 1
 				e.currentFloor = e.currentPosition
 			} else {
 				e.currentFloor = -1
 			}
-		case utilities.MoveDown:
+		case utilities.MotionMoveDown:
 			if e.currentPosition == -1 {
 				e.currentPosition = e.currentFloor - 1
 				e.currentFloor = e.currentPosition

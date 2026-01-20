@@ -10,8 +10,8 @@ func RunElevatorProgram() {
 	statusCh := make(chan utilities.StatusMsg, 10)
 	taskCh := make(chan utilities.TaskMsg, 20)
 
-	var tm task_manager.TaskManager
-	tm.InitTaskManager()
+	// var tm task_manager.TaskManager
+	// tm.InitTaskManager()
 
 	var e elevator.Elevator
 	

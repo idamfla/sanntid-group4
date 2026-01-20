@@ -1,28 +1,28 @@
 package elevator
 
-type ElevatorStatus int
+type ElevatorState int
 
 const (
-	uninitialized ElevatorStatus = iota
-	running
-	doorOpen
-	obstruction
-	emergencyStop
+	ElevStateUninitialized ElevatorState = iota
+	ElevStateRunning
+	ElevStateDoorOpen
+	ElevStateObstruction
+	ElevStateEmergencyStop
 )
 
-func (s ElevatorStatus) String() string {
+func (s ElevatorState) String() string {
 	switch s {
 	// case Idle:
 	// 		return "idle"
-	case uninitialized:
+	case ElevStateUninitialized:
 		return "uninitialized"
-	case running:
-			return "Running"
-	case doorOpen:
+	case ElevStateRunning:
+			return "running"
+	case ElevStateDoorOpen:
 			return "door open"
-	case obstruction:
+	case ElevStateObstruction:
 			return "obstruction"
-	case emergencyStop:
+	case ElevStateEmergencyStop:
 			return "emergency stop"
 	default:
 		return "unknown"
