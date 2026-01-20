@@ -3,26 +3,26 @@ package elevator
 type ElevatorState int
 
 const (
-	ElevStateUninitialized ElevatorState = iota
-	ElevStateRunning
-	ElevStateDoorOpen
-	ElevStateObstruction
-	ElevStateEmergencyStop
+	ES_Uninitialized ElevatorState = iota
+	ES_Running
+	ES_DoorOpen
+	ES_Obstruction
+	ES_EmergencyStop
 )
 
 func (s ElevatorState) String() string {
 	switch s {
 	// case Idle:
 	// 		return "idle"
-	case ElevStateUninitialized:
+	case ES_Uninitialized:
 		return "uninitialized"
-	case ElevStateRunning:
+	case ES_Running:
 			return "running"
-	case ElevStateDoorOpen:
+	case ES_DoorOpen:
 			return "door open"
-	case ElevStateObstruction:
+	case ES_Obstruction:
 			return "obstruction"
-	case ElevStateEmergencyStop:
+	case ES_EmergencyStop:
 			return "emergency stop"
 	default:
 		return "unknown"

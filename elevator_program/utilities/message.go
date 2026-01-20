@@ -1,6 +1,6 @@
 package utilities
 
-type StatusMsg  struct {
+type Message  struct {
 	Id int
 	Position int
 	Target int

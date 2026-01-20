@@ -2,24 +2,20 @@ package main
 
 import (
 	"elevator_program/elevator"
-	"elevator_program/utilities"
+	// "elevator_program/utilities"
+	// "elevator_program/elevio"
 	"fmt"
 )
 
-func RunElevatorProgram() {
-	statusCh := make(chan utilities.StatusMsg, 10)
-	taskCh := make(chan utilities.TaskMsg, 20)
-
-	// var tm task_manager.TaskManager
-	// tm.InitTaskManager()
-
+func testElevator() {
 	var e elevator.Elevator
 	
 	fmt.Println(e)
-	e.InitElevator(1, statusCh, taskCh)
+	// e.InitElevator(1)
+	e.RunElevatorProgram("15657", 1)
 	fmt.Println(e)
 }
 
 func main() {
-	RunElevatorProgram()
+	testElevator()
 }
