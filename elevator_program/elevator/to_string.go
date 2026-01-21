@@ -1,16 +1,5 @@
 package elevator
 
-type ElevatorState int
-
-const (
-	ES_Uninitialized ElevatorState = iota
-	ES_Idle
-	ES_Moving
-	ES_DoorOpen
-	ES_Obstruction
-	ES_EmergencyStop
-)
-
 func (s ElevatorState) String() string {
 	switch s {
 	// case Idle:

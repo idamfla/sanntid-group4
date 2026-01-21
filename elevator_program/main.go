@@ -1,10 +1,10 @@
 package main
 
 import (
+	// "fmt"
 	"elevator_program/elevator"
 	// "elevator_program/utilities"
 	// "elevator_program/elevio"
-	"fmt"
 )
 
 func testElevator() {
@@ -12,12 +12,12 @@ func testElevator() {
 	
 	id := 1
 	numFloors := 4
-	initTargetFloor := 0
+	initFloor := 0
 
-	fmt.Println(e)
+	// fmt.Println(e)
 	// e.InitElevator(1)
-	e.RunElevatorProgram("15657", id, numFloors, initTargetFloor)
-	fmt.Println(e)
+	e.RunElevatorProgram("15657", id, numFloors, initFloor)
+	select{}
 }
 
 func main() {
