@@ -12,7 +12,7 @@ func testElevator() {
 	
 	fmt.Println(e)
 	// e.InitElevator(1)
-	e.RunElevatorProgram("15657", 1)
+	e.RunElevatorProgram("15657", 1, 4)
 	fmt.Println(e)
 }
 
