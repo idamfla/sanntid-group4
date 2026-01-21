@@ -1,5 +1,16 @@
 package elevio
 
+func MotorDirectionToButton(md MotorDirection) ButtonType {
+	switch md {
+	case MD_Up:
+		return BT_HallUp
+	case MD_Down:
+		return BT_HallDown
+	default:
+		return BT_Cab // fallback
+	}
+}
+
 func (md MotorDirection) String() string {
 	switch md {
 	case MD_Stop:
