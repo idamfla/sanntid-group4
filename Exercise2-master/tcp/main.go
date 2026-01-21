@@ -78,10 +78,10 @@ func main() {
 
 	for _, msg := range messages {
 		err = TCPWrite(conn, msg)
-		if err != nil {
-			fmt.Println("Error sending message:", err)
-			continue
-		}
+		// if err != nil {
+		// 	fmt.Println("Error sending message:", err)
+		// 	continue
+		// }
 	}
 
 	select {}
