@@ -3,38 +3,35 @@ package elevator
 import (
 	"fmt"
 
-	// "elevator_program/utilities"
+	// "elevator_program/utilities"	
 	"elevator_program/elevio"
 )
-
-var _numFloors int = 4 // TODO integrate
 
 type Elevator struct {
 	id int
 	currentFloor int
 	targetFloor  int
-	currentPosition int
+	initFloor int
 	floorRequests [][3]bool
+	lastMovingDir elevio.MotorDirection
 	state    ElevatorState
+
+	eventsCh chan ElevatorEvent
 
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
 }
 
-func (e *Elevator) InitElevator(id int, numFloors int) {
+func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.id = id
-	e.currentPosition = elevio.GetFloor()
-	e.targetFloor = 0 // TODO maybe make dynamic, variable on init
-	e.currentFloor = elevio.GetFloor()
-	
+	e.currentFloor = -1
+ 	e.targetFloor = -1 // TODO maybe make dynamic, variable on init
+	e.initFloor = initFloor
 	e.floorRequests = make([][3]bool, numFloors)
-
 	e.state = ES_Uninitialized
-	
-	d := e.GetMotion()
-    elevio.SetMotorDirection(d)
+	e.eventsCh = make(chan ElevatorEvent, 20)
 
-	// e.state = ES_Running
+	// e.state = ES_Moving
 
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -42,202 +39,215 @@ func (e *Elevator) InitElevator(id int, numFloors int) {
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.targetFloor}
 }
 
-func (e Elevator) GetMotion() elevio.MotorDirection {
-	if e.targetFloor == -1 || e.currentPosition == e.targetFloor {
-		return elevio.MD_Stop
-	} else if e.currentFloor < e.targetFloor {
-		return elevio.MD_Up
+func (e *Elevator) ClearFloor(f int) {
+	e.floorRequests[f][elevio.BT_Cab] = false
+
+	if f == 0 {
+		e.floorRequests[f][elevio.BT_HallUp] = false
+	} else if f == len(e.floorRequests) - 1 { 
+		e.floorRequests[f][elevio.BT_HallDown] = false
 	} else {
-		return elevio.MD_Down
+		switch e.lastMovingDir {
+		case elevio.MD_Up:
+			e.floorRequests[f][elevio.BT_HallUp] = false
+		case elevio.MD_Down:
+			e.floorRequests[f][elevio.BT_HallDown] = false
+		}
 	}
 }
 
-func (e Elevator) GetNextTargetFloor() int {
-	// var d elevio.MotorDirection = e.GetMotion()
-	// numFloors := len(e.floorRequests)
+func (e *Elevator) ClearButtonLamp(f int) {
+	elevio.SetButtonLamp(elevio.BT_Cab, e.currentFloor, false)
+
+	if f == 0 {
+		elevio.SetButtonLamp(elevio.BT_HallUp, f, false)
+	} else if f == len(e.floorRequests) - 1 {
+		elevio.SetButtonLamp(elevio.BT_HallDown, f, false)
+	} else {
+		switch e.lastMovingDir {
+		case elevio.MD_Up:
+			elevio.SetButtonLamp(elevio.BT_HallUp, e.currentFloor, false)
+		case elevio.MD_Down:
+			elevio.SetButtonLamp(elevio.BT_HallDown, e.currentFloor, false)
+		}
+	}
+}
+
+func (e *Elevator) UpdateLastDirection(nextTarget elevio.ButtonEvent, dir elevio.MotorDirection) {
+	if nextTarget.Floor == -1 { return }
+
+	if dir != elevio.MD_Stop {
+		e.lastMovingDir = dir
+	}
 	
-	// if d == elevio.MD_Up {
-	// 	for f := e.currentFloor + 1; f < numFloors; f++ {
-	// 		if e.floorRequests[f][elevio.BT_HallUp] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-
-	// 	for f := numFloors - 1; f >= 0; f-- {
-	// 		if e.floorRequests[f][elevio.BT_HallDown] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-
-	// 	for f := 0; f < e.currentFloor; f++ {
-	// 		if e.floorRequests[f][elevio.BT_HallUp] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-	// } else if d == elevio.MD_Down {
-	// 	for f := e.currentFloor - 1; f >= 0; f-- {
-	// 		if e.floorRequests[f][elevio.BT_HallDown] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-		
-	// 	for f := 0; f < numFloors; f++ {
-	// 		if e.floorRequests[f][elevio.BT_HallUp] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-
-	// 	for f := numFloors - 1; f >= 0; f-- {
-	// 		if e.floorRequests[f][elevio.BT_HallDown] || e.floorRequests[f][elevio.BT_Cab] {
-	// 			return f
-	// 		}
-	// 	}
-	// }
-
-	d := e.GetMotion()
-	numFloors := len(e.floorRequests)
-
-	// Helper to check if a floor has any of the requested buttons pressed
-	hasRequest := func(f int, buttons ...elevio.ButtonType) bool {
-		for _, b := range buttons {
-			if e.floorRequests[f][b] {
-				return true
-			}
-		}
-		return false
+	if nextTarget.Floor != e.currentFloor { return }
+	switch nextTarget.Button {
+	case elevio.BT_HallUp:
+		e.lastMovingDir = elevio.MD_Up
+	case elevio.BT_HallDown:
+		e.lastMovingDir = elevio.MD_Down
 	}
-
-	// Priority 1: Floors ahead in same direction (Up/Down) or Cab stops
-	if d == elevio.MD_Up {
-		for f := e.currentFloor + 1; f < numFloors; f++ {
-			if hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab) {
-				return f
-			}
-		}
-	} else if d == elevio.MD_Down {
-		for f := e.currentFloor - 1; f >= 0; f-- {
-			if hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab) {
-				return f
-			}
-		}
-	}
-
-	// Priority 2: Floors behind in opposite direction or Cab stops
-	for f := 0; f < numFloors; f++ {
-		if d == elevio.MD_Up && f <= e.currentFloor {
-			if hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab) {
-				return f
-			}
-		} else if d == elevio.MD_Down && f >= e.currentFloor {
-			if hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab) {
-				return f
-			}
-		}
-	}
-
-	// Priority 3: Remaining requests in the same direction (less urgent)
-	if d == elevio.MD_Up {
-		for f := e.currentFloor + 1; f < numFloors; f++ {
-			if hasRequest(f, elevio.BT_HallDown) {
-				return f
-			}
-		}
-	} else if d == elevio.MD_Down {
-		for f := e.currentFloor - 1; f >= 0; f-- {
-			if hasRequest(f, elevio.BT_HallUp) {
-				return f
-			}
-		}
-	}
-
-	return e.currentFloor // no requests
 }
 
-func (e *Elevator) RunElevatorProgram(port string, id int, numFloors int) {
+func (e *Elevator) UpdateTargetFloor() elevio.ButtonEvent {
+    nextTarget := e.GetNextTargetFloor()
+    if nextTarget.Floor != -1 {
+        e.targetFloor = nextTarget.Floor
+    }
+    return nextTarget
+}
+
+func (e *Elevator) ElevatorStateMachine() {
+	for {
+		var ev ElevatorEvent
+		select {
+		case ev = <-e.eventsCh:
+			switch ev.Type {
+			case EV_FloorSensor:
+				if ev.Floor != -1 { e.currentFloor = ev.Floor }
+			case EV_ButtonPress:
+				e.floorRequests[ev.Floor][ev.Button] = true
+				elevio.SetButtonLamp(ev.Button, ev.Floor, true)
+			case EV_Obstruction:
+				if ev.Obstruction {
+					e.state = ES_Obstruction
+				}
+			case EV_EmergencyStop:
+				if ev.EmergencyStop {
+					elevio.SetStopLamp(true)
+					e.state = ES_EmergencyStop
+					continue
+				}
+			case EV_TaskAssigned:
+				continue
+			case EV_TaskCompleted:
+				continue
+			}
+		default:
+		}
+
+		switch e.state {
+		case ES_Uninitialized:
+			if e.currentFloor == -1 {
+				elevio.SetMotorDirection(elevio.MD_Down) // always move down until a floor sensor triggers
+				continue
+			}
+			
+			if e.currentFloor < e.initFloor {
+				elevio.SetMotorDirection(elevio.MD_Up)
+			} else if e.currentFloor > e.initFloor {
+				elevio.SetMotorDirection(elevio.MD_Down)
+			} else {
+				elevio.SetMotorDirection(elevio.MD_Stop)
+				e.ClearFloor(e.currentFloor)
+				e.ClearButtonLamp(e.currentFloor)
+
+				e.state = ES_Idle
+			}
+
+		case ES_Idle:
+			nextTarget := e.UpdateTargetFloor() // sets targetFloor
+			dir := e.GetMotion()
+			if dir != elevio.MD_Stop {
+				e.state = ES_Moving
+				elevio.SetMotorDirection(dir)
+			}
+
+			if e.currentFloor != -1 && e.currentFloor == e.targetFloor {
+				elevio.SetMotorDirection(elevio.MD_Stop)
+				e.ClearFloor(e.currentFloor)
+				e.ClearButtonLamp(e.currentFloor)
+			}
+			e.UpdateLastDirection(nextTarget, dir)
+
+		case ES_Moving:
+			if e.currentFloor == e.targetFloor {
+				elevio.SetMotorDirection(elevio.MD_Stop)
+				e.ClearFloor(e.currentFloor)
+				e.ClearButtonLamp(e.currentFloor)
+				e.state = ES_Idle
+			} else {
+				nextTarget := e.UpdateTargetFloor()
+				dir := e.GetMotion()
+				elevio.SetMotorDirection(dir)
+				e.UpdateLastDirection(nextTarget, dir)
+			}		
+		case ES_EmergencyStop:
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			if !ev.EmergencyStop {
+                elevio.SetStopLamp(false)
+                e.state = ES_Idle
+            }
+		}
+		fmt.Println(e) // DB
+	}
+}
+
+func (e *Elevator) RunElevatorProgram(port string, id int, numFloors int, initFloor int) {
 	// numFloors := 4
 
 	// "localhost:15657"
     elevio.Init("localhost:" + port, numFloors)
     
-    var d elevio.MotorDirection = elevio.MD_Up
-    //elevio.SetMotorDirection(d)
-    
-    drv_buttons := make(chan elevio.ButtonEvent)
-    drv_floors  := make(chan int)
-    drv_obstr   := make(chan bool)
-    drv_stop    := make(chan bool)    
-    
-    go elevio.PollButtons(drv_buttons)
-    go elevio.PollFloorSensor(drv_floors)
-    go elevio.PollObstructionSwitch(drv_obstr)
-    go elevio.PollStopButton(drv_stop)
+	e.InitElevator(id, numFloors, initFloor)
+	go e.ElevatorStateMachine()
 
-	e.InitElevator(id, numFloors)
-    
-    
-    for {
-        select {
-        case btn := <- drv_buttons:
-			if e.state == ES_Uninitialized { break } // TODO maybe make it just not act before initialized
-
-            fmt.Printf("%+v\n", btn)
-			e.floorRequests[btn.Floor][btn.Button] = true
-            elevio.SetButtonLamp(btn.Button, btn.Floor, true)
-			
-			e.targetFloor = e.GetNextTargetFloor()
-			d := e.GetMotion()
-			elevio.SetMotorDirection(d)
-            
-        case pos := <- drv_floors:
-			e.currentPosition = pos
-			if e.currentPosition != -1 {
-				e.currentFloor = pos
-
-				if e.state != ES_Uninitialized {	
-					e.targetFloor = e.GetNextTargetFloor()
-				}
-
-				if e.currentFloor == e.targetFloor && e.state == ES_Uninitialized {
-					e.state = ES_Running
-				}
-			}
-
-			d = e.GetMotion()
-            // fmt.Printf("%+v\n", a)
-            // if a == numFloors-1 {
-            //     d = elevio.MD_Down
-            // } else if a == 0 {
-            //     d = elevio.MD_Up
-            // }
-            elevio.SetMotorDirection(d)
-			fmt.Println(e)
-            
-            
-        case a := <- drv_obstr:
-            fmt.Printf("%+v\n", a)
-            if a {
-                elevio.SetMotorDirection(elevio.MD_Stop)
-            } else {
-                elevio.SetMotorDirection(d)
-            }
-            
-        case a := <- drv_stop:
-            fmt.Printf("%+v\n", a)
-            for f := 0; f < numFloors; f++ {
-                for b := elevio.ButtonType(0); b < 3; b++ {
-                    elevio.SetButtonLamp(b, f, false)
-                }
-            }
+    go func() {
+        drv_buttons := make(chan elevio.ButtonEvent)
+        go elevio.PollButtons(drv_buttons)
+        for btn := range drv_buttons {
+            e.eventsCh <- ElevatorEvent{Type: EV_ButtonPress, Floor: btn.Floor, Button: btn.Button}
         }
-    }    
+    }()
+
+    go func() {
+        drv_floors := make(chan int)
+        go elevio.PollFloorSensor(drv_floors)
+        for f := range drv_floors {
+            e.eventsCh <- ElevatorEvent{Type: EV_FloorSensor, Floor: f}
+        }
+    }()
+
+	go func() {
+        drv_obstr := make(chan bool)
+        go elevio.PollObstructionSwitch(drv_obstr)
+        for obstr := range drv_obstr {
+            e.eventsCh <- ElevatorEvent{Type: EV_Obstruction, Obstruction: obstr}
+        }
+    }()
+
+	go func() {
+        drv_stop := make(chan bool)
+        go elevio.PollStopButton(drv_stop)
+        for s := range drv_stop {
+            e.eventsCh <- ElevatorEvent{Type: EV_EmergencyStop, EmergencyStop: s}
+        }
+    }()
+
+	select{}
 }
 
 func (e Elevator) String() string {
-	return fmt.Sprintf(`Elevator
+	s := fmt.Sprintf(
+	`Elevator
 	id: %d
-	current position: %d
 	current floor: %d
 	target floor: %d
-	state: %s`,
-		e.id, e.currentFloor, e.currentFloor, e.targetFloor, e.state)
+	init floor: %d
+	last moving dir: %s
+	state: %s
+`,
+		e.id, e.currentFloor, e.targetFloor, e.initFloor, e.lastMovingDir, e.state)
+
+	for f, req := range e.floorRequests {
+		s += fmt.Sprintf(
+			"	floor %d: [Up:%t Down:%t Cab:%t]\n",
+			f,
+			req[elevio.BT_HallUp],
+			req[elevio.BT_HallDown],
+			req[elevio.BT_Cab],
+		)
+	}
+
+	return s
 }
