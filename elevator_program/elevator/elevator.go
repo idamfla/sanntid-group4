@@ -47,7 +47,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 
 func (e *Elevator) RunElevatorProgram() {
 	go e.ElevatorStateMachine()
-	go e.EventLoop()
+	// go e.EventLoop()
 	e.StartHardwareEventsListeners()
 
 	done := make(chan struct{})
