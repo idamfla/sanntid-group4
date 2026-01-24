@@ -6,7 +6,7 @@ import (
 )
 
 func (e Elevator) GetMotion() elevio.MotorDirection {
-	if e.targetFloor == -1 || e.currentFloor == e.targetFloor || e.state == ES_EmergencyStop{
+	if e.targetFloor == -1 || e.currentFloor == e.targetFloor || e.state == ES_EmergencyStop {
 		return elevio.MD_Stop
 	} else if e.currentFloor < e.targetFloor {
 		return elevio.MD_Up
@@ -46,46 +46,62 @@ func (e Elevator) GetNextTargetFloor() elevio.ButtonEvent {
 	}
 
 	upScan := func() elevio.ButtonEvent {
-		if ok, btn := hasRequest(e.currentFloor, elevio.BT_Cab, elevio.BT_HallUp); ok { return elevio.ButtonEvent{Floor: e.currentFloor, Button: btn }}
+		if ok, btn := hasRequest(e.currentFloor, elevio.BT_Cab, elevio.BT_HallUp); ok {
+			return elevio.ButtonEvent{Floor: e.currentFloor, Button: btn}
+		}
 
 		// phase 1: continue up
 		for f := e.currentFloor + 1; f < numFloors; f++ {
-			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
-		
+
 		// phase 2: nothing left up, go down
 		for f := numFloors - 1; f >= 0; f-- {
-			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
-		
+
 		// phase 3: nothing down, move up again
 		for f := 0; f <= e.currentFloor; f++ {
-			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
 
 		return elevio.ButtonEvent{Floor: -1}
 	}
 
 	downScan := func() elevio.ButtonEvent {
-		if ok, btn := hasRequest(e.currentFloor, elevio.BT_Cab, elevio.BT_HallDown); ok {return elevio.ButtonEvent{Floor: e.currentFloor, Button: btn } }
+		if ok, btn := hasRequest(e.currentFloor, elevio.BT_Cab, elevio.BT_HallDown); ok {
+			return elevio.ButtonEvent{Floor: e.currentFloor, Button: btn}
+		}
 
 		for f := e.currentFloor - 1; f >= 0; f-- {
-			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
 
 		for f := 0; f < numFloors; f++ {
-			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallUp, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
 
 		for f := numFloors - 1; f >= e.currentFloor; f-- {
-			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok { return elevio.ButtonEvent{Floor: f, Button: btn } }
+			if ok, btn := hasRequest(f, elevio.BT_HallDown, elevio.BT_Cab); ok {
+				return elevio.ButtonEvent{Floor: f, Button: btn}
+			}
 		}
 
 		return elevio.ButtonEvent{Floor: -1}
 	}
 
 	if e.lastMovingDir == elevio.MD_Up {
-		return upScan()		
+		return upScan()
 	} else if e.lastMovingDir == elevio.MD_Down {
 		return downScan()
 	}
