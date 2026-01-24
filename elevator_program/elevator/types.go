@@ -12,7 +12,6 @@ const (
 	ES_Moving
 	ES_DoorOpen
 	ES_Obstruction
-	ES_EmergencyStop
 )
 
 type EventType int
@@ -48,8 +47,8 @@ func (s ElevatorState) String() string {
 		return "door open"
 	case ES_Obstruction:
 		return "obstruction"
-	case ES_EmergencyStop:
-		return "emergency stop"
+	// case ES_EmergencyStop:
+	// 	return "emergency stop"
 	default:
 		return "unknown"
 	}

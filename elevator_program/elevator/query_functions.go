@@ -6,7 +6,7 @@ import (
 )
 
 func (e Elevator) GetMotion() elevio.MotorDirection {
-	if e.targetFloor == -1 || e.currentFloor == e.targetFloor || e.state == ES_EmergencyStop {
+	if e.targetFloor == -1 || e.currentFloor == e.targetFloor || e.emergencyStop {
 		return elevio.MD_Stop
 	} else if e.currentFloor < e.targetFloor {
 		return elevio.MD_Up
@@ -29,7 +29,7 @@ func (e Elevator) GetNextTargetFloor() elevio.ButtonEvent {
 	}
 
 	// if elevator is not moving
-	if e.state == ES_Idle || e.lastMovingDir == elevio.MD_Stop {
+	if e.state == ES_Idle || e.lastDirection == elevio.MD_Stop {
 		closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 		minDist := numFloors + 1 // initialize with something bigger than max possible distance
 		for f := 0; f < numFloors; f++ {
@@ -100,9 +100,9 @@ func (e Elevator) GetNextTargetFloor() elevio.ButtonEvent {
 		return elevio.ButtonEvent{Floor: -1}
 	}
 
-	if e.lastMovingDir == elevio.MD_Up {
+	if e.lastDirection == elevio.MD_Up {
 		return upScan()
-	} else if e.lastMovingDir == elevio.MD_Down {
+	} else if e.lastDirection == elevio.MD_Down {
 		return downScan()
 	}
 
