@@ -1,14 +1,15 @@
 package elevator
 
+// DON'T USE
 func (e *Elevator) EventLoop() {
-	for ev := range e.eventsCh {
-		// optionally filter invalid events
-		if ev.Type == EV_FloorSensor && ev.Floor == -1 {
-			continue
-		}
-		// forward to state machine
-		e.stateMachineCh <- ev
-	}
+	// for ev := range e.eventsCh {
+	// 	// optionally filter invalid events
+	// 	if ev.Type == EV_FloorSensor && ev.Floor == -1 {
+	// 		continue
+	// 	}
+	// 	// forward to state machine
+	// 	e.stateMachineCh <- ev
+	// }
 
 	// region old
 	// for {

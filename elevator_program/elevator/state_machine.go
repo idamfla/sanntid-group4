@@ -78,7 +78,7 @@ func (e *Elevator) ElevatorStateMachine() {
 
 	for {
 		select {
-		case ev := <-e.stateMachineCh:
+		case ev := <-e.eventsCh:
 			e.handleEvent(ev)
 		case <-ticker.C:
 			e.updateMotor()

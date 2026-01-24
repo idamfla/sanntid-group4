@@ -15,10 +15,13 @@ type Elevator struct {
 	floorRequests [][3]bool             // TODO maybe Pending, Running, Completed, NotActive
 	lastDirection elevio.MotorDirection // TODO make targetFloor into ButtonEvent
 	state         ElevatorState
-	emergencyStop bool // TODO add InBetweenFloors bool, also make sure the order of all is good and that funcitons make sense, name etc
-
+	emergencyStop bool
+	/*
+	TODO add InBetweenFloors bool,
+		also make sure the order of all is good and that funcitons make sense, name etc
+	always update current floor, but maybe also have a lastValidFloor or something
+	*/
 	eventsCh chan ElevatorEvent
-	stateMachineCh chan ElevatorEvent
 
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
@@ -33,7 +36,6 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.state = ES_Uninitialized
 
 	e.eventsCh = make(chan ElevatorEvent, 20)
-	e.stateMachineCh = make(chan ElevatorEvent, 20)
 
 	// e.state = ES_Moving
 

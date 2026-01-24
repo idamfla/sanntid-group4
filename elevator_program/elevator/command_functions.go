@@ -12,7 +12,7 @@ func (e *Elevator) ClearFloor(f int) {
 	} else if f == len(e.floorRequests)-1 {
 		e.floorRequests[f][elevio.BT_HallDown] = false
 	} else {
-		switch e.lastMovingDir {
+		switch e.lastDirection {
 		case elevio.MD_Up:
 			e.floorRequests[f][elevio.BT_HallUp] = false
 		case elevio.MD_Down:
@@ -29,7 +29,7 @@ func (e *Elevator) ClearButtonLamp(f int) {
 	} else if f == len(e.floorRequests)-1 {
 		elevio.SetButtonLamp(elevio.BT_HallDown, f, false)
 	} else {
-		switch e.lastMovingDir {
+		switch e.lastDirection {
 		case elevio.MD_Up:
 			elevio.SetButtonLamp(elevio.BT_HallUp, e.currentFloor, false)
 		case elevio.MD_Down:
@@ -44,7 +44,7 @@ func (e *Elevator) UpdateLastDirection(nextTarget elevio.ButtonEvent, dir elevio
 	}
 
 	if dir != elevio.MD_Stop {
-		e.lastMovingDir = dir
+		e.lastDirection = dir
 	}
 
 	if nextTarget.Floor != e.currentFloor {
@@ -52,9 +52,9 @@ func (e *Elevator) UpdateLastDirection(nextTarget elevio.ButtonEvent, dir elevio
 	}
 	switch nextTarget.Button {
 	case elevio.BT_HallUp:
-		e.lastMovingDir = elevio.MD_Up
+		e.lastDirection = elevio.MD_Up
 	case elevio.BT_HallDown:
-		e.lastMovingDir = elevio.MD_Down
+		e.lastDirection = elevio.MD_Down
 	}
 }
 
