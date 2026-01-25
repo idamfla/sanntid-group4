@@ -7,6 +7,26 @@ import (
 	"elevator_program/elevio"
 )
 
+var ascendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallUp}
+var descendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallDown}
+
+type SortingOrder int
+
+const (
+	SO_Ascending SortingOrder = 1
+	SO_Descending SortingOrder = -1
+)
+
+type ElevatorState int
+
+const (
+	ES_Uninitialized ElevatorState = iota
+	ES_Idle
+	ES_Moving
+	ES_DoorOpen
+	ES_Obstruction
+)
+
 type Elevator struct {
 	id            int
 	currentFloor  int
@@ -26,6 +46,8 @@ type Elevator struct {
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
 }
+
+
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.id = id
@@ -54,7 +76,28 @@ func (e *Elevator) RunElevatorProgram() {
 	<-done
 }
 
-// region print elevator, for debugging
+// region printing, for debugging
+func (s ElevatorState) String() string {
+	switch s {
+	// case Idle:
+	// 		return "idle"
+	case ES_Uninitialized:
+		return "uninitialized"
+	case ES_Idle:
+		return "idle"
+	case ES_Moving:
+		return "moving"
+	case ES_DoorOpen:
+		return "door open"
+	case ES_Obstruction:
+		return "obstruction"
+	// case ES_EmergencyStop:
+	// 	return "emergency stop"
+	default:
+		return "unknown"
+	}
+}
+
 func (e Elevator) String() string {
 	s := fmt.Sprintf(
 		`Elevator
