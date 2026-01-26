@@ -97,7 +97,10 @@ func PollFloorSensor(receiver chan<- int) {
 	for {
 		time.Sleep(_pollRate)
 		v := GetFloor()
-		if v != prev && v != -1 {
+		// if v != prev && v != -1 {
+		// 	receiver <- v
+		// }
+		if v != prev { // not filtering out -1
 			receiver <- v
 		}
 		prev = v

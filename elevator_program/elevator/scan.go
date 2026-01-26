@@ -33,7 +33,7 @@ func (e Elevator) scanFromCurrentFloor(so SortingOrder,	buttons ...elevio.Button
 
 
 
-func (e Elevator) GetNextTargetFloor() elevio.ButtonEvent {
+func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 	numFloors := len(e.floorRequests)
 	bottomFloor := 0
 	topFloor := numFloors - 1

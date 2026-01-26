@@ -50,31 +50,3 @@ func (e *Elevator) clearCurrentFloor() {
 	e.clearRequestsForFloor(e.currentFloor) // TODO don't clear floor before "master" tells the elevator to do so
 	e.clearLampsForFloor(e.currentFloor)
 }
-
-func (e *Elevator) UpdateLastDirection(nextTarget elevio.ButtonEvent, dir elevio.MotorDirection) {
-	if nextTarget.Floor == -1 {
-		return
-	}
-
-	if dir != elevio.MD_Stop {
-		e.lastDirection = dir
-	}
-
-	if nextTarget.Floor == e.currentFloor {
-		switch nextTarget.Button {
-		case elevio.BT_HallUp:
-			e.lastDirection = elevio.MD_Up
-		case elevio.BT_HallDown:
-			e.lastDirection = elevio.MD_Down
-		}
-	}
-}
-
-func (e *Elevator) UpdateTargetFloor() elevio.ButtonEvent { // TODO should this return or just update?
-	nextTarget := e.GetNextTargetFloor()
-	if nextTarget.Floor != -1 {
-		e.targetFloor = nextTarget.Floor
-	}
-
-	return nextTarget
-}

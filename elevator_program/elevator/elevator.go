@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"fmt"
+	"time"
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
@@ -17,25 +18,23 @@ const (
 	SO_Descending SortingOrder = -1
 )
 
-type ElevatorState int
-
-const (
-	ES_Uninitialized ElevatorState = iota
-	ES_Idle
-	ES_Moving
-	ES_DoorOpen
-	ES_Obstruction
-)
-
 type Elevator struct {
 	id            int
+
+	inBetweenFloors bool
 	currentFloor  int
-	targetFloor   int
+	nextTarget   elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
 	initFloor     int
+	lastDirection elevio.MotorDirection // TODO make nextTarget into ButtonEvent
+
+	startTime    time.Time
+
 	floorRequests [][3]bool             // TODO maybe Pending, Running, Completed, NotActive
-	lastDirection elevio.MotorDirection // TODO make targetFloor into ButtonEvent
+
+	doorState DoorState
 	state         ElevatorState
-	emergencyStop bool
+	obstruction bool
+	emergencyStop bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	/*
 	TODO add InBetweenFloors bool,
 		also make sure the order of all is good and that funcitons make sense, name etc
@@ -52,10 +51,11 @@ type Elevator struct {
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.id = id
 	e.currentFloor = -1
-	e.targetFloor = -1 // TODO maybe make dynamic, variable on init
+	// e.nextTarget = -1 // TODO maybe make dynamic, variable on init
 	e.initFloor = initFloor
+	e.startTime = time.Time{}
 	e.floorRequests = make([][3]bool, numFloors)
-	e.state = ES_Uninitialized
+	// e.state = ES_Uninitialized
 
 	e.eventsCh = make(chan ElevatorEvent, 20)
 
@@ -64,12 +64,14 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
 
-	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.targetFloor}
+	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
 }
 
 func (e *Elevator) RunElevatorProgram() {
-	go e.ElevatorStateMachine()
-	// go e.EventLoop()
+	fmt.Println("RUNNING ELEVATOR PROGRAM")
+	go e.RunEventLoop()
+	go e.RunDoorStateMachine()
+	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
 
 	done := make(chan struct{})
@@ -77,38 +79,19 @@ func (e *Elevator) RunElevatorProgram() {
 }
 
 // region printing, for debugging
-func (s ElevatorState) String() string {
-	switch s {
-	// case Idle:
-	// 		return "idle"
-	case ES_Uninitialized:
-		return "uninitialized"
-	case ES_Idle:
-		return "idle"
-	case ES_Moving:
-		return "moving"
-	case ES_DoorOpen:
-		return "door open"
-	case ES_Obstruction:
-		return "obstruction"
-	// case ES_EmergencyStop:
-	// 	return "emergency stop"
-	default:
-		return "unknown"
-	}
-}
-
 func (e Elevator) String() string {
 	s := fmt.Sprintf(
 		`Elevator
 	id: %d
+	in between floors: %t
 	current floor: %d
-	target floor: %d
+	target: %d, %s
 	init floor: %d
 	last moving dir: %s
+	door state: %s
 	state: %s
 `,
-		e.id, e.currentFloor, e.targetFloor, e.initFloor, e.lastDirection, e.state)
+		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.lastDirection, e.doorState, e.state)
 
 	for f, req := range e.floorRequests {
 		s += fmt.Sprintf(

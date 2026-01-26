@@ -1,6 +1,7 @@
 package elevator
 
 import(
+	"fmt"
 	"elevator_program/elevio"
 )
 
@@ -34,9 +35,23 @@ func (e *Elevator) handleEvent(ev ElevatorEvent) {
 			elevio.SetButtonLamp(ev.Button, ev.Floor, true) // TODO don't turn on lamp before master says to do so
 		
 		case EV_FloorSensor:
-			if ev.Floor != -1 { e.currentFloor = ev.Floor}
+			if ev.Floor == -1 {
+				e.inBetweenFloors = true
+			} else {
+				e.currentFloor = ev.Floor
+				e.inBetweenFloors = false
+			}
 
 		case EV_Obstruction:
-			// TODO if door_open, and obsturcion pressed, e.state = obstruction
+			if e.doorState == DS_Closed { return }
+			e.obstruction = ev.Obstruction
+	}
+}
+
+func (e *Elevator) RunEventLoop() {
+	fmt.Println("EVENT LOOP STARTED")
+	for ev := range e.eventsCh {
+		e.handleEvent(ev)
+		fmt.Println(e) // DB
 	}
 }
