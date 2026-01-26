@@ -4,6 +4,7 @@ import (
 	"elevator_program/elevio"
 )
 
+// Helper function, do not call directly, use (e *Elevator) clearCurrentFloor
 func (e *Elevator) clearRequestsForFloor(f int) {
 	topFloor := len(e.floorRequests) - 1
 
@@ -11,11 +12,11 @@ func (e *Elevator) clearRequestsForFloor(f int) {
 	e.floorRequests[f][elevio.BT_Cab] = false
 
 	switch f {
-	case 0: 
+	case 0:
 		e.floorRequests[f][elevio.BT_HallUp] = false
-	case topFloor: 
+	case topFloor:
 		e.floorRequests[f][elevio.BT_HallDown] = false
-	default: 
+	default:
 		switch e.lastDirection {
 		case elevio.MD_Up:
 			e.floorRequests[f][elevio.BT_HallUp] = false
@@ -25,6 +26,7 @@ func (e *Elevator) clearRequestsForFloor(f int) {
 	}
 }
 
+// Helper function, do not call directly, use (e *Elevator) clearCurrentFloor
 func (e *Elevator) clearLampsForFloor(f int) {
 	topFloor := len(e.floorRequests) - 1
 
@@ -46,6 +48,7 @@ func (e *Elevator) clearLampsForFloor(f int) {
 	}
 }
 
+// Clear current floor from floorRequests, and turn the lamps off
 func (e *Elevator) clearCurrentFloor() {
 	e.clearRequestsForFloor(e.currentFloor) // TODO don't clear floor before "master" tells the elevator to do so
 	e.clearLampsForFloor(e.currentFloor)

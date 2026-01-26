@@ -8,45 +8,46 @@ import (
 	"elevator_program/elevio"
 )
 
+// ------------------------
+// Sorting
+// ------------------------
 var ascendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallUp}
 var descendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallDown}
 
 type SortingOrder int
 
 const (
-	SO_Ascending SortingOrder = 1
+	SO_Ascending  SortingOrder = 1
 	SO_Descending SortingOrder = -1
 )
 
 type Elevator struct {
-	id            int
+	id int
 
 	inBetweenFloors bool
-	currentFloor  int
-	nextTarget   elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
-	initFloor     int
-	lastDirection elevio.MotorDirection // TODO make nextTarget into ButtonEvent
+	currentFloor    int
+	nextTarget      elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
+	initFloor       int
+	lastDirection   elevio.MotorDirection // TODO make nextTarget into ButtonEvent
 
-	startTime    time.Time
+	startTime time.Time
 
-	floorRequests [][3]bool             // TODO maybe Pending, Running, Completed, NotActive
+	floorRequests [][3]bool // TODO maybe Pending, Running, Completed, NotActive
 
-	doorState DoorState
+	doorState     DoorState
 	state         ElevatorState
-	obstruction bool
+	obstruction   bool
 	emergencyStop bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	/*
-	TODO add InBetweenFloors bool,
-		also make sure the order of all is good and that funcitons make sense, name etc
-	always update current floor, but maybe also have a lastValidFloor or something
+		TODO add InBetweenFloors bool,
+			also make sure the order of all is good and that funcitons make sense, name etc
+		always update current floor, but maybe also have a lastValidFloor or something
 	*/
 	eventsCh chan ElevatorEvent
 
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
 }
-
-
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.id = id
@@ -105,4 +106,5 @@ func (e Elevator) String() string {
 
 	return s
 }
+
 // endregion

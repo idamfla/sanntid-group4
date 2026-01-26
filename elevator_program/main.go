@@ -10,7 +10,7 @@ import (
 func testElevator() {
 	var e elevator.Elevator
 	// fmt.Println(e)
-	
+
 	id := 1
 	numFloors := 4
 	initFloor := 0
@@ -21,7 +21,7 @@ func testElevator() {
 
 	e.InitElevator(id, numFloors, initFloor)
 	e.RunElevatorProgram()
-	select{}
+	select {}
 }
 
 func main() {

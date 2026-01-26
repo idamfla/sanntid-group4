@@ -10,7 +10,7 @@ func (e *Elevator) startButtonPoller() {
 	go elevio.PollButtons(drv_buttons)
 	go func() {
 		for btn := range drv_buttons {
-		e.eventsCh <- ElevatorEvent{Type: EV_ButtonPress, Floor: btn.Floor, Button: btn.Button}
+			e.eventsCh <- ElevatorEvent{Type: EV_ButtonPress, Floor: btn.Floor, Button: btn.Button}
 		}
 	}()
 }
@@ -44,8 +44,10 @@ func (e *Elevator) startStopButtonPoller() {
 		}
 	}()
 }
+
 // endregion
 
+// This function blocks, call in go routine or after everything else is called at start-up
 func (e *Elevator) StartHardwareEventsListeners() {
 	e.startButtonPoller()
 	e.startFloorPoller()

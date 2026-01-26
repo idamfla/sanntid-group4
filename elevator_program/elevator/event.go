@@ -1,8 +1,8 @@
 package elevator
 
-import(
-	"fmt"
+import (
 	"elevator_program/elevio"
+	"fmt"
 )
 
 type EventType int
@@ -26,25 +26,27 @@ type ElevatorEvent struct {
 
 func (e *Elevator) handleEvent(ev ElevatorEvent) {
 	switch ev.Type {
-		case EV_EmergencyStop:
-			elevio.SetStopLamp(ev.EmergencyStop)
-			e.emergencyStop = ev.EmergencyStop
-		
-		case EV_ButtonPress:
-			e.floorRequests[ev.Floor][ev.Button] = true
-			elevio.SetButtonLamp(ev.Button, ev.Floor, true) // TODO don't turn on lamp before master says to do so
-		
-		case EV_FloorSensor:
-			if ev.Floor == -1 {
-				e.inBetweenFloors = true
-			} else {
-				e.currentFloor = ev.Floor
-				e.inBetweenFloors = false
-			}
+	case EV_EmergencyStop:
+		elevio.SetStopLamp(ev.EmergencyStop)
+		e.emergencyStop = ev.EmergencyStop
 
-		case EV_Obstruction:
-			if e.doorState == DS_Closed { return }
-			e.obstruction = ev.Obstruction
+	case EV_ButtonPress:
+		e.floorRequests[ev.Floor][ev.Button] = true
+		elevio.SetButtonLamp(ev.Button, ev.Floor, true) // TODO don't turn on lamp before master says to do so
+
+	case EV_FloorSensor:
+		if ev.Floor == -1 {
+			e.inBetweenFloors = true
+		} else {
+			e.currentFloor = ev.Floor
+			e.inBetweenFloors = false
+		}
+
+	case EV_Obstruction:
+		if e.doorState == DS_Closed {
+			return
+		}
+		e.obstruction = ev.Obstruction
 	}
 }
 

@@ -1,9 +1,9 @@
 package elevator
 
 import (
+	"elevator_program/elevio"
 	"fmt"
 	"time"
-	"elevator_program/elevio"
 )
 
 type DoorState int
@@ -47,7 +47,7 @@ func (e *Elevator) updateDoorState() {
 			e.doorState = DS_Closeing
 			e.startTime = time.Time{}
 		}
-	
+
 	case DS_Closeing:
 		if e.obstruction {
 			e.doorState = DS_Obstruction
@@ -100,4 +100,5 @@ func (s DoorState) String() string {
 		return "unknown"
 	}
 }
+
 // endregion

@@ -1,9 +1,9 @@
 package elevator
 
 import (
+	"elevator_program/elevio"
 	"fmt"
 	"time"
-	"elevator_program/elevio"
 )
 
 type ElevatorState int
@@ -69,7 +69,6 @@ func (e Elevator) uninitializedAction() elevio.MotorDirection {
 	return elevio.MD_Stop
 }
 
-
 func (e *Elevator) updateLastDirection() {
 	lastDir := e.computeLastMovement(e.nextTarget)
 	if lastDir != elevio.MD_Stop {
@@ -78,22 +77,20 @@ func (e *Elevator) updateLastDirection() {
 }
 
 func (e Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.MotorDirection) {
-    nextTarget := e.getNextTargetFloor()
-    if nextTarget.Floor == -1 {
-        return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
-    }
+	nextTarget := e.getNextTargetFloor()
+	if nextTarget.Floor == -1 {
+		return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
+	}
 
-    dir := e.getMotionForTargetFloor(nextTarget.Floor)
-    return nextTarget, dir
+	dir := e.getMotionForTargetFloor(nextTarget.Floor)
+	return nextTarget, dir
 }
-
-
 
 // ------------------------
 // State Machine
 // ------------------------
 func (e *Elevator) updateElevatorState() { // TODO rename, this change state and controls the motor
-	if e.emergencyStop { 
+	if e.emergencyStop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
@@ -130,7 +127,7 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 			// e.doorState = open
 			e.clearCurrentFloor()
 		}
-	
+
 		dir = e.getMotionForTargetFloor(e.nextTarget.Floor)
 		if dir != elevio.MD_Stop {
 			e.state = ES_Moving
@@ -162,8 +159,8 @@ func (e *Elevator) RunElevatorStateMachine() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-        e.updateElevatorState()
-    }
+		e.updateElevatorState()
+	}
 }
 
 // region printing
@@ -187,4 +184,5 @@ func (s ElevatorState) String() string {
 		return "unknown"
 	}
 }
+
 // endregion
