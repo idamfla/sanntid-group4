@@ -22,7 +22,10 @@ chmod +x SimElevatorServer
 
 and see the simulator appare.
 
-Now, to run the program just open a new terminal window, navigate to `../elevator_program` and run `go run main.go`
+Now, to run the program just open a new terminal window, navigate to `../elevator_program` and run
+```bash
+go run main.go
+```
 
 ### Default buttons
 Default keyboard controls
