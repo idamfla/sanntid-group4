@@ -14,10 +14,12 @@ func testElevator() {
 	id := 1
 	numFloors := 4
 	initFloor := 0
+	// ip_address := "localhost"
+	ip_address := ""
 	port := "15657"
 
 	// "localhost:15657"
-	elevio.Init("localhost:"+port, numFloors)
+	elevio.Init(ip_address+":"+port, numFloors)
 
 	e.InitElevator(id, numFloors, initFloor)
 	e.RunElevatorProgram()
