@@ -50,10 +50,10 @@ To make the elevator run at the lab:
 2. On the PC, open the terminal and go to `/elevator_program`
 3. Run
    ```bash
-   make
-   elevatorserver
+   chmod +x elevatorserver
+   ./elevatorserver
    ```
-4. Open a new elevator, makeing sure you are in the correct folder (`/elevator_program`), and run
+4. Open a new elevator, make sure you are in the correct folder (`/elevator_program`), and run
    ```bash
    go run main.go
    ```
