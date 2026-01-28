@@ -21,15 +21,15 @@ const (
 // Motion helper functions
 // ------------------------
 func (e Elevator) atTargetFloor() bool {
-	if e.currentFloor == -1 || e.nextTarget.Floor == -1 { // Failsafe, currentFloor should never be -1
-		return false
-	}
+	return e.currentFloor == e.nextTarget.Floor && !e.inBetweenFloors && e.currentFloor != -1
+}
 
-	return e.currentFloor == e.nextTarget.Floor && !e.inBetweenFloors
+func (e Elevator) isTargetInvalid() bool {
+	return e.nextTarget.Floor < 0 || e.nextTarget.Floor >= len(e.floorRequests)
 }
 
 func (e Elevator) getMotionForTargetFloor(target int) elevio.MotorDirection {
-	if e.atTargetFloor() || e.emergencyStop {
+	if e.atTargetFloor() || e.emergencyStop || e.isTargetInvalid() {
 		return elevio.MD_Stop
 	} else if e.currentFloor < target {
 		return elevio.MD_Up
