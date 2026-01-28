@@ -1,11 +1,26 @@
 package elevator
 
-import(
+import (
 	"elevator_program/elevio"
 	"elevator_program/utilities"
 )
 
 func (e Elevator) scanFloor(from int, to int, so SortingOrder, buttons ...elevio.ButtonType) (bool, elevio.ButtonEvent) {
+	numFloors := len(e.floorRequests)
+
+	if from < 0 {
+		from = 0
+	}
+	if to < 0 {
+		to = 0
+	}
+	if from >= numFloors {
+		from = numFloors - 1
+	}
+	if to >= numFloors {
+		to = numFloors - 1
+	}
+
 	switch so {
 	case SO_Ascending:
 		for f := from; f <= to; f++ {
@@ -27,17 +42,36 @@ func (e Elevator) scanFloor(from int, to int, so SortingOrder, buttons ...elevio
 	return false, elevio.ButtonEvent{}
 }
 
-func (e Elevator) scanFromCurrentFloor(so SortingOrder,	buttons ...elevio.ButtonType) (bool, elevio.ButtonEvent) {
-	return e.scanFloor(e.currentFloor, e.currentFloor, so, buttons...)
+func (e Elevator) scanFromCurrentFloor(so SortingOrder, buttons ...elevio.ButtonType) (bool, elevio.ButtonEvent) {
+	start := e.currentFloor
+	var end int
+
+	switch so {
+	case SO_Ascending:
+		start = e.currentFloor + 1
+		if start > end { // no floors ahead
+			return false, elevio.ButtonEvent{}
+		}
+	case SO_Descending:
+		start = e.currentFloor - 1
+		if start < 0 { // no floors below
+			return false, elevio.ButtonEvent{}
+		}
+		end = 0
+	}
+
+	return e.scanFloor(e.currentFloor+1, end, so, buttons...)
 }
 
-
+func (e Elevator) scanCurrentFloor(so SortingOrder, buttons ...elevio.ButtonType) (bool, elevio.ButtonEvent) {
+	return e.scanFloor(e.currentFloor, e.currentFloor, so, buttons...)
+}
 
 func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 	numFloors := len(e.floorRequests)
 	bottomFloor := 0
 	topFloor := numFloors - 1
-	
+
 	// region scan functions
 	defaultScan := func() elevio.ButtonEvent {
 		closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
@@ -58,6 +92,9 @@ func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 	}
 
 	upScan := func() elevio.ButtonEvent {
+		if ok, ev := e.scanCurrentFloor(SO_Ascending, ascendingButtons...); ok && !e.inBetweenFloors {
+			return ev
+		}
 
 		// phase 1: continue up
 		if ok, ev := e.scanFromCurrentFloor(SO_Ascending, ascendingButtons...); ok {
@@ -67,7 +104,7 @@ func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 		// phase 2: nothing left up, go down
 		if ok, ev := e.scanFloor(
 			topFloor, bottomFloor,
-			SO_Descending, descendingButtons...
+			SO_Descending, descendingButtons...,
 		); ok {
 			return ev
 		}
@@ -75,7 +112,7 @@ func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 		// phase 3: nothing down, move up again
 		if ok, ev := e.scanFloor(
 			bottomFloor, e.currentFloor,
-			SO_Ascending, ascendingButtons...
+			SO_Ascending, ascendingButtons...,
 		); ok {
 			return ev
 		}
@@ -84,20 +121,24 @@ func (e Elevator) getNextTargetFloor() elevio.ButtonEvent {
 	}
 
 	downScan := func() elevio.ButtonEvent {
+		if ok, ev := e.scanCurrentFloor(SO_Descending, descendingButtons...); ok && !e.inBetweenFloors {
+			return ev
+		}
+
 		if ok, ev := e.scanFromCurrentFloor(SO_Descending, descendingButtons...); ok {
 			return ev
 		}
 
 		if ok, ev := e.scanFloor(
 			bottomFloor, topFloor,
-			SO_Ascending, ascendingButtons...
+			SO_Ascending, ascendingButtons...,
 		); ok {
 			return ev
 		}
 
 		if ok, ev := e.scanFloor(
 			topFloor, e.currentFloor,
-			SO_Descending, descendingButtons...
+			SO_Descending, descendingButtons...,
 		); ok {
 			return ev
 		}

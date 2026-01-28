@@ -27,7 +27,7 @@ func (e *Elevator) clearRequestsForFloor(f int) {
 }
 
 // Helper function, do not call directly, use (e *Elevator) clearCurrentFloor
-func (e *Elevator) clearLampsForFloor(f int) {
+func (e Elevator) clearLampsForFloor(f int) {
 	topFloor := len(e.floorRequests) - 1
 
 	// always turn off cab-button
@@ -44,6 +44,15 @@ func (e *Elevator) clearLampsForFloor(f int) {
 			elevio.SetButtonLamp(elevio.BT_HallUp, e.currentFloor, false)
 		case elevio.MD_Down:
 			elevio.SetButtonLamp(elevio.BT_HallDown, e.currentFloor, false)
+		}
+	}
+}
+
+func (e Elevator) clearAllLamps(buttons ...elevio.ButtonType) {
+	numFloors := len(e.floorRequests)
+	for f := 0; f < numFloors; f++ {
+		for _, b := range buttons {
+			elevio.SetButtonLamp(b, f, false)
 		}
 	}
 }

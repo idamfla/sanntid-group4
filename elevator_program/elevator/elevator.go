@@ -52,7 +52,7 @@ type Elevator struct {
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.id = id
 	e.currentFloor = -1
-	// e.nextTarget = -1 // TODO maybe make dynamic, variable on init
+	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.startTime = time.Time{}
 	e.floorRequests = make([][3]bool, numFloors)
@@ -66,6 +66,8 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
+
+	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }
 
 func (e *Elevator) RunElevatorProgram() {
