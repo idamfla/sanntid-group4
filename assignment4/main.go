@@ -3,8 +3,10 @@ package main
 import (
 	"assignment4/process_pair"
 	"fmt"
+	"net"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 func startNewProcess(newID int, udpAddr string) {
@@ -18,11 +20,31 @@ func startNewProcess(newID int, udpAddr string) {
 	}
 }
 
+func IncrementUDPPort(udpAddr string) (string, error) {
+	host, portStr, err := net.SplitHostPort(udpAddr)
+	if err != nil {
+		return "", fmt.Errorf("invalid UDP address: %w", err)
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid port: %w", err)
+	}
+
+	newPort := port + 1
+	newAddr := net.JoinHostPort(host, strconv.Itoa(newPort))
+	return newAddr, nil
+}
+
 func takeover(id int, udpAddr string, startCount int) {
 	fmt.Println("Backup taking over as primary")
+
+	newAddr, _ := IncrementUDPPort(udpAddr)
+
 	// spawn new backup first
-	startNewProcess(id+1, udpAddr) // then start new primary
-	process_pair.Primary(id, udpAddr, startCount)
+	startNewProcess(id+1, newAddr)
+	time.Sleep(100 * time.Millisecond)
+	go process_pair.Primary(id, newAddr, startCount)
 }
 
 func main() {
@@ -30,18 +52,13 @@ func main() {
 	udpAddr := "127.0.0.1:9999" // Loopback
 	id := 1
 
-	ready := make(chan struct{})
-
-	go process_pair.Backup(id, udpAddr, ready, func(startCount int) {
+	go process_pair.Backup(id, udpAddr, func(startCount int) {
 		takeover(id, udpAddr, startCount)
 	})
 
-	// wait until backup is ready
-	<-ready
-
 	startNewProcess(id+1, udpAddr)
 	process_pair.Primary(0, udpAddr, 1) // Start initial primary
-
+	time.Sleep(100 * time.Millisecond)
 	done := make(chan struct{})
 	<-done
 }
