@@ -3,68 +3,141 @@ package process_pair
 import (
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func Backup(id int, udpAddr string, takeOverCallback func(startCount int)) {
-	lastCount := 1
+const (
+	heartbeatInterval = 1 * time.Second
+	backupTimeout     = 3 * time.Second
+	primaryLifetime   = 5 * time.Second
+)
 
-	addr, _ := net.ResolveUDPAddr("udp4", udpAddr)
-	conn, _ := net.ListenUDP("udp4", addr)
+func Backup(myAddr string) {
+	fmt.Println("Backup listening on", myAddr)
+
+	conn := mustListenUDP(myAddr)
 	defer conn.Close()
 
 	buf := make([]byte, 1024)
-
-	timeout := 3 * time.Second
+	lastCount := 1
 
 	for {
-		conn.SetReadDeadline(time.Now().Add(timeout))
+		conn.SetReadDeadline(time.Now().Add(backupTimeout))
+
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
-			fmt.Printf("Backup %d: Primary dead, taking over\n", id)
-			takeOverCallback(lastCount)
+			fmt.Println("Backup: primary dead, taking over")
+			takeover(lastCount, myAddr)
 			return
 		}
 
-		num, _ := strconv.Atoi(strings.TrimSpace(string(buf[:n])))
+		num, err := strconv.Atoi(strings.TrimSpace(string(buf[:n])))
+		if err != nil {
+			continue
+		}
+
 		lastCount = num
-		fmt.Printf("Backup %d: Primary alive, heartbeat %d\n", id, lastCount)
+		fmt.Println("Backup: heartbeat", lastCount)
 	}
 }
 
-func Primary(id int, udpAddr string, startCount int) {
-	startTime := time.Now()
-	threshold := 5 * time.Second
+func Primary(backupAddr string, startCount int) {
+	fmt.Println("Primary sending to", backupAddr)
 
-	count := startCount
-
-	addr, _ := net.ResolveUDPAddr("udp4", udpAddr)
-	conn, _ := net.DialUDP("udp4", nil, addr)
+	conn := mustDialUDP(backupAddr)
 	defer conn.Close()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	count := startCount
+	start := time.Now()
 
 	for {
-		// msg := fmt.Sprintf("Primary: heartbeat %d\n", id)
-		if time.Since(startTime) > threshold {
+		if time.Since(start) > primaryLifetime {
+			fmt.Println("Primary: simulating crash")
 			return
 		}
 
-		msg := fmt.Sprintf("%d", count)
-		_, err := conn.Write([]byte(msg))
-		if err != nil {
-			fmt.Println("Primary failed to send heartbeat:", err)
-			return
-		}
+		sendHeartbeat(conn, count)
+		fmt.Println("Primary heartbeat", count)
 
-		if count < 4 {
-			count += 1
-		} else {
-			count = 1
-		}
+		count = nextCount(count)
+
 		time.Sleep(1 * time.Second)
 	}
 }
+
+func takeover(startCount int, myAddr string) {
+	newBackupAddr := incrementPort(myAddr)
+
+	fmt.Println("Starting new backup on", newBackupAddr)
+
+	cmd := newBackupCommand(newBackupAddr) // <- spawns new backup
+	if err := cmd.Start(); err != nil {
+		panic(err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	Primary(newBackupAddr, startCount)
+}
+
+// region Helpers
+func mustListenUDP(addr string) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp4", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	conn, err := net.ListenUDP("udp4", udpAddr)
+	if err != nil {
+		panic(err)
+	}
+	return conn
+}
+
+func mustDialUDP(addr string) *net.UDPConn {
+	udpAddr, err := net.ResolveUDPAddr("udp4", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	conn, err := net.DialUDP("udp4", nil, udpAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	return conn
+}
+
+func sendHeartbeat(conn *net.UDPConn, count int) {
+	msg := strconv.Itoa(count)
+	if _, err := conn.Write([]byte(msg)); err != nil {
+		fmt.Println("Primary send failed:", err)
+	}
+}
+
+func nextCount(count int) int {
+	if count >= 4 {
+		return 1
+	}
+	return count + 1
+}
+
+func incrementPort(addr string) string {
+	host, portStr, _ := net.SplitHostPort(addr)
+	port, _ := strconv.Atoi(portStr)
+	return host + ":" + strconv.Itoa(port+1)
+}
+
+func newBackupCommand(addr string) *exec.Cmd {
+	_, portStr, _ := net.SplitHostPort(addr)
+	cmd := exec.Command("./main", "backup", portStr)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+// endregion
