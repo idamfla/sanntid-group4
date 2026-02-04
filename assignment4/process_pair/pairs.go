@@ -8,15 +8,12 @@ import (
 	"time"
 )
 
-func Backup(id int, udpAddr string, ready chan<- struct{}, takeOverCallback func(startCount int)) {
+func Backup(id int, udpAddr string, takeOverCallback func(startCount int)) {
 	lastCount := 1
 
 	addr, _ := net.ResolveUDPAddr("udp4", udpAddr)
 	conn, _ := net.ListenUDP("udp4", addr)
 	defer conn.Close()
-
-	// signal that backup is ready
-	ready <- struct{}{}
 
 	buf := make([]byte, 1024)
 
