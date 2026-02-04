@@ -48,12 +48,13 @@ func (e *Elevator) startStopButtonPoller() {
 // endregion
 
 // This function blocks, call in go routine or after everything else is called at start-up
+// TODO dont thing the block at the bottom of this function is needed since go routines and channels are not restricted to scopes
 func (e *Elevator) StartHardwareEventsListeners() {
 	e.startButtonPoller()
 	e.startFloorPoller()
 	e.startObstructionPoller()
 	e.startStopButtonPoller()
 
-	done := make(chan struct{})
-	<-done
+	// done := make(chan struct{})
+	// <-done
 }

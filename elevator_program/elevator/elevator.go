@@ -28,8 +28,7 @@ type Elevator struct {
 	currentFloor    int
 	nextTarget      elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
 	initFloor       int
-	lastDirection   elevio.MotorDirection // TODO make nextTarget into ButtonEvent
-
+	lastDirection   elevio.MotorDirection
 	startTime time.Time
 
 	floorRequests [][3]bool // TODO maybe Pending, Running, Completed, NotActive
