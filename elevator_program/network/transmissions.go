@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"time"
 )
 
@@ -89,6 +90,13 @@ func messageHandler(msgCh chan string) {
 		select {
 		case msg := <-msgCh:
 			fmt.Println("Received: ", msg)
+			ID := msg[:1]
+			// Need to slice msg instead
+			array := []string{"hei", "ho", "yo", "kult"}
+			array = slices.Delete(array, 0, 1)
+
+			fmt.Println(ID)
+
 		case <-time.After(2 * time.Second):
 			fmt.Println("Maybe lost comunication")
 			//Broadcast that you have lost communication, figure out how to restart yourself or other
