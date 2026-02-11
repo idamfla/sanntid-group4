@@ -15,6 +15,12 @@ Semaphore:
         notify()    (same as "signal")
     (Note that there is no `getValue()` function!)
 */
+
+// Initial values:
+// M     = 1
+// PS[2] = [0, 0]
+// priority: 1=high, 0=low
+
 class Resource(T) {
     private {
         T               value;
@@ -29,48 +35,43 @@ class Resource(T) {
         foreach(ref sem; sems){
             sem = new Semaphore(0);
         }
+        busy  = false;
+        numWaiting[] = 0;
     }
-    
+
     T allocate(int priority){
-        mtx.wait(); // acquire outer mutex
-        numWaiting[priority]++; // increment waiting count
-        
-        if (busy || (priority == 1 && numWaiting[0] > 0)) {
-            mtx.notify(); // realise mutex
-            sems[priority].wait();
-        } else {
-            busy = true;
-            mtx.notify();
-        }
-        
-        return value; // what was
-    }
-    
-    void deallocate(T v){
         mtx.wait();
-        
-        value = v; // what was
-        busy = false;
-        writeln("numWaiting: ", numWaiting);
-        
-        // wake highest priority thread
-        if (numWaiting[0] > 0) {
-            numWaiting[0]--;
-            sems[0].notify(); // wake high priority thread
-            busy = true;
-        } else if (numWaiting[1] > 0) {
-            numWaiting[1]--;
-            sems[1].notify(); // wake low priority thread
-            busy = true;
+        if(busy){
+            numWaiting[priority]++;
+            mtx.notify();
+            sems[priority].wait();
+            numWaiting[priority]--;
         }
-        
+        busy = true;
+        auto ret = value;
+        mtx.notify();
+
+        return ret;
+    }
+
+    void deallocate(T newValue){
+        mtx.wait();
+        value = newValue;
+        busy = false;
+
+        if(numWaiting[1] > 0) { // then high pri
+            sems[1].notify();
+            return;
+        }
+        else if(numWaiting[0] > 0) { // then low pri
+            sems[0].notify();
+            return;
+        }
+
+        busy = false;
         mtx.notify();
     }
 }
-
-
-
-
 
 void main(){
 
