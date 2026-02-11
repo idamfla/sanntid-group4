@@ -1,4 +1,3 @@
-
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Containers; use Ada.Containers;
 with Ada.Containers.Vectors;
@@ -28,27 +27,34 @@ procedure protectobj is
         value: IntVec.Vector;
         busy: Boolean := False;
     end Resource;
+
+
     protected body Resource is
-    
-        entry allocateLow(val: out IntVec.Vector) when True is
+
+        entry allocateLow(val: out IntVec.Vector)
+        when (not busy) and (allocateHigh'Count = 0)
+        is
         begin
-            --Put_Line("allocateLow");
+            busy := True;
             val := value;
         end allocateLow;
-    
-        entry allocateHigh(val: out IntVec.Vector) when True is
+
+        entry allocateHigh(val: out IntVec.Vector)
+        when (not busy)
+        is
         begin
-            --Put_Line("allocateHigh");
+            busy := True;
             val := value;
         end allocateHigh;
 
         procedure deallocate(val: IntVec.Vector) is
         begin
-            --Put_Line("deallocate");
             value := val;
+            busy := False;
         end deallocate;
 
     end Resource;
+
 
 
 
