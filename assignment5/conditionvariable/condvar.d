@@ -40,11 +40,36 @@ class Resource(T) {
     }
     
     T allocate(int id, int priority){
-        return value;
+        mtx.lock();
+        // Add ourselves to the priority queue
+        queue.insert(id, priority);
+        
+        // Wait until:
+        // 1) We are first in queue
+        // 2) The resource is available (value is not null)
+        while (queue.front != id || value is null) {
+            cond.wait();   // atomically unlocks and waits
+        }
+        
+        // It is now our turn
+        queue.popFront();
+        
+        auto result = value;
+        value = null;     // mark resource as busy
+        
+        mtx.unlock();
+        return result;
     }
     
     void deallocate(T v){
-        value = v;
+        mtx.lock();
+    
+        value = v;        // resource becomes available
+        
+        // Wake everyone — highest priority thread will win
+        cond.notifyAll();
+        
+        mtx.unlock();
     }
 }
 
