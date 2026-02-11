@@ -38,6 +38,7 @@ func (e *Elevator) handleEvent(ev ElevatorEvent) {
 		if ev.Floor == -1 {
 			e.inBetweenFloors = true
 		} else {
+			elevio.SetFloorIndicator(ev.Floor)
 			e.currentFloor = ev.Floor
 			e.inBetweenFloors = false
 		}

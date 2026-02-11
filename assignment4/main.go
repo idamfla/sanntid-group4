@@ -10,7 +10,7 @@ import (
 )
 
 func startBackup(port int) {
-	cmd := exec.Command("./main", "backup", strconv.Itoa(port))
+	cmd := exec.Command("./main", "backup", strconv.Itoa(port)) // TODO can probably have a extra line to open the backup in another terminal
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
