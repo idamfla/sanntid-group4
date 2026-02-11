@@ -4,7 +4,6 @@
   <summary>📖 Table of Contents</summary>
   
   - [Go](#go)
-  - [GUI and buttons](#gui-and-buttons)
 
 </details>
 
