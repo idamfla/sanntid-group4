@@ -29,49 +29,65 @@ Condition:
 class Resource(T) {
     private {
         T                   value;
+        bool                busy;
         Mutex               mtx;
         Condition           cond;
         PriorityQueue!int   queue;
     }
-    
+
     this(){
-        mtx     = new Mutex();
-        cond    = new Condition(mtx);
+        mtx  = new Mutex();
+        cond = new Condition(mtx);
+
+        // Ressursen starter ledig
+        busy = false;
+
+        // For int[]: start med tom liste
+        value = T.init;
+        static if (is(T == int[])) value = [];
     }
-    
+
     T allocate(int id, int priority){
         mtx.lock();
-        // Add ourselves to the priority queue
-        queue.insert(id, priority);
-        
-        // Wait until:
-        // 1) We are first in queue
-        // 2) The resource is available (value is not null)
-        while (queue.front != id || value is null) {
-            cond.wait();   // atomically unlocks and waits
+        scope(exit) mtx.unlock();
+
+        // main() henter sluttresultat
+        if (id == -1) {
+            while (!queue.empty() || busy) {
+                cond.wait();
+            }
+            return value;
         }
-        
-        // It is now our turn
-        queue.popFront();
-        
-        auto result = value;
-        value = null;     // mark resource as busy
-        
-        mtx.unlock();
-        return result;
+
+        queue.insert(id, priority);
+
+        // Vent til: vi står først, og ressursen er ledig
+        while (queue.front() != id || busy) {
+            cond.wait();
+        }
+
+        // Ta ressursen (IKKE pop køen her!)
+        busy = true;
+        return value;
     }
-    
+
     void deallocate(T v){
         mtx.lock();
-    
-        value = v;        // resource becomes available
-        
-        // Wake everyone — highest priority thread will win
+        scope(exit) mtx.unlock();
+
+        value = v;
+        busy = false;
+
+        // Ferdig med vår tur => fjern fronten (oss)
+        if (!queue.empty()) {
+            queue.popFront();
+        }
+
+        // Vekk alle, så riktig tråd får slippe gjennom while
         cond.notifyAll();
-        
-        mtx.unlock();
     }
 }
+
 
 
 
