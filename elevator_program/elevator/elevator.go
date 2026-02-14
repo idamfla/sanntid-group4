@@ -29,11 +29,13 @@ type Elevator struct {
 	nextTarget      elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
 	initFloor       int
 	lastDirection   elevio.MotorDirection
-	startTime time.Time
 
-	floorRequests [][3]bool // TODO maybe Pending, Running, Completed, NotActive
+	floorRequests [][2]bool // TODO maybe Pending, Running, Completed, NotActive
+	cabRequests   []bool
 
-	doorState     DoorState
+	doorState      DoorState
+	doorStartTimer time.Time
+
 	state         ElevatorState
 	obstruction   bool
 	emergencyStop bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
@@ -53,8 +55,9 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
-	e.startTime = time.Time{}
-	e.floorRequests = make([][3]bool, numFloors)
+	e.doorStartTimer = time.Time{}
+	e.floorRequests = make([][2]bool, numFloors)
+	e.cabRequests = make([]bool, numFloors)
 	// e.state = ES_Uninitialized
 
 	e.eventsCh = make(chan ElevatorEvent, 20)
@@ -95,13 +98,16 @@ func (e Elevator) String() string {
 `,
 		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.lastDirection, e.doorState, e.state)
 
-	for f, req := range e.floorRequests {
+	for f := 0; f < len(e.floorRequests); f++ {
+		req := e.floorRequests[f]
+		cab := e.cabRequests[f]
+
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%t Down:%t Cab:%t]\n",
 			f,
 			req[elevio.BT_HallUp],
 			req[elevio.BT_HallDown],
-			req[elevio.BT_Cab],
+			cab,
 		)
 	}
 

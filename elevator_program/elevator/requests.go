@@ -9,7 +9,7 @@ func (e *Elevator) clearRequestsForFloor(f int) {
 	topFloor := len(e.floorRequests) - 1
 
 	// always clear cab-request
-	e.floorRequests[f][elevio.BT_Cab] = false
+	e.cabRequests[f] = false
 
 	switch f {
 	case 0:
