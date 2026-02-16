@@ -60,7 +60,7 @@ func (e Elevator) scanFromCurrentFloor(so SortingOrder, buttons ...elevio.Button
 		end = 0
 	}
 
-	return e.scanFloor(e.currentFloor+1, end, so, buttons...)
+	return e.scanFloor(start, end, so, buttons...)
 }
 
 func (e Elevator) scanCurrentFloor(so SortingOrder, buttons ...elevio.ButtonType) (bool, elevio.ButtonEvent) {
