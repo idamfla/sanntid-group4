@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"slices"
-	"time"
 )
 
 type ID int
@@ -75,31 +73,6 @@ func receiver(ctx context.Context, port string, network string, msgCh chan<- str
 
 			msg := string(buf[:n])
 			msgCh <- msg // send message to main goroutine or handler
-		}
-	}
-}
-
-/*
-Needs this somewhere
-ctx, cancel := context.Withcancel(context.Background())
-msgCh := make(chan string)
-*/
-
-func messageHandler(msgCh chan string) {
-	for {
-		select {
-		case msg := <-msgCh:
-			fmt.Println("Received: ", msg)
-			ID := msg[:1]
-			// Need to slice msg instead
-			array := []string{"hei", "ho", "yo", "kult"}
-			array = slices.Delete(array, 0, 1)
-
-			fmt.Println(ID)
-
-		case <-time.After(2 * time.Second):
-			fmt.Println("Maybe lost comunication")
-			//Broadcast that you have lost communication, figure out how to restart yourself or other
 		}
 	}
 }
