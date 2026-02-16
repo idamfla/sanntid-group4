@@ -31,7 +31,7 @@ func (e *Elevator) handleEvent(ev ElevatorEvent) {
 		e.emergencyStop = ev.EmergencyStop
 
 	case EV_ButtonPress:
-		e.floorRequests[ev.Floor][ev.Button] = true
+		e.floorRequests[ev.Floor][ev.Button] = true     // TODO this is controlled by master
 		elevio.SetButtonLamp(ev.Button, ev.Floor, true) // TODO don't turn on lamp before master says to do so
 
 	case EV_FloorSensor:
