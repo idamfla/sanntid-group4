@@ -1,11 +1,8 @@
 package main
 
 import (
-    "flag"
-    "fmt"
 	"elevator_program/elevator"
 	"elevator_program/elevio"
-
 )
 
 
@@ -32,35 +29,19 @@ func testElevator() {
 }
 
 
+func main() {
+    cfg := elevator.ParseFlags()
 
-
-func runElevator(id int, ip string, port string, floors int, initFloor int) {
-
-    addr:= fmt.Sprintf("%s:%s", *ip, *port)
-    elevio.Init(addr, floors)
-
-    var e elevator.Elevator
-    e.InitElevator(id,floors, initFloor)
-    e.RunElevatorProgram
-
-    select {}
-
+    // Launcher mode (no ID given)
+    if cfg.ID == 0 {
+        elevator.SpawnElevators(cfg)
+        select {}
     }
 
-
-func main() {
-
-    id := flag.Int("id", 1, "elevator id") //Takes in id and port, makes it possible to run different elevators
-    port := flag.String("port", "15657", "elevio port")//
-    floors := flag.Int("floors", 4, "number of floors")
-    initFloor := flag.int(initFloor, 3, "initial floor (0-index)")
-    ip:= flag.String("ip", "localhost", "ip/host to elevio")
-
-    flag.Parse()
-
-
-    runElevator(*id, *ip, *port, *floors, *initFloor)
-
+    // Single elevator mode
+    elevator.RunOneElevator(cfg)
+    select {}
+}
 
 
 	//testElevator()
