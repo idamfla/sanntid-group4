@@ -24,12 +24,12 @@ func (e Elevator) atTargetFloor() bool {
 	return e.currentFloor == e.nextTarget.Floor && !e.inBetweenFloors && e.currentFloor != -1
 }
 
-func (e Elevator) isTargetInvalid() bool {
-	return e.nextTarget.Floor < 0 || e.nextTarget.Floor >= len(e.floorRequests)
+func (e Elevator) isTargetValid() bool {
+	return e.nextTarget.Floor >= 0 || e.nextTarget.Floor < len(e.floorRequests)
 }
 
-func (e Elevator) getMotionForTargetFloor(target int) elevio.MotorDirection {
-	if e.atTargetFloor() || e.emergencyStop || e.isTargetInvalid() {
+func (e Elevator) getMotion(target int) elevio.MotorDirection {
+	if e.atTargetFloor() || e.emergencyStop || !e.isTargetValid() {
 		return elevio.MD_Stop
 	} else if e.currentFloor < target {
 		return elevio.MD_Up
@@ -38,9 +38,7 @@ func (e Elevator) getMotionForTargetFloor(target int) elevio.MotorDirection {
 	}
 }
 
-func (e Elevator) computeLastMovement(target elevio.ButtonEvent) elevio.MotorDirection {
-	dir := e.getMotionForTargetFloor(target.Floor)
-
+func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDirection) {
 	if dir == elevio.MD_Stop && target.Floor == e.currentFloor {
 		switch target.Button {
 		case elevio.BT_HallUp:
@@ -50,7 +48,19 @@ func (e Elevator) computeLastMovement(target elevio.ButtonEvent) elevio.MotorDir
 		}
 	}
 
-	return dir
+	if dir != elevio.MD_Stop {
+		e.lastDirection = dir
+	}
+}
+
+func (e Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.MotorDirection) {
+	nextTarget := getNextTargetFloor(e)
+	if nextTarget.Floor == -1 {
+		return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
+	}
+
+	dir := e.getMotion(nextTarget.Floor)
+	return nextTarget, dir
 }
 
 func (e Elevator) uninitializedAction() elevio.MotorDirection {
@@ -67,23 +77,6 @@ func (e Elevator) uninitializedAction() elevio.MotorDirection {
 	}
 
 	return elevio.MD_Stop
-}
-
-func (e *Elevator) updateLastDirection() {
-	lastDir := e.computeLastMovement(e.nextTarget)
-	if lastDir != elevio.MD_Stop {
-		e.lastDirection = lastDir
-	}
-}
-
-func (e Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.MotorDirection) {
-	nextTarget := e.getNextTargetFloor()
-	if nextTarget.Floor == -1 {
-		return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
-	}
-
-	dir := e.getMotionForTargetFloor(nextTarget.Floor)
-	return nextTarget, dir
 }
 
 // ------------------------
@@ -120,7 +113,7 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 		nextTarget, dir = e.computeNextTargetAndDirection()
 		if nextTarget.Floor != -1 {
 			e.nextTarget = nextTarget
-			e.updateLastDirection()
+			e.updateDirection(nextTarget, dir)
 		}
 
 		if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
@@ -128,22 +121,22 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 			e.clearCurrentFloor()
 		}
 
-		dir = e.getMotionForTargetFloor(e.nextTarget.Floor)
+		dir = e.getMotion(e.nextTarget.Floor)
 		if dir != elevio.MD_Stop {
 			e.state = ES_Moving
 		}
 
 	case ES_Moving:
-		dir = e.getMotionForTargetFloor(e.nextTarget.Floor)
+		dir = e.getMotion(e.nextTarget.Floor)
 
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
 			e.state = ES_Idle
 		} else {
-			nextTarget, _ = e.computeNextTargetAndDirection()
+			nextTarget, dir = e.computeNextTargetAndDirection()
 			if nextTarget.Floor != -1 {
 				e.nextTarget = nextTarget
-				e.updateLastDirection()
+				e.updateDirection(nextTarget, dir)
 			}
 		}
 	case ES_EmergencyStop:

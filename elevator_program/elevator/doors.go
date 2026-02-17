@@ -30,22 +30,22 @@ func (e *Elevator) updateDoorState() {
 		}
 
 		e.doorState = DS_Open
-		e.doorStartTimer = time.Time{}
+		e.doorTimer = time.Time{}
 
 	case DS_Open:
 		if e.obstruction {
 			e.doorState = DS_Obstruction
-			e.doorStartTimer = time.Time{} // reset timer
+			e.doorTimer = time.Time{} // reset timer
 			break
 		}
 
-		if e.doorStartTimer.IsZero() {
-			e.doorStartTimer = time.Now()
+		if e.doorTimer.IsZero() {
+			e.doorTimer = time.Now()
 		}
 
-		if time.Since(e.doorStartTimer) >= 3*time.Second {
+		if time.Since(e.doorTimer) >= 3*time.Second {
 			e.doorState = DS_Closeing
-			e.doorStartTimer = time.Time{}
+			e.doorTimer = time.Time{}
 		}
 
 	case DS_Closeing:
@@ -62,7 +62,7 @@ func (e *Elevator) updateDoorState() {
 
 		if !e.obstruction {
 			e.doorState = DS_Open
-			e.doorStartTimer = time.Now()
+			e.doorTimer = time.Now()
 		}
 
 	case DS_Error:
