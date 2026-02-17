@@ -1,7 +1,9 @@
-package nettwork
+package network
 
 import (
 	"context"
+	"elevator_program/elevator"
+	"encoding/json"
 	"fmt"
 	"net"
 )
@@ -19,29 +21,39 @@ var IP = map[typeOfMessage]string{
 	"unicom":    "127.0.0.1",
 }
 
+// Maybe change name of network is always ment as "udp4"
 // Trancieves message on port with specific type
-func trancive(msg string, port string, typeOfMessage string, network string) {
+func trancive(msg elevator.Message, port string, typeOfMessage string, network string) {
 	addr := typeOfMessage + ":" + port
 	remoteUDPAddr, err := net.ResolveUDPAddr(network, addr)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	conn, err := net.DialUDP(network, nil, remoteUDPAddr)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	defer conn.Close()
 
-	message := []byte(msg)
+	// Need to convert so it is possible to send struct through udp
+	message, err := json.Marshal(msg)
+	if err != nil {
+		fmt.Println("Marshal error:", err)
+		return
+	}
+
 	_, err = conn.Write(message)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 }
 
 // receives message from port, sends it through a chanel, checks if it lost comunication
-func receiver(ctx context.Context, port string, network string, msgCh chan<- string) error {
+func receiver(ctx context.Context, port string, network string, msgCh chan<- elevator.Message) error {
 	conn, err := net.ListenPacket(network, ":"+port)
 	if err != nil {
 		panic(err)
@@ -71,8 +83,14 @@ func receiver(ctx context.Context, port string, network string, msgCh chan<- str
 				continue
 			}
 
-			msg := string(buf[:n])
-			msgCh <- msg // send message to main goroutine or handler
+			var msg elevator.Message
+
+			err = json.Unmarshal(buf[:n], &msg)
+			if err != nil {
+				fmt.Println("Unmarshal error:", err) // Convert back to struct
+				continue
+			}
+			msgCh <- msg
 		}
 	}
 }
