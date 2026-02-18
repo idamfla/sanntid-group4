@@ -10,7 +10,7 @@ func (e *Elevator) startButtonPoller() {
 	go elevio.PollButtons(drv_buttons)
 	go func() {
 		for btn := range drv_buttons {
-			e.eventsCh <- HardwareEvent{Type: HW_T_ButtonPress, Floor: btn.Floor, Button: btn.Button}
+			e.hardwareEventsCh <- HardwareEvent{Type: HW_T_ButtonPress, Floor: btn.Floor, Button: btn.Button}
 		}
 	}()
 }
@@ -20,7 +20,7 @@ func (e *Elevator) startFloorPoller() {
 	go elevio.PollFloorSensor(drv_floors)
 	go func() {
 		for f := range drv_floors {
-			e.eventsCh <- HardwareEvent{Type: HW_T_FloorSensor, Floor: f}
+			e.hardwareEventsCh <- HardwareEvent{Type: HW_T_FloorSensor, Floor: f}
 		}
 	}()
 }
@@ -30,7 +30,7 @@ func (e *Elevator) startObstructionPoller() {
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go func() {
 		for obstr := range drv_obstr {
-			e.eventsCh <- HardwareEvent{Type: HW_T_Obstruction, Obstruction: obstr}
+			e.hardwareEventsCh <- HardwareEvent{Type: HW_T_Obstruction, Obstruction: obstr}
 		}
 	}()
 }
@@ -40,7 +40,7 @@ func (e *Elevator) startStopButtonPoller() {
 	go elevio.PollStopButton(drv_stop)
 	go func() {
 		for s := range drv_stop {
-			e.eventsCh <- HardwareEvent{Type: HW_T_EmergencyStop, EmergencyStop: s}
+			e.hardwareEventsCh <- HardwareEvent{Type: HW_T_EmergencyStop, EmergencyStop: s}
 		}
 	}()
 }
