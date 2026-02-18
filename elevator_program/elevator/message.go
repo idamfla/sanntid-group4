@@ -1,7 +1,7 @@
 package elevator
 
-type Message struct {
-	Id       int
-	Position int
-	Target   int
-}
+// type Message struct {
+// 	Id       int
+// 	Position int
+// 	Target   int
+// }
