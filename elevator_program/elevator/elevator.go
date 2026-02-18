@@ -23,13 +23,13 @@ type Elevator struct {
 	doorState DoorState
 	doorTimer time.Time
 
-	state            ElevatorState
+	elevatorState    ElevatorState
 	obstruction      bool
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	// StatusChan chan utilities.StatusMsg
-	// TaskChan chan utilities.TaskMsg
+	msgRecieveCh chan Message
+	msgSendCh    chan Message
 
 	isMaster         bool
 	elevatorRegistry map[string]ElevatorsStatus
@@ -43,11 +43,9 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]bool, numFloors)
 	e.cabRequests = make([]bool, numFloors)
-	// e.state = ES_Uninitialized
+	// e.elevatorState = ES_Uninitialized
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
-
-	// e.state = ES_Moving
 
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -79,9 +77,9 @@ func (e Elevator) String() string {
 	init floor: %d
 	last moving dir: %s
 	door state: %s
-	state: %s
+	elevator state: %s
 `,
-		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.state)
+		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.elevatorState)
 
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.hallRequests[f]

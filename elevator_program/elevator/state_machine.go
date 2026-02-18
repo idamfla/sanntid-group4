@@ -93,18 +93,18 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 	var dir elevio.MotorDirection = elevio.MD_Stop
 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 
-	if e.state != ES_Uninitialized && e.doorState != DS_Closed {
+	if e.elevatorState != ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
 
-	switch e.state {
+	switch e.elevatorState {
 	case ES_Uninitialized:
 		dir = e.uninitializedAction()
 
 		if dir == elevio.MD_Stop {
-			e.clearCurrentFloor()
-			e.state = ES_Idle
+			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
+			e.elevatorState = ES_Idle
 			e.doorState = DS_Opening
 			fmt.Println(e)
 		}
@@ -118,12 +118,12 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 
 		if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
 			// e.doorState = open
-			e.clearCurrentFloor()
+			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
 		}
 
 		dir = e.getMotion(e.nextTarget.Floor)
 		if dir != elevio.MD_Stop {
-			e.state = ES_Moving
+			e.elevatorState = ES_Moving
 		}
 
 	case ES_Moving:
@@ -131,7 +131,7 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
-			e.state = ES_Idle
+			e.elevatorState = ES_Idle
 		} else {
 			nextTarget, dir = e.computeNextTargetAndDirection()
 			if nextTarget.Floor != -1 {
