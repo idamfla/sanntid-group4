@@ -4,6 +4,7 @@
   - [Run Elevator Simulation](#run-elevator-simulation)
     - [Default buttons](#default-buttons)
   - [Run the elevator at the lab](#run-the-elevator-at-the-lab)
+  - [Run multiple elevators at the lab](#run-multiple-elevators-at-the-lab)
 
 
 ## Run Elevator Simulation
@@ -58,3 +59,5 @@ To make the elevator run at the lab:
    go run main.go
    ```
 5. Now the elevator should run
+
+## Run multiple elevators at the lab
