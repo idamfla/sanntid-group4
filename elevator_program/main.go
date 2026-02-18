@@ -5,7 +5,6 @@ import (
 	"elevator_program/elevio"
 )
 
-
 // Remove this later if we see that the communication works
 func testElevator() {
 	var e elevator.Elevator
@@ -28,21 +27,18 @@ func testElevator() {
 	select {}
 }
 
-
 func main() {
-    cfg := elevator.ParseFlags()
+	cfg := elevator.ParseFlags()
 
-    // Launcher mode (no ID given)
-    if cfg.ID == 0 {
-        elevator.SpawnElevators(cfg)
-        select {}
-    }
+	// Launcher mode (no ID given)
+	if cfg.ID == 0 {
+		elevator.SpawnElevators(cfg)
+		select {}
+	}
 
-    // Single elevator mode
-    elevator.RunOneElevator(cfg)
-    select {}
+	// Single elevator mode
+	elevator.RunOneElevator(cfg)
+	select {}
 }
 
-
-	//testElevator()
-}
+//testElevator()
