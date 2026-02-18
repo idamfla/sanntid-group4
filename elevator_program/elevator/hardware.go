@@ -10,7 +10,7 @@ func (e *Elevator) startButtonPoller() {
 	go elevio.PollButtons(drv_buttons)
 	go func() {
 		for btn := range drv_buttons {
-			e.eventsCh <- ElevatorEvent{Type: EV_ButtonPress, Floor: btn.Floor, Button: btn.Button}
+			e.eventsCh <- HardwareEvent{Type: HW_T_ButtonPress, Floor: btn.Floor, Button: btn.Button}
 		}
 	}()
 }
@@ -20,7 +20,7 @@ func (e *Elevator) startFloorPoller() {
 	go elevio.PollFloorSensor(drv_floors)
 	go func() {
 		for f := range drv_floors {
-			e.eventsCh <- ElevatorEvent{Type: EV_FloorSensor, Floor: f}
+			e.eventsCh <- HardwareEvent{Type: HW_T_FloorSensor, Floor: f}
 		}
 	}()
 }
@@ -30,7 +30,7 @@ func (e *Elevator) startObstructionPoller() {
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go func() {
 		for obstr := range drv_obstr {
-			e.eventsCh <- ElevatorEvent{Type: EV_Obstruction, Obstruction: obstr}
+			e.eventsCh <- HardwareEvent{Type: HW_T_Obstruction, Obstruction: obstr}
 		}
 	}()
 }
@@ -40,7 +40,7 @@ func (e *Elevator) startStopButtonPoller() {
 	go elevio.PollStopButton(drv_stop)
 	go func() {
 		for s := range drv_stop {
-			e.eventsCh <- ElevatorEvent{Type: EV_EmergencyStop, EmergencyStop: s}
+			e.eventsCh <- HardwareEvent{Type: HW_T_EmergencyStop, EmergencyStop: s}
 		}
 	}()
 }
@@ -48,12 +48,13 @@ func (e *Elevator) startStopButtonPoller() {
 // endregion
 
 // This function blocks, call in go routine or after everything else is called at start-up
+// TODO dont thing the block at the bottom of this function is needed since go routines and channels are not restricted to scopes
 func (e *Elevator) StartHardwareEventsListeners() {
 	e.startButtonPoller()
 	e.startFloorPoller()
 	e.startObstructionPoller()
 	e.startStopButtonPoller()
 
-	done := make(chan struct{})
-	<-done
+	// done := make(chan struct{})
+	// <-done
 }

@@ -5,39 +5,39 @@ import (
 )
 
 // Helper function, do not call directly, use (e *Elevator) clearCurrentFloor
-func (e *Elevator) clearRequestsForFloor(f int) {
+func (e *Elevator) clearRequestsForFloor(floor int) {
 	topFloor := len(e.floorRequests) - 1
 
 	// always clear cab-request
-	e.floorRequests[f][elevio.BT_Cab] = false
+	e.cabRequests[floor] = false
 
-	switch f {
+	switch floor {
 	case 0:
-		e.floorRequests[f][elevio.BT_HallUp] = false
+		e.floorRequests[floor][elevio.BT_HallUp] = false
 	case topFloor:
-		e.floorRequests[f][elevio.BT_HallDown] = false
+		e.floorRequests[floor][elevio.BT_HallDown] = false
 	default:
 		switch e.lastDirection {
 		case elevio.MD_Up:
-			e.floorRequests[f][elevio.BT_HallUp] = false
+			e.floorRequests[floor][elevio.BT_HallUp] = false
 		case elevio.MD_Down:
-			e.floorRequests[f][elevio.BT_HallDown] = false
+			e.floorRequests[floor][elevio.BT_HallDown] = false
 		}
 	}
 }
 
 // Helper function, do not call directly, use (e *Elevator) clearCurrentFloor
-func (e Elevator) clearLampsForFloor(f int) {
+func (e Elevator) clearLampsForFloor(floor int) {
 	topFloor := len(e.floorRequests) - 1
 
 	// always turn off cab-button
 	elevio.SetButtonLamp(elevio.BT_Cab, e.currentFloor, false)
 
-	switch f {
+	switch floor {
 	case 0:
-		elevio.SetButtonLamp(elevio.BT_HallUp, f, false)
+		elevio.SetButtonLamp(elevio.BT_HallUp, floor, false)
 	case topFloor:
-		elevio.SetButtonLamp(elevio.BT_HallDown, f, false)
+		elevio.SetButtonLamp(elevio.BT_HallDown, floor, false)
 	default:
 		switch e.lastDirection {
 		case elevio.MD_Up:

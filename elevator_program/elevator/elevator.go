@@ -11,15 +11,15 @@ import (
 // ------------------------
 // Sorting
 // ------------------------
-var ascendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallUp}
-var descendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallDown}
+// var ascendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallUp}
+// var descendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallDown}
 
-type SortingOrder int
+// type SortingOrder int
 
-const (
-	SO_Ascending  SortingOrder = 1
-	SO_Descending SortingOrder = -1
-)
+// const (
+// 	SO_Ascending  SortingOrder = 1
+// 	SO_Descending SortingOrder = -1
+// )
 
 type Elevator struct {
 	id int
@@ -27,23 +27,19 @@ type Elevator struct {
 	inBetweenFloors bool
 	currentFloor    int
 	nextTarget      elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
+	lastDirection   elevio.MotorDirection
 	initFloor       int
-	lastDirection   elevio.MotorDirection // TODO make nextTarget into ButtonEvent
 
-	startTime time.Time
+	floorRequests [][2]bool // TODO maybe Pending, Running, Completed, NotActive
+	cabRequests   []bool
 
-	floorRequests [][3]bool // TODO maybe Pending, Running, Completed, NotActive
+	doorState DoorState
+	doorTimer time.Time
 
-	doorState     DoorState
 	state         ElevatorState
 	obstruction   bool
 	emergencyStop bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
-	/*
-		TODO add InBetweenFloors bool,
-			also make sure the order of all is good and that funcitons make sense, name etc
-		always update current floor, but maybe also have a lastValidFloor or something
-	*/
-	eventsCh chan ElevatorEvent
+	eventsCh      chan HardwareEvent
 
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
@@ -54,11 +50,12 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
-	e.startTime = time.Time{}
-	e.floorRequests = make([][3]bool, numFloors)
+	e.doorTimer = time.Time{}
+	e.floorRequests = make([][2]bool, numFloors)
+	e.cabRequests = make([]bool, numFloors)
 	// e.state = ES_Uninitialized
 
-	e.eventsCh = make(chan ElevatorEvent, 20)
+	e.eventsCh = make(chan HardwareEvent, 20)
 
 	// e.state = ES_Moving
 
@@ -96,13 +93,16 @@ func (e Elevator) String() string {
 `,
 		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.lastDirection, e.doorState, e.state)
 
-	for f, req := range e.floorRequests {
+	for f := 0; f < len(e.floorRequests); f++ {
+		req := e.floorRequests[f]
+		cab := e.cabRequests[f]
+
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%t Down:%t Cab:%t]\n",
 			f,
 			req[elevio.BT_HallUp],
 			req[elevio.BT_HallDown],
-			req[elevio.BT_Cab],
+			cab,
 		)
 	}
 

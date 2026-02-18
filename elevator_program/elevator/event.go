@@ -5,55 +5,58 @@ import (
 	"fmt"
 )
 
-type EventType int
+type HardwareType int
 
 const (
-	EV_FloorSensor EventType = iota
-	EV_ButtonPress
-	EV_Obstruction
-	EV_EmergencyStop
-	EV_TaskAssigned
-	EV_TaskCompleted
+	HW_T_FloorSensor HardwareType = iota
+	HW_T_ButtonPress
+	HW_T_Obstruction
+	HW_T_EmergencyStop
 )
 
-type ElevatorEvent struct {
-	Type          EventType
+type HardwareEvent struct {
+	Type          HardwareType
 	Floor         int
 	Button        elevio.ButtonType
 	Obstruction   bool
 	EmergencyStop bool
 }
 
-func (e *Elevator) handleEvent(ev ElevatorEvent) {
-	switch ev.Type {
-	case EV_EmergencyStop:
-		elevio.SetStopLamp(ev.EmergencyStop)
-		e.emergencyStop = ev.EmergencyStop
+func (e *Elevator) handleEvent(hwEvent HardwareEvent) {
+	switch hwEvent.Type {
+	case HW_T_EmergencyStop:
+		elevio.SetStopLamp(hwEvent.EmergencyStop)
+		e.emergencyStop = hwEvent.EmergencyStop
 
-	case EV_ButtonPress:
-		e.floorRequests[ev.Floor][ev.Button] = true
-		elevio.SetButtonLamp(ev.Button, ev.Floor, true) // TODO don't turn on lamp before master says to do so
-
-	case EV_FloorSensor:
-		if ev.Floor == -1 {
-			e.inBetweenFloors = true
+	case HW_T_ButtonPress:
+		if hwEvent.Button == elevio.BT_Cab {
+			e.cabRequests[hwEvent.Floor] = true
 		} else {
-			e.currentFloor = ev.Floor
+			e.floorRequests[hwEvent.Floor][hwEvent.Button] = true
+		}
+		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true) // TODO don't turn on lamp before master says to do so
+
+	case HW_T_FloorSensor:
+		if hwEvent.Floor == -1 {
+			e.inBetweenFloors = true // TODO maybe set inBetweenFloors true when the elevator moves, not when we arrive at correct floor
+		} else {
+			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
 		}
 
-	case EV_Obstruction:
+	case HW_T_Obstruction:
 		if e.doorState == DS_Closed {
 			return
 		}
-		e.obstruction = ev.Obstruction
+		e.obstruction = hwEvent.Obstruction
 	}
 }
 
 func (e *Elevator) RunEventLoop() {
 	fmt.Println("EVENT LOOP STARTED")
-	for ev := range e.eventsCh {
-		e.handleEvent(ev)
+	for hwEvent := range e.eventsCh {
+		e.handleEvent(hwEvent)
 		fmt.Println(e) // DB
 	}
 }
