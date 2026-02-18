@@ -5,7 +5,7 @@ import (
 	"elevator_program/utilities"
 )
 
-func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
+func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
 	numFloors := len(e.hallRequests)
 
 	// saturate bounds
@@ -23,7 +23,7 @@ func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
 		to = 0
 	}
 
-	switch e.direction {
+	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
 			if e.cabRequests[f] {
@@ -80,7 +80,7 @@ func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	if e.inBetweenFloors {
 		return false, elevio.ButtonEvent{}
 	}
-	return e.scanFloor(e.currentFloor, e.currentFloor)
+	return e.scanFloor(e.currentFloor, e.currentFloor, e.direction)
 }
 
 func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
@@ -94,17 +94,17 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 		}
 
 		// phase 1: continue up
-		if ok, ev := e.scanFloor(e.currentFloor+1, topFloor); ok {
+		if ok, ev := e.scanFloor(e.currentFloor+1, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
 		// phase 2: nothing left up, go down
-		if ok, ev := e.scanFloor(topFloor, bottomFloor); ok {
+		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down); ok {
 			return ev
 		}
 
 		// phase 3: nothing down, move up again
-		if ok, ev := e.scanFloor(bottomFloor, e.currentFloor); ok {
+		if ok, ev := e.scanFloor(bottomFloor, e.currentFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
@@ -116,14 +116,14 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(e.currentFloor-1, bottomFloor); ok {
+		if ok, ev := e.scanFloor(e.currentFloor-1, bottomFloor, elevio.MD_Down); ok {
 			return ev
 		}
-		if ok, ev := e.scanFloor(bottomFloor, topFloor); ok {
+		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(topFloor, e.currentFloor); ok {
+		if ok, ev := e.scanFloor(topFloor, e.currentFloor, elevio.MD_Down); ok {
 			return ev
 		}
 
