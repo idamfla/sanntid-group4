@@ -49,7 +49,7 @@ func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDi
 	}
 
 	if dir != elevio.MD_Stop {
-		e.lastDirection = dir
+		e.direction = dir
 	}
 }
 
