@@ -116,7 +116,7 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(e.currentFloor+1, bottomFloor); ok {
+		if ok, ev := e.scanFloor(e.currentFloor-1, bottomFloor); ok {
 			return ev
 		}
 		if ok, ev := e.scanFloor(bottomFloor, topFloor); ok {
