@@ -8,41 +8,31 @@ import (
 	"elevator_program/elevio"
 )
 
-// ------------------------
-// Sorting
-// ------------------------
-// var ascendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallUp}
-// var descendingButtons = []elevio.ButtonType{elevio.BT_Cab, elevio.BT_HallDown}
-
-// type SortingOrder int
-
-// const (
-// 	SO_Ascending  SortingOrder = 1
-// 	SO_Descending SortingOrder = -1
-// )
-
 type Elevator struct {
 	id int
 
 	inBetweenFloors bool
 	currentFloor    int
-	nextTarget      elevio.ButtonEvent // TODO maybe a targetRequest, of request{Floor: f, MotorDirection: md}
-	lastDirection   elevio.MotorDirection
+	nextTarget      elevio.ButtonEvent
+	direction       elevio.MotorDirection
 	initFloor       int
 
-	floorRequests [][2]bool // TODO maybe Pending, Running, Completed, NotActive
-	cabRequests   []bool
+	hallRequests [][2]bool // TODO maybe Pending, Running, Completed, NotActive
+	cabRequests  []bool
 
 	doorState DoorState
 	doorTimer time.Time
 
-	state         ElevatorState
-	obstruction   bool
-	emergencyStop bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
-	eventsCh      chan HardwareEvent
+	state            ElevatorState
+	obstruction      bool
+	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
+	hardwareEventsCh chan HardwareEvent
 
 	// StatusChan chan utilities.StatusMsg
 	// TaskChan chan utilities.TaskMsg
+
+	isMaster         bool
+	elevatorRegistry map[string]ElevatorsStatus
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
@@ -51,11 +41,11 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
-	e.floorRequests = make([][2]bool, numFloors)
+	e.hallRequests = make([][2]bool, numFloors)
 	e.cabRequests = make([]bool, numFloors)
 	// e.state = ES_Uninitialized
 
-	e.eventsCh = make(chan HardwareEvent, 20)
+	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
 	// e.state = ES_Moving
 
@@ -69,7 +59,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 
 func (e *Elevator) RunElevatorProgram() {
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
-	go e.RunEventLoop()
+	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
@@ -91,10 +81,10 @@ func (e Elevator) String() string {
 	door state: %s
 	state: %s
 `,
-		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.lastDirection, e.doorState, e.state)
+		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.state)
 
-	for f := 0; f < len(e.floorRequests); f++ {
-		req := e.floorRequests[f]
+	for f := 0; f < len(e.hallRequests); f++ {
+		req := e.hallRequests[f]
 		cab := e.cabRequests[f]
 
 		s += fmt.Sprintf(

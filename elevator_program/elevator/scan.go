@@ -6,7 +6,7 @@ import (
 )
 
 func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
-	numFloors := len(e.floorRequests)
+	numFloors := len(e.hallRequests)
 
 	// saturate bounds
 	if from >= numFloors {
@@ -23,13 +23,13 @@ func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
 		to = 0
 	}
 
-	switch e.lastDirection {
+	switch e.direction {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
 			if e.cabRequests[f] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if e.floorRequests[f][elevio.BT_HallUp] {
+			} else if e.hallRequests[f][elevio.BT_HallUp] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 			}
 		}
@@ -37,7 +37,7 @@ func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
 		for f := from; f >= to; f-- {
 			if e.cabRequests[f] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if e.floorRequests[f][elevio.BT_HallDown] {
+			} else if e.hallRequests[f][elevio.BT_HallDown] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 			}
 
@@ -47,7 +47,7 @@ func (e Elevator) scanFloor(from int, to int) (bool, elevio.ButtonEvent) {
 }
 
 func (e Elevator) getClosestFloor() elevio.ButtonEvent {
-	numFloors := len(e.floorRequests)
+	numFloors := len(e.hallRequests)
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 	minDist := numFloors + 1 // initialize with something bigger than max possible distance
@@ -64,7 +64,7 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 		}
 
 		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
-			if e.floorRequests[f][b] {
+			if e.hallRequests[f][b] {
 				if closest.Floor == -1 || dist < minDist {
 					closest.Floor = f
 					closest.Button = b
@@ -84,7 +84,7 @@ func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 }
 
 func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
-	numFloors := len(e.floorRequests)
+	numFloors := len(e.hallRequests)
 	bottomFloor := 0
 	topFloor := numFloors - 1
 
@@ -131,11 +131,11 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 	}
 	// endregion
 
-	if e.state == ES_Idle || e.lastDirection == elevio.MD_Stop {
+	if e.state == ES_Idle || e.direction == elevio.MD_Stop {
 		return e.getClosestFloor()
-	} else if e.lastDirection == elevio.MD_Up {
+	} else if e.direction == elevio.MD_Up {
 		return upScan()
-	} else if e.lastDirection == elevio.MD_Down {
+	} else if e.direction == elevio.MD_Down {
 		return downScan()
 	}
 

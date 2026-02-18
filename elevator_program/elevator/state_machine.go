@@ -25,7 +25,7 @@ func (e Elevator) atTargetFloor() bool {
 }
 
 func (e Elevator) isTargetValid() bool {
-	return e.nextTarget.Floor >= 0 || e.nextTarget.Floor < len(e.floorRequests)
+	return e.nextTarget.Floor >= 0 || e.nextTarget.Floor < len(e.hallRequests)
 }
 
 func (e Elevator) getMotion(target int) elevio.MotorDirection {
