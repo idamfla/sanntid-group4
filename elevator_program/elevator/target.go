@@ -58,29 +58,39 @@ on the extra work if the new task is better for it but still another one is clos
 */
 
 func (e Elevator) closestToTarget(elevatorRegistry map[int]ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
-	dist := len(e.hallRequests)
-	closest := -1
+	minDistance := len(e.hallRequests) + 1
+	bestElevatorID := -1
 	isClosestIdle := false
 
-	for id, elev := range elevatorRegistry {
-		ok, _, distance := e.isNewTargetBetter(newTarget, elev)
+	for id, candidate := range elevatorRegistry {
+		canTake, _, distance := e.isNewTargetBetter(newTarget, candidate)
 
-		if isClosestIdle && elev.state != ES_Idle {
+		if isClosestIdle && candidate.state != ES_Idle {
 			continue
 		}
 
-		if ok && distance < dist {
-			dist = distance
-			closest = id
-			ok = false
-			isClosestIdle = elev.state == ES_Idle
+		if canTake && distance < minDistance {
+			minDistance = distance
+			bestElevatorID = id
+			isClosestIdle = candidate.state == ES_Idle
 		}
 	}
-	return closest, dist, newTarget
+	return bestElevatorID, minDistance, newTarget
 }
 
 // when an elevator asks for a new target
-func (e Elevator) computeNewTarget(currFloor int, currTargetFloor int, cabRequests []bool, dir elevio.MotorDirection) elevio.ButtonEvent {
+// Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
+func (e Elevator) computeNewTarget(currFloor int, cabRequests []bool, dir elevio.MotorDirection) elevio.ButtonEvent {
 	// ruffly same as the basic scan_logic
-	return elevio.ButtonEvent{}
+
+	// Hallrequests need to change its logic, pending, active, ...
+	hallRequestsCopy := e.hallRequests // Needs to be sure we don't modify e.hallRequests
+	elevatorCopy := Elevator{
+		hallRequests: hallRequestsCopy,
+		currentFloor: currFloor,
+		cabRequests:  cabRequests,
+		direction:    dir,
+	}
+
+	return getNextTargetFloor(elevatorCopy)
 }
