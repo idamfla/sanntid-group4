@@ -58,3 +58,46 @@ To make the elevator run at the lab:
    go run main.go
    ```
 5. Now the elevator should run
+
+--- 
+## Running several elevators at the lab
+
+
+If you want to initialize/start other elevators from 1 PC, you need access to every PCs IP address. This you get 
+by typing 
+```bash 
+hostname -I
+```
+
+Then you should do the following:
+
+1. Make sure the project exists on each elevator PC (clone it once, then use git pull to update).
+2. Now from you "master" PC, you want to ssh in to the other PCs and start the elevator server from there.
+```bash
+ssh student@<IP_Elevator1> "cd <PATH_TO_ELEVATOR_PROGRAM> && ./elevatorserver --port <PORT_ELevator1>"
+ssh student@<IP_Elevator2> "cd <PATH_TO_ELEVATOR_PROGRAM> && ./elevatorserver --port <PORT_Elevator2>"
+ssh student@<IP_Elevator3> "cd <PATH_TO_ELEVATOR_PROGRAM> && ./elevatorserver --port <PORT_Elevator3>"
+```
+3. Now, from your "master", open a new terminal run this:
+```bash
+cd <PATH_TO_ELEVATOR_PROGRAM>
+go run . --addrs <IP_1>:<PORT_1>,<IP_2>:<PORT_2>,<IP_3>:<PORT_3>
+```
+
+It can look like this:
+```bash
+go run . --addrs 10.100.23.27:15657,10.100.23.31:15657,10.100.23.45:15657
+```
+
+After you have done this, it should open 3 terminals where every elevator runs!
+
+---
+
+## Running multiple simulators
+
+If you want to test things locally by using the simulator, run this:
+
+```bash
+cd path/to/elevator_program
+go run . --n 3 --baseport 15657 --ip localhost
+```
