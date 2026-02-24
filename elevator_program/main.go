@@ -3,6 +3,9 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
+	"elevator_program/udp"
+	"fmt"
+
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
 )
@@ -28,6 +31,22 @@ func testElevator() {
 	select {}
 }
 
+func testServer() {
+	server, err := udp.NewServer("127.0.0.1", 9000)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Server running...")
+	server.Listen() // blocks forever}
+}
+
 func main() {
-	testElevator()
+	go udp.SendSession(42, "Hello from session 42")
+	go udp.SendSession(99, "Hello from session 99")
+
+	go testServer()
+
+	done := make(chan struct{})
+	<-done
 }
