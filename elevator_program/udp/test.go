@@ -16,7 +16,7 @@ func SendSession(sessionID uint32, message string) {
 
 	seq := uint32(1)
 
-	// 1️⃣ Send Data
+	// Send Data
 	dataPacket := Packet{
 		Header: Header{
 			Seq:       seq,
@@ -29,10 +29,10 @@ func SendSession(sessionID uint32, message string) {
 	sendPacket(conn, dataPacket)
 	fmt.Printf("Sent to session %d: %s\n", sessionID, message)
 
-	// 2️⃣ Wait a moment for ACK (optional)
+	// Wait a moment for ACK (optional)
 	time.Sleep(time.Second)
 
-	// 3️⃣ Send Done
+	// Send Done
 	donePacket := Packet{
 		Header: Header{
 			Seq:       seq + 1,
