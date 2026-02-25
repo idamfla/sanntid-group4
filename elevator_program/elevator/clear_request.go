@@ -7,7 +7,7 @@ import (
 func (e *Elevator) clearCabRequest(floor int) { e.cabRequests[floor] = false }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
-	e.hallRequests[floor][button] = false
+	e.hallRequests[floor][button] = NotActive
 }
 
 // Clear current floor from hallRequests, and turn the lamps off
