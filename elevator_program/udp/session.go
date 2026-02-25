@@ -49,7 +49,7 @@ func (ses *Session) Close() {
 }
 
 func (ses *Session) startTimeWaitTimer() {
-	time.Sleep(5 * time.Second) // example
+	time.Sleep(5 * time.Second)
 	ses.closeReq <- ses.id
 }
 
