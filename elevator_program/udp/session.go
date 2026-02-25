@@ -5,26 +5,32 @@ import (
 	"net"
 )
 
-type Session struct {
-	id   uint32
-	addr *net.UDPAddr
-	conn *net.UDPConn
+type Sender interface {
+	SendReply(remoteAddr *net.UDPAddr, pck Packet, msgType MessageType) error
+}
 
-	incoming chan Packet
+type Session struct {
+	id       uint32
+	addr     *net.UDPAddr // addr of original sender
+	incoming chan incommingPacket
 
 	// retries  int
 	// lastSeen time.Time
-	// unacked  map[uint32]Packet
+	pending  []Packet
 	closeReq chan<- uint32
+
+	sender Sender // <-- session uses this to reply
 }
 
-func NewSession(id uint32, addr *net.UDPAddr, conn *net.UDPConn, closeReq chan<- uint32) *Session {
+func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, sndr Sender) *Session {
 	ses := &Session{
 		id:       id,
 		addr:     addr,
-		conn:     conn,
-		incoming: make(chan Packet, 10),
+		incoming: make(chan incommingPacket, 10),
+		pending:  make([]Packet, 0),
 		closeReq: closeReq,
+
+		sender: sndr,
 	}
 
 	go ses.Run()
@@ -42,33 +48,37 @@ func (ses *Session) Close() {
 }
 
 func (ses *Session) Run() {
-	for packet := range ses.incoming {
-		ses.handlePacket(packet)
+	for incPck := range ses.incoming {
+		ses.handlePacket(incPck)
 	}
 	fmt.Printf("Session %d stopped\n", ses.id)
 }
 
-func (ses *Session) handlePacket(pck Packet) {
-	fmt.Printf("Session %d received: %+v\n",
+func (ses *Session) handlePacket(incPck incommingPacket) {
+	pck := incPck.packet
+	addr := incPck.packet.Header.ReplyAddr // <-- source addr
+
+	fmt.Printf(
+		"Session %d received %+v, reply to %s\n",
 		ses.id,
 		pck.Payload,
+		addr.String(),
 	)
 
-	// Send ACK back
-	ack := Packet{
-		Header: Header{
-			Seq:       pck.Header.Seq,
-			SessionID: pck.Header.SessionID,
-			MsgType:   MSG_T_Ack,
-		},
-		Payload: Message{Content: "ACK"},
-	}
+	switch pck.Header.MsgType {
+	case MSG_T_Data:
+		ses.pending = append(ses.pending, pck)
+		ses.sender.SendReply(addr, pck, MSG_T_Ack)
 
-	data := encodePacket(ack)
-	ses.conn.WriteToUDP(data, ses.addr)
+	case MSG_T_Ack:
+		ses.sender.SendReply(addr, pck, MSG_T_Commit)
 
-	if pck.Header.MsgType == MSG_T_Done {
+	case MSG_T_Commit:
+		ses.pending = ses.pending[:0]
+		ses.sender.SendReply(addr, pck, MSG_T_Done)
 		ses.closeReq <- ses.id
-		return
+
+	case MSG_T_Done:
+		ses.closeReq <- ses.id
 	}
 }
