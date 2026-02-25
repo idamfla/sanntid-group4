@@ -1,6 +1,7 @@
-package elevator
+package main
 
 import (
+	"elevator_program/elevator"
 	"elevator_program/elevio"
 	"flag"
 	"fmt"
@@ -148,7 +149,7 @@ func RunOneElevator(cfg Config) {
 	addr := fmt.Sprintf("%s:%s", cfg.IP, cfg.Port)
 	elevio.Init(addr, cfg.Floors)
 
-	var e Elevator
+	var e elevator.Elevator
 	e.InitElevator(cfg.ID, cfg.Floors, cfg.InitFloor)
 	e.RunElevatorProgram()
 }
