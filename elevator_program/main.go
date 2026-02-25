@@ -1,12 +1,11 @@
 package main
 
 import (
-	// "fmt"
 	"elevator_program/elevator"
-	// "elevator_program/utilities"
 	"elevator_program/elevio"
 )
 
+// Remove this later if we see that the communication works
 func testElevator() {
 	var e elevator.Elevator
 	// fmt.Println(e)
@@ -29,5 +28,17 @@ func testElevator() {
 }
 
 func main() {
-	testElevator()
+	cfg := elevator.ParseFlags()
+
+	// Launcher mode (no ID given)
+	if cfg.ID == 0 {
+		elevator.SpawnElevators(cfg)
+		select {}
+	}
+
+	// Single elevator mode
+	elevator.RunOneElevator(cfg)
+	select {}
 }
+
+//testElevator()
