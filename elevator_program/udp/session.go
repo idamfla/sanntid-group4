@@ -35,45 +35,59 @@ func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, sndr Sende
 	}
 
 	go ses.Run()
-
 	fmt.Println("New session created:", id)
-
 	return ses
 }
 
-func (ses *Session) Close() {
+func (ses *Session) Close() { // TODO maybe guard against closing ses.incoming if already closed ...
 	// optional: close incoming channel if you don't plan to reuse the session
 	close(ses.incoming)
 
 	fmt.Printf("Session %d closed\n", ses.id)
 }
 
+// startTimeWaitTimer closes the session after a delay
 func (ses *Session) startTimeWaitTimer() {
 	time.Sleep(5 * time.Second)
 	ses.closeReq <- ses.id
 }
 
 func (ses *Session) Run() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	// lastSeen := ticker
-	// retransmitt := 0
+	retransmissions := 0
 
-	for incPck := range ses.incoming {
-		// switch case
-		// <-ticker
-		// retransmitt every 2 sec and reset timer
-		// retransmitt >= 5
-		// <-ses.incomming
-		// retransmit = 0
-		ses.handlePacket(incPck)
+	for {
+		select {
+		case incPck, ok := <-ses.incoming:
+			if !ok {
+				// Channel closed, stop the session
+				fmt.Printf("Session %d incoming channel closed, stopping\n", ses.id)
+				return
+			}
+			retransmissions = 0
+			ses.handlePacket(incPck)
+		case <-ticker.C:
+			// ses.retransmitt()
+			retransmissions++
+			if retransmissions > 5 {
+				fmt.Printf("Session %d: receiver seems dead, stopping retransmissions\n", ses.id)
+				return
+			}
+		}
 	}
-	fmt.Printf("Session %d stopped\n", ses.id)
 }
 
 func (ses *Session) handlePacket(incPck incommingPacket) {
 	pck := incPck.packet
 	addr := incPck.addr // <-- source addr
 
-	replyAddr, _ := net.ResolveUDPAddr("udp", pck.Header.SenderAddr)
+	replyAddr, err := net.ResolveUDPAddr("udp", pck.Header.SenderAddr)
+	if err != nil {
+		fmt.Printf("Session %d: invalid reply address %s\n", ses.id, pck.Header.SenderAddr)
+		return
+	}
 
 	fmt.Printf(
 		"Session %d received from %s: %+v, reply to %s\n",
@@ -92,17 +106,13 @@ func (ses *Session) handlePacket(incPck incommingPacket) {
 		ses.sender.SendReply(replyAddr, pck, MSG_T_Commit)
 
 	case MSG_T_Commit:
+		// clear pending
 		ses.pending = ses.pending[:0]
 		ses.sender.SendReply(replyAddr, pck, MSG_T_Done)
 		go ses.startTimeWaitTimer()
 
 	case MSG_T_Done:
-		ses.closeReq <- ses.id // TODO need to find a way to remove the session from the one that is commiting without it makint the other one send a 'Done' afterwards
+		// tell session initator/manager to remove this session
+		ses.closeReq <- ses.id
 	}
 }
-
-// TODO
-/*
-cant seem to get both servers to close their session, from both ends
-need to clean up code
-*/

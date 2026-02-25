@@ -14,8 +14,8 @@ type Server struct {
 	mu       sync.Mutex
 	closeReq chan uint32
 
-	done chan struct{}
-	wg   sync.WaitGroup
+	stopListening chan struct{}
+	wg            sync.WaitGroup
 }
 
 func NewServer(ip string, port int, id string) (*Server, error) {
@@ -42,20 +42,20 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 	}
 
 	srv := &Server{
-		ID:       id,
-		recvConn: recvConn,
-		sendConn: sendConn,
-		sessions: make(map[uint32]*Session),
-		closeReq: make(chan uint32),
-		done:     make(chan struct{}),
+		ID:            id,
+		recvConn:      recvConn,
+		sendConn:      sendConn,
+		sessions:      make(map[uint32]*Session),
+		closeReq:      make(chan uint32),
+		stopListening: make(chan struct{}),
 	}
 
 	return srv, nil
 }
 
 func (srv *Server) Close() {
-	close(srv.done)      // signal shutdown
-	srv.recvConn.Close() // unblock ReadFromUDP
+	close(srv.stopListening) // signal shutdown
+	srv.recvConn.Close()     // unblock ReadFromUDP
 	srv.sendConn.Close()
 	srv.wg.Wait() // wait for goroutines
 
@@ -92,14 +92,13 @@ func (srv *Server) readLoop(out chan<- incommingPacket) {
 	buf := make([]byte, 2048)
 
 	for {
-		select {
-		case <-srv.done:
-			return
-		default:
-		}
-
 		n, addr, err := srv.recvConn.ReadFromUDP(buf)
 		if err != nil {
+			// when the server is closeing
+			if opErr, ok := err.(*net.OpError); ok && opErr.Err.Error() == "use of closed network connection" {
+				return // normal shutdown, just exit the loop
+			}
+
 			fmt.Println("Read error:", err)
 			continue
 		}
@@ -116,17 +115,20 @@ func (srv *Server) readLoop(out chan<- incommingPacket) {
 func (srv *Server) handleIncoming(incPck incommingPacket) {
 	id := incPck.packet.Header.SessionID
 
+	srv.mu.Lock()
 	ses, exists := srv.sessions[id]
+
 	if !exists {
 		ses = NewSession(id, incPck.addr, srv.closeReq, srv)
 		srv.sessions[id] = ses
 	}
+	srv.mu.Unlock()
 
 	ses.incoming <- incPck
 }
 
 func (srv *Server) Listen() {
-	packetChan := make(chan incommingPacket)
+	packetChan := make(chan incommingPacket, 32)
 
 	// UDP reader goroutine
 	srv.wg.Add(1)
@@ -135,8 +137,7 @@ func (srv *Server) Listen() {
 	// Main event loop
 	for {
 		select {
-		case <-srv.done:
-			// srv.Close()
+		case <-srv.stopListening:
 			return
 
 		case id := <-srv.closeReq:
@@ -200,4 +201,5 @@ func (srv *Server) PrintSessions() {
 	// for id := range srv.sessions {
 	// 	fmt.Println(" -", id)
 	// }
+	fmt.Printf("Server %s closed\n", srv.ID)
 }
