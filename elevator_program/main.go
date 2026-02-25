@@ -1,6 +1,7 @@
 package main
 
 import (
+	"elevator_program/config"
 	"elevator_program/elevator"
 	"elevator_program/elevio"
 )
@@ -28,16 +29,16 @@ func testElevator() {
 }
 
 func main() {
-	cfg := elevator.ParseFlags()
+	cfg := config.ParseFlags()
 
 	// Launcher mode (no ID given)
 	if cfg.ID == 0 {
-		elevator.SpawnElevators(cfg)
+		config.SpawnElevators(cfg)
 		select {}
 	}
 
 	// Single elevator mode
-	elevator.RunOneElevator(cfg)
+	config.RunOneElevator(cfg)
 	select {}
 }
 

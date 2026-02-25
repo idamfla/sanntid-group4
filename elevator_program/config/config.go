@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"elevator_program/elevator"
