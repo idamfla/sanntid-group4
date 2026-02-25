@@ -7,6 +7,7 @@ import (
 )
 
 type Server struct {
+	ID       string
 	recvConn *net.UDPConn
 	sendConn *net.UDPConn
 	sessions map[uint32]*Session
@@ -17,7 +18,7 @@ type Server struct {
 	wg   sync.WaitGroup
 }
 
-func NewServer(ip string, port int) (*Server, error) {
+func NewServer(ip string, port int, id string) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -41,6 +42,7 @@ func NewServer(ip string, port int) (*Server, error) {
 	}
 
 	srv := &Server{
+		ID:       id,
 		recvConn: recvConn,
 		sendConn: sendConn,
 		sessions: make(map[uint32]*Session),
@@ -54,7 +56,8 @@ func NewServer(ip string, port int) (*Server, error) {
 func (srv *Server) Close() {
 	close(srv.done)      // signal shutdown
 	srv.recvConn.Close() // unblock ReadFromUDP
-	srv.wg.Wait()        // wait for goroutines
+	srv.sendConn.Close()
+	srv.wg.Wait() // wait for goroutines
 
 	srv.mu.Lock()
 	for id := range srv.sessions {
@@ -65,11 +68,16 @@ func (srv *Server) Close() {
 	close(srv.closeReq)
 }
 
+// helper function, not called directly
 func (srv *Server) closeSessionLocked(sesID uint32) {
 	ses, exists := srv.sessions[sesID]
 	if exists {
 		ses.Close()
 		delete(srv.sessions, sesID)
+
+		// TODO remove db
+		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
+
 	}
 }
 
@@ -97,9 +105,6 @@ func (srv *Server) readLoop(out chan<- incommingPacket) {
 		}
 
 		pck := decodePacket(buf, n)
-
-		pck.Header.ReplyIP = addr.IP.String()
-		pck.Header.ReplyPort = srv.recvConn
 
 		out <- incommingPacket{
 			packet: pck,
@@ -131,12 +136,11 @@ func (srv *Server) Listen() {
 	for {
 		select {
 		case <-srv.done:
-			srv.Close()
+			// srv.Close()
 			return
 
 		case id := <-srv.closeReq:
 			srv.CloseSession(id)
-			fmt.Println("Server removed session:", id)
 
 		case inc := <-packetChan:
 			srv.handleIncoming(inc)
@@ -146,11 +150,15 @@ func (srv *Server) Listen() {
 
 // TODO dont send string but rather the Message-struct
 func (srv *Server) SendMessage(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msg string) error {
+	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
+
 	dataPacket := Packet{
 		Header: Header{
-			Seq:       seq,
-			MsgType:   MSG_T_Data,
-			SessionID: sessionID,
+			Seq:           seq,
+			MsgType:       MSG_T_Data,
+			SessionID:     sessionID,
+			SenderAddr:    localAddr.String(),
+			RecipientAddr: remoteAddr.String(),
 		},
 		Payload: Message{Content: msg},
 	}
@@ -171,20 +179,25 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, pck Packet, msgType Messag
 		replyContent = "DONE"
 	}
 
-	fmt.Println(replyContent) // TODO remove print
 	reply := Packet{
 		Header: Header{
-			Seq:       h.Seq + 1,
-			MsgType:   msgType,
-			SessionID: h.SessionID,
+			Seq:           h.Seq + 1,
+			MsgType:       msgType,
+			SessionID:     h.SessionID,
+			SenderAddr:    h.RecipientAddr,
+			RecipientAddr: remoteAddr.String(),
 		},
 		Payload: Message{Content: replyContent},
 	}
 	return sendPacket(srv.sendConn, remoteAddr, reply)
 }
 
-/*
-TODO
-when sending, send with sender udpAddr
-store in header where you want to receive the reply, in whatever format is needed!!!
-*/
+func (srv *Server) PrintSessions() {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	fmt.Printf("Active sessions (%d):\n", len(srv.sessions))
+	// for id := range srv.sessions {
+	// 	fmt.Println(" -", id)
+	// }
+}

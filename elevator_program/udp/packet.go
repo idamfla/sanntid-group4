@@ -12,7 +12,7 @@ type Message struct {
 
 type incommingPacket struct {
 	packet Packet
-	addr   *net.UDPAddr
+	addr   *net.UDPAddr // <-- where we send from
 }
 
 type Packet struct {

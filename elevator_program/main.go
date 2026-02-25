@@ -5,6 +5,9 @@ import (
 	"elevator_program/elevator"
 	"elevator_program/udp"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	// "elevator_program/utilities"
@@ -32,15 +35,15 @@ func testElevator() {
 	select {}
 }
 
-func testServer() {
+func testServer() (*udp.Server, *udp.Server) {
 	var GlobalServers = make(map[string]*udp.Server) // key = "name" or "ip:port"
 
-	serverA, err := udp.NewServer("127.0.0.1", 9000)
+	serverA, err := udp.NewServer("127.0.0.1", 9000, "A")
 	if err != nil {
 		panic(err)
 	}
 
-	serverB, err := udp.NewServer("127.0.0.1", 9001)
+	serverB, err := udp.NewServer("127.0.0.1", 9001, "B")
 	if err != nil {
 		panic(err)
 	}
@@ -60,28 +63,30 @@ func testServer() {
 	go serverA.SendSession(1, "127.0.0.1", 9001, "Hello from A")
 
 	// Server B sends to A
-	go serverB.SendSession(2, "127.0.0.1", 9000, "Hello from B")
+	// go serverB.SendSession(2, "127.0.0.1", 9000, "Hello from B")
 
-	// test SendReply
-	// remoteAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:9001")
-
-	// // create a fake packet (DATA)
-	// pck := udp.Packet{
-	// 	Header: udp.Header{
-	// 		Seq:       1,
-	// 		MsgType:   udp.MSG_T_Data,
-	// 		SessionID: 42,
-	// 	},
-	// 	Payload: udp.Message{Content: "Test"},
-	// }
-
-	// // send ACK manually
-	// serverA.SendReply(remoteAddr, pck, udp.MSG_T_Ack)
+	return serverA, serverB
 }
 
 func main() {
-	testServer()
+	serverA, serverB := testServer()
 
-	done := make(chan struct{})
-	<-done
+	// Create signal channel
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Wait for Ctrl+C
+	<-sigChan
+
+	fmt.Println("\nCtrl+C pressed")
+
+	// Print session counts
+	serverA.PrintSessions()
+	serverB.PrintSessions()
+
+	// Graceful shutdown
+	serverA.Close()
+	serverB.Close()
+
+	fmt.Println("Servers shut down cleanly")
 }
