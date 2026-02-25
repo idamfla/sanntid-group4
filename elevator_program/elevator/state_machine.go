@@ -136,6 +136,7 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 			nextTarget, dir = e.computeNextTargetAndDirection()
 			if nextTarget.Floor != -1 {
 				e.nextTarget = nextTarget
+				// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
 				e.updateDirection(nextTarget, dir)
 			}
 		}

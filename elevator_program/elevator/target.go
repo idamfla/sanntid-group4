@@ -5,6 +5,8 @@ import (
 	"elevator_program/utilities"
 )
 
+// TODO Sending a pointer should maybe not do that since we don't change the variable
+
 // called by master, e is master, all parameters come from the elevator it checks
 func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev ElevatorsStatus) (bool, elevio.ButtonEvent, int) {
 	/*
@@ -18,30 +20,30 @@ func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev Elevators
 		}
 	*/
 
-	if elev.state == ES_Idle {
-		return true, newTarget, utilities.Abs(newTarget.Floor - elev.currentFloor)
+	if elev.State == ES_Idle {
+		return true, newTarget, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
 
-	switch elev.direction {
+	switch elev.Direction {
 	case elevio.MD_Up:
-		if newTarget.Floor < elev.currentFloor+1 || newTarget.Button == elevio.BT_HallDown {
+		if newTarget.Floor < elev.CurrentFloor+1 || newTarget.Button == elevio.BT_HallDown {
 			return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1
 		}
 
 		// Todo maybe add some logic where we use inBetweenFloor to check if we have gone past currFloor or not??
-		distNewTarget := utilities.Abs(newTarget.Floor - (elev.currentFloor + 1))
-		distTarget := utilities.Abs(elev.target.Floor - (elev.currentFloor + 1))
+		distNewTarget := utilities.Abs(newTarget.Floor - (elev.CurrentFloor))
+		distTarget := utilities.Abs(elev.Target.Floor - (elev.CurrentFloor))
 
 		if distNewTarget < distTarget {
 			return true, newTarget, distNewTarget
 		}
 	case elevio.MD_Down:
-		if newTarget.Floor > elev.currentFloor-1 || newTarget.Button == elevio.BT_HallUp {
+		if newTarget.Floor > elev.CurrentFloor-1 || newTarget.Button == elevio.BT_HallUp {
 			return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1
 		}
 
-		distNewTarget := utilities.Abs(newTarget.Floor - (elev.currentFloor - 1))
-		distTarget := utilities.Abs(elev.target.Floor - (elev.currentFloor - 1))
+		distNewTarget := utilities.Abs(newTarget.Floor - (elev.CurrentFloor))
+		distTarget := utilities.Abs(elev.Target.Floor - (elev.CurrentFloor))
 
 		if distNewTarget < distTarget {
 			return true, newTarget, distNewTarget
@@ -57,22 +59,22 @@ let them do the task. this to avoid the first elevator in the map to always take
 on the extra work if the new task is better for it but still another one is closer
 */
 
-func (e Elevator) closestToTarget(elevatorRegistry map[int]ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
+func (e Elevator) ClosestToTarget(elevatorRegistry map[int]*ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
 	minDistance := len(e.hallRequests) + 1
 	bestElevatorID := -1
 	isClosestIdle := false
 
 	for id, candidate := range elevatorRegistry {
-		canTake, _, distance := e.isNewTargetBetter(newTarget, candidate)
+		canTake, _, distance := e.isNewTargetBetter(newTarget, *candidate)
 
-		if isClosestIdle && candidate.state != ES_Idle {
+		if isClosestIdle && candidate.State != ES_Idle {
 			continue
 		}
 
 		if canTake && distance < minDistance {
 			minDistance = distance
 			bestElevatorID = id
-			isClosestIdle = candidate.state == ES_Idle
+			isClosestIdle = candidate.State == ES_Idle
 		}
 	}
 	return bestElevatorID, minDistance, newTarget
@@ -94,3 +96,14 @@ func (e Elevator) computeNewTarget(currFloor int, cabRequests []bool, dir elevio
 
 	return getNextTargetFloor(elevatorCopy)
 }
+
+// TODO 'message_handler.go'
+/*
+ *incomming button press*
+	if btn == cab
+		if (isNewTargetBetter())
+			notifier.nextTarget = newTarget
+
+	else
+		elev := ClosesElevator()
+*/
