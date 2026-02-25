@@ -23,7 +23,8 @@ var IP = map[typeOfMessage]string{
 
 // Maybe change name of network is always ment as "udp4"
 // Trancieves message on port with specific type
-func trancive(msg elevator.Message, port string, typeOfMessage string, network string) {
+// Should maybe return bool
+func Trancive(msg elevator.Message, port string, typeOfMessage string, network string) {
 	addr := typeOfMessage + ":" + port
 	remoteUDPAddr, err := net.ResolveUDPAddr(network, addr)
 	if err != nil {
@@ -53,7 +54,7 @@ func trancive(msg elevator.Message, port string, typeOfMessage string, network s
 }
 
 // receives message from port, sends it through a chanel, checks if it lost comunication
-func receiver(ctx context.Context, port string, network string, msgCh chan<- elevator.Message) error {
+func Receiver(ctx context.Context, port string, network string, msgCh chan<- elevator.Message) error {
 	conn, err := net.ListenPacket(network, ":"+port)
 	if err != nil {
 		panic(err)

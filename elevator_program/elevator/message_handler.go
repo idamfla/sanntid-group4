@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/network"
 	"fmt"
 )
 
@@ -13,12 +14,12 @@ const (
 	MSG_T_TaskCreate   // a new task is created/published
 	MSG_T_TaskAssign   // a task is assigned to you
 	MSG_T_TaskDelegate // a task is assigned to another person
-	MSG_T_TaskUpdate   // task changed
+	MSG_T_TaskUpdate   // task changed, Don't think we need it
 	MSG_T_TaskComplete // task was completed
 	MSG_T_TaskRequest  // someone requests a new task
 
-	MSG_T_Broadcast
-	MSG_T_DirectMsg
+	MSG_T_Broadcast // Probably don't need
+	MSG_T_DirectMsg // Probably don't need
 	MSG_T_LostComs
 	MSG_T_NewToChannel
 )
@@ -33,11 +34,13 @@ const (
 )
 
 type Message struct {
-	msgType        MessageType
-	id             int
-	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
-	elevatorStatus ElevatorsStatus
-	msgState       MessageState
+	msgType           MessageType
+	id                int
+	task              elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
+	btnStatus         ButtonStatus       // Type what we want the button to be: nonActive, pending, active
+	elevatorStatus    ElevatorsStatus
+	transactionNumber int // To show which number it is in the whole msg system
+	msgState          MessageState
 	// msgTimer       time.Time
 	// TODO how to be able to send their chan Message as well
 }
@@ -49,81 +52,150 @@ msgCh := make(chan string)
 */
 
 func (e *Elevator) messageHandler_slave(msg Message) {
-	if msg.msgState != MSG_S_Commit {
-		return
-	}
+	// if msg.msgState != MSG_S_Commit {
+	// 	return
+	// }
 
 	switch msg.msgType {
 	case MSG_T_StatusReport:
 		// target the updated elevator in the map and add the changes
-	case MSG_T_TaskCreate:
+
+	case MSG_T_TaskCreate: // Maybe use TaskUpdate istead, is a more general name.
 		f := msg.task.Floor
 		b := msg.task.Button
 
 		if b == elevio.BT_Cab {
 			e.cabRequests[f] = true
 		} else {
-			e.hallRequests[f][b] = true
+			e.hallRequests[f][b] = msg.btnStatus
 		}
+		elevio.SetButtonLamp(b, f, true)
+
 	case MSG_T_TaskAssign:
-		e.nextTarget = msg.task
-	case MSG_T_TaskDelegate:
+		// Could be merged with TaskCreate, but maybe not smart
 		f := msg.task.Floor
 		b := msg.task.Button
+		e.nextTarget = msg.task
 
-		// TODO need to have it as 2d array of custom requestState instead of just bool
 		if b == elevio.BT_Cab {
 			e.cabRequests[f] = true
 		} else {
-			e.hallRequests[f][b] = true
+			e.hallRequests[f][b] = Running
 		}
-	case MSG_T_TaskUpdate:
-		// TODO not sure we need this? re-release a task is the same as making it anew
+		elevio.SetButtonLamp(b, f, true)
+
+	case MSG_T_TaskDelegate:
+		// Delegating task to another elevator, everything that is not cab should be sent on TaskCreate
+		f := msg.task.Floor
+		id := msg.elevatorStatus.id
+		e.elevatorRegistry[id].cabRequests[f] = !e.elevatorRegistry[id].cabRequests[f] // Make it the opposite of what it was
+
 	case MSG_T_TaskComplete:
-		e.clearHallRequest(msg.task.Floor, msg.task.Button)
-		e.clearHallLamp(msg.task.Floor, msg.task.Button)
+		f := msg.task.Floor
+		b := msg.task.Button
+
+		if b == elevio.BT_Cab {
+			e.cabRequests[f] = false
+		} else {
+			e.hallRequests[f][b] = NotActive
+		}
+		e.clearCurrentFloor(f, b)
 
 	case MSG_T_TaskRequest:
-		// will just be replied to with a task
+		// will just be replied to with a task, probably don't need this one on slave just send to TaskAssign
 
 	}
 
-	msg.msgState = MSG_S_Applied
+	// msg.msgState = MSG_S_Applied
 	e.msgSendCh <- msg
 }
 
+// To remember which messages we are waiting for
+var openMsgThreads = make(map[int]Message) // Maybe we don't need this one
+var msgNumber = 0
+var isSender = make(map[int]bool)
+
 func (e *Elevator) messageHandler_master(msg Message) {
-	switch msg.msgState {
-	case MSG_S_Sent:
-		switch msg.msgType {
-		case MSG_T_TaskRequest:
-			// task = compute new task for that specific elevator
-			// msg.chan <- Message{Type: MSG_T_TaskAssign, Task: task, msgState: MSG_S_Sent}
-		}
-	case MSG_S_Ack:
-		switch msg.msgType {
-		case MSG_T_StatusReport:
-			// commit the change
-			// broadcast that all should commit the change
-		case MSG_T_TaskCreate:
-			// tell all to commit the new task
-		case MSG_T_TaskAssign:
-			// send a delegate message
-			// mark task as being served
-			// give task
-		case MSG_T_TaskDelegate:
-			// tell all to mark a task as being served
-		case MSG_T_TaskUpdate:
-			// TODO not sure we need this? re-release a task is the same as making it anew
-		case MSG_T_TaskComplete:
-			// tell all to cross off task
+	// switch msg.msgState {
+	// case MSG_S_Sent:
+	// 	switch msg.msgType {
+	// 	case MSG_T_TaskRequest:
+	// 		// task = compute new task for that specific elevator
+	// 		// msg.chan <- Message{Type: MSG_T_TaskAssign, Task: task, msgState: MSG_S_Sent}
+	// 	}
+	// case MSG_S_Ack:
+	// 	switch msg.msgType {
+	// 	case MSG_T_StatusReport:
+	// 		// commit the change
+	// 		// broadcast that all should commit the change
+	// 	case MSG_T_TaskCreate:
+	// 		// tell all to commit the new task
+	// 	case MSG_T_TaskAssign:
+	// 		// send a delegate message
+	// 		// mark task as being served
+	// 		// give task
+	// 	case MSG_T_TaskDelegate:
+	// 		// tell all to mark a task as being served
+	// 	// case MSG_T_TaskUpdate:
+	// 	// 	// TODO not sure we need this? re-release a task is the same as making it anew
+	// 	case MSG_T_TaskComplete:
+	// 		// tell all to cross off task
 
-		case MSG_T_TaskRequest:
-			// all it takes to commit the task
+	// 	case MSG_T_TaskRequest:
+	// 		// all it takes to commit the task
 
+	// 	}
+	// }
+
+	senderId := msg.id
+	msg.id = e.id
+
+	switch msg.msgType {
+	case MSG_T_StatusReport:
+
+	case MSG_T_TaskCreate:
+		if isSender[msg.transactionNumber] {
+			// Maybe have a counter of number of ack we have received for this mission
+			// We have received a ack now we need them to commit
+			msg.msgState = MSG_S_Commit
+			for id, _ := range e.elevatorRegistry {
+				network.Trancive(msg, e.ports[id], "unicom", "udp4")
+			}
+			// Need to delete the msg thread when the other elevators have received
+		} else {
+			// Need them first to be warned, when we receive ack we will send commit
+			msgNumber++ // Maybe we need this
+			isSender[msg.transactionNumber] = true
+			msg.msgState = MSG_S_Sent
+			for id, _ := range e.elevatorRegistry {
+				network.Trancive(msg, e.ports[id], "unicom", "udp4")
+			}
 		}
+
+	case MSG_T_TaskAssign:
+		msg.msgState = MSG_S_Commit
+		network.Trancive(msg, e.ports[senderId], "unicom", "udp4") // Send commit msg to target, received ack
+
+	case MSG_T_TaskComplete:
+		if isSender[msg.transactionNumber] {
+			// Maybe have a counter of number of ack we have received for this mission
+			// We have received a ack now we need them to commit
+			msg.msgState = MSG_S_Commit
+			for id, _ := range e.elevatorRegistry {
+				network.Trancive(msg, e.ports[id], "unicom", "udp4")
+			}
+			// Need to delete the msg thread when the other elevators have received
+		} else {
+			msgNumber++ // Maybe we need this
+			isSender[msg.transactionNumber] = true
+			msg.msgState = MSG_S_Sent
+			for id, _ := range e.elevatorRegistry {
+				network.Trancive(msg, e.ports[id], "unicom", "udp4")
+			}
+		}
+
+	case MSG_T_TaskRequest:
 	}
-
 	msg.msgState = MSG_S_Applied
 	e.msgSendCh <- msg
 }

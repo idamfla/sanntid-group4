@@ -8,6 +8,14 @@ import (
 	"elevator_program/elevio"
 )
 
+type ButtonStatus int
+
+const (
+	NotActive ButtonStatus = iota
+	Pending
+	Running
+)
+
 type Elevator struct {
 	id int
 
@@ -17,8 +25,8 @@ type Elevator struct {
 	direction       elevio.MotorDirection
 	initFloor       int
 
-	hallRequests [][2]bool // TODO maybe Pending, Running, Completed, NotActive
-	cabRequests  []bool
+	hallRequests [][2]ButtonStatus
+	cabRequests  []bool // TODO Maybe make it a ButtonStatus as well
 
 	doorState DoorState
 	doorTimer time.Time
@@ -30,9 +38,10 @@ type Elevator struct {
 
 	msgRecieveCh chan Message
 	msgSendCh    chan Message
+	ports        map[int]string
 
 	isMaster         bool
-	elevatorRegistry map[string]ElevatorsStatus
+	elevatorRegistry map[int]ElevatorsStatus // TODO Was string, could also make it uint
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
@@ -41,7 +50,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
-	e.hallRequests = make([][2]bool, numFloors)
+	e.hallRequests = make([][2]ButtonStatus, numFloors)
 	e.cabRequests = make([]bool, numFloors)
 	// e.elevatorState = ES_Uninitialized
 
@@ -66,6 +75,20 @@ func (e *Elevator) RunElevatorProgram() {
 	<-done
 }
 
+// Temp for printing ButtonStatus
+func (r ButtonStatus) String() string {
+	switch r {
+	case NotActive:
+		return "NotActive"
+	case Pending:
+		return "Pending"
+	case Running:
+		return "Running"
+	default:
+		return "Unknown"
+	}
+}
+
 // region printing, for debugging
 func (e Elevator) String() string {
 	s := fmt.Sprintf(
@@ -86,7 +109,7 @@ func (e Elevator) String() string {
 		cab := e.cabRequests[f]
 
 		s += fmt.Sprintf(
-			"	floor %d: [Up:%t Down:%t Cab:%t]\n",
+			"	floor %d: [Up:%s Down:%s Cab:%t]\n",
 			f,
 			req[elevio.BT_HallUp],
 			req[elevio.BT_HallDown],
