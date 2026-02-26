@@ -16,8 +16,16 @@ const (
 	Running
 )
 
+// Uses to add a new elevator to our system
+type SystemState struct {
+	hallRequests [][2]ButtonStatus
+	Elevators    map[int]ElevatorsStatus
+}
+
 type Elevator struct {
 	id int
+	// Temp need to know the ip using the id
+	ipToId map[string]int
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -38,10 +46,10 @@ type Elevator struct {
 
 	msgRecieveCh chan Message
 	msgSendCh    chan Message
-	ports        map[int]string
 
-	isMaster         bool
-	elevatorRegistry map[int]ElevatorsStatus // TODO Was string, could also make it uint
+	isMaster          bool
+	connectedToMaster bool
+	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {

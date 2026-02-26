@@ -2,7 +2,6 @@ package elevator
 
 import (
 	"elevator_program/elevio"
-	"elevator_program/network"
 	"fmt"
 )
 
@@ -17,11 +16,8 @@ const (
 	MSG_T_TaskUpdate   // task changed, Don't think we need it
 	MSG_T_TaskComplete // task was completed
 	MSG_T_TaskRequest  // someone requests a new task
-
-	MSG_T_Broadcast // Probably don't need
-	MSG_T_DirectMsg // Probably don't need
-	MSG_T_LostComs
-	MSG_T_NewToChannel
+	MSG_T_LostComs     // A routine to check if you have lost communication
+	MSG_T_NewToChannel // Send the latest information
 )
 
 type MessageState int
@@ -34,13 +30,15 @@ const (
 )
 
 type Message struct {
-	msgType           MessageType
-	id                int
-	task              elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
-	btnStatus         ButtonStatus       // Type what we want the button to be: nonActive, pending, active
-	elevatorStatus    ElevatorsStatus
-	transactionNumber int // To show which number it is in the whole msg system
-	msgState          MessageState
+	msgType        MessageType
+	id             int
+	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
+	btnStatus      ButtonStatus       // Type what we want the button to be: nonActive, pending, active
+	elevatorStatus ElevatorsStatus
+	msgState       MessageState
+
+	// Used for a full sync
+	fullstate *SystemState
 	// msgTimer       time.Time
 	// TODO how to be able to send their chan Message as well
 }
@@ -104,6 +102,10 @@ func (e *Elevator) messageHandler_slave(msg Message) {
 	case MSG_T_TaskRequest:
 		// will just be replied to with a task, probably don't need this one on slave just send to TaskAssign
 
+	case MSG_T_LostComs:
+
+	case MSG_T_NewToChannel:
+
 	}
 
 	// msg.msgState = MSG_S_Applied
@@ -111,9 +113,9 @@ func (e *Elevator) messageHandler_slave(msg Message) {
 }
 
 // To remember which messages we are waiting for
-var openMsgThreads = make(map[int]Message) // Maybe we don't need this one
-var msgNumber = 0
-var isSender = make(map[int]bool)
+// var openMsgThreads = make(map[int]Message) // Maybe we don't need this one
+// var msgNumber = 0
+// var isSender = make(map[int]bool)
 
 func (e *Elevator) messageHandler_master(msg Message) {
 	// switch msg.msgState {
@@ -150,51 +152,94 @@ func (e *Elevator) messageHandler_master(msg Message) {
 	senderId := msg.id
 	msg.id = e.id
 
+	f := msg.task.Floor
+	b := msg.task.Button
+
 	switch msg.msgType {
 	case MSG_T_StatusReport:
+		// Update the information about the elevator
+		e.elevatorRegistry[senderId] = msg.elevatorStatus
 
 	case MSG_T_TaskCreate:
-		if isSender[msg.transactionNumber] {
-			// Maybe have a counter of number of ack we have received for this mission
-			// We have received a ack now we need them to commit
-			msg.msgState = MSG_S_Commit
-			for id, _ := range e.elevatorRegistry {
-				network.Trancive(msg, e.ports[id], "unicom", "udp4")
-			}
-			// Need to delete the msg thread when the other elevators have received
-		} else {
-			// Need them first to be warned, when we receive ack we will send commit
-			msgNumber++ // Maybe we need this
-			isSender[msg.transactionNumber] = true
-			msg.msgState = MSG_S_Sent
-			for id, _ := range e.elevatorRegistry {
-				network.Trancive(msg, e.ports[id], "unicom", "udp4")
-			}
+		// if isSender[msg.transactionNumber] {
+		// Maybe have a counter of number of ack we have received for this mission
+		// We have received a ack now we need them to commit
+		msg.msgState = MSG_S_Commit
+		for id, _ := range e.elevatorRegistry {
+			// Send commit to everyone
 		}
+		if b == elevio.BT_Cab {
+			e.cabRequests[f] = true
+		} else {
+			e.hallRequests[f][b] = msg.btnStatus
+		}
+		elevio.SetButtonLamp(b, f, true)
+
+		// Need to delete the msg thread when the other elevators have received
+		// }
+		// Probably don't need this, in case we don't allways commit
+		// else {
+		// 	// Need them first to be warned, when we receive ack we will send commit
+		// 	msgNumber++ // Maybe we need this
+		// 	isSender[msg.transactionNumber] = true
+		// 	msg.msgState = MSG_S_Sent
+		// 	for id, _ := range e.elevatorRegistry {
+		// 		network.Trancive(msg, e.ports[id], "unicom", "udp4")
+		// 	}
 
 	case MSG_T_TaskAssign:
 		msg.msgState = MSG_S_Commit
-		network.Trancive(msg, e.ports[senderId], "unicom", "udp4") // Send commit msg to target, received ack
+		// Send commit
+		// Then we need to send to everyone that, this request is now running
+		// This need to be sent to everyone except the one we are sending the assignment to
+		// Maybe set on a timer so know it uses to much time
 
 	case MSG_T_TaskComplete:
-		if isSender[msg.transactionNumber] {
-			// Maybe have a counter of number of ack we have received for this mission
-			// We have received a ack now we need them to commit
-			msg.msgState = MSG_S_Commit
-			for id, _ := range e.elevatorRegistry {
-				network.Trancive(msg, e.ports[id], "unicom", "udp4")
-			}
-			// Need to delete the msg thread when the other elevators have received
-		} else {
-			msgNumber++ // Maybe we need this
-			isSender[msg.transactionNumber] = true
-			msg.msgState = MSG_S_Sent
-			for id, _ := range e.elevatorRegistry {
-				network.Trancive(msg, e.ports[id], "unicom", "udp4")
-			}
+		// Maybe have a counter of number of ack we have received for this mission
+		// We have received a ack now we need them to commit
+		msg.msgState = MSG_S_Commit
+		for id, _ := range e.elevatorRegistry {
+			// send commit msg to everyone
 		}
+		// Add the request to your own map
+		if b == elevio.BT_Cab {
+			e.cabRequests[f] = false
+		} else {
+			e.hallRequests[f][b] = NotActive
+		}
+		e.clearCurrentFloor(f, b)
 
 	case MSG_T_TaskRequest:
+		// Scan for the next request and send it back
+		msg.msgType = MSG_T_TaskAssign
+		msg.msgState = MSG_S_Sent
+
+	case MSG_T_LostComs:
+
+	case MSG_T_NewToChannel:
+		// TODO Should we send a init pos?
+		msg.msgState = MSG_S_Commit
+		senderId, ok := e.ipToId[msg.elevatorStatus.ip]
+		if ok {
+			msg.elevatorStatus = e.elevatorRegistry[senderId]
+		} else {
+			// TODO Do the master have itself in the elevatorRegistery?
+			senderId = len(e.elevatorRegistry) + 1
+			newElevator := ElevatorsStatus{
+				id: senderId,
+				// Hope everything else is already configured
+			}
+			e.elevatorRegistry[senderId] = newElevator
+			msg.elevatorStatus = newElevator
+		}
+		msg.fullstate.hallRequests = e.hallRequests
+		for id, _ := range e.elevatorRegistry {
+			if senderId == id {
+				continue
+			}
+			// TODO We have the ip in the elevatorsStatus struct but maybe we need to send a map of them as well
+			msg.fullstate.Elevators[id] = e.elevatorRegistry[id]
+		}
 	}
 	msg.msgState = MSG_S_Applied
 	e.msgSendCh <- msg

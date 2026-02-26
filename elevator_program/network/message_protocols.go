@@ -1,7 +1,7 @@
 package network
 
 import (
-	"elevator_program/elevator"
+	// "elevator_program/elevator"
 	"strconv"
 	"time"
 )

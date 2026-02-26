@@ -9,4 +9,6 @@ type ElevatorsStatus struct {
 	target        elevio.ButtonEvent
 	direction     elevio.MotorDirection
 	elevatorState ElevatorState
+	// temp, just need to know the ip
+	ip string
 }
