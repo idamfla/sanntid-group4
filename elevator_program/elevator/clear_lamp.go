@@ -2,7 +2,7 @@ package elevator
 
 import "elevator_program/elevio"
 
-func (e Elevator) clearCabLamp(floor int) {
+func (e Elevator) clearCabLamp(floor int) { // TODO Why do we need to separate between cab and hall??
 	elevio.SetButtonLamp(elevio.BT_Cab, floor, false)
 }
 

@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+/*
+--------------------------------
+Trying to use new infrastructure
+--------------------------------
+*/
+
+// TODO Chat saying this MSG_T_ naming convention is very c -style and noisy in Go
 type MessageType int
 
 const (
@@ -20,6 +27,7 @@ const (
 	MSG_T_NewToChannel // Send the latest information
 )
 
+// TODO Same thing as the comment above MSG_S_
 type MessageState int
 
 const (
@@ -31,11 +39,16 @@ const (
 
 type Message struct {
 	msgType        MessageType
-	id             int
+	senderId       int
 	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
 	btnStatus      ButtonStatus       // Type what we want the button to be: nonActive, pending, active
 	elevatorStatus ElevatorsStatus
 	msgState       MessageState
+
+	// TODO temp need a com number
+	comNumber int
+
+	// TODO Maybe we need target id as well
 
 	// Used for a full sync
 	fullstate *SystemState
@@ -44,113 +57,44 @@ type Message struct {
 }
 
 /*
-Needs this somewhere
+TODO Needs this somewhere
 ctx, cancel := context.Withcancel(context.Background())
 msgCh := make(chan string)
 */
 
+// Chat don't like these function names. Don't want any underscores
 func (e *Elevator) messageHandler_slave(msg Message) {
-	// if msg.msgState != MSG_S_Commit {
-	// 	return
-	// }
-
 	switch msg.msgType {
 	case MSG_T_StatusReport:
-		// target the updated elevator in the map and add the changes
+	// target the updated elevator in the map and add the changes
+	case MSG_T_TaskUpdate: // Maybe use TaskUpdate istead, is a more general name.
+		e.updateBtnMap(msg.btnStatus, msg.task)
 
-	case MSG_T_TaskCreate: // Maybe use TaskUpdate istead, is a more general name.
-		f := msg.task.Floor
-		b := msg.task.Button
-
-		if b == elevio.BT_Cab {
-			e.cabRequests[f] = true
+		if msg.btnStatus == NotActive {
+			e.clearHallLamp(msg.task.Floor, msg.task.Button)
 		} else {
-			e.hallRequests[f][b] = msg.btnStatus
+			elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
 		}
-		elevio.SetButtonLamp(b, f, true)
-
-	case MSG_T_TaskAssign:
-		// Could be merged with TaskCreate, but maybe not smart
-		f := msg.task.Floor
-		b := msg.task.Button
-		e.nextTarget = msg.task
-
-		if b == elevio.BT_Cab {
-			e.cabRequests[f] = true
-		} else {
-			e.hallRequests[f][b] = Running
-		}
-		elevio.SetButtonLamp(b, f, true)
-
 	case MSG_T_TaskDelegate:
 		// Delegating task to another elevator, everything that is not cab should be sent on TaskCreate
-		f := msg.task.Floor
-		id := msg.elevatorStatus.id
-		e.elevatorRegistry[id].cabRequests[f] = !e.elevatorRegistry[id].cabRequests[f] // Make it the opposite of what it was
-
-	case MSG_T_TaskComplete:
-		f := msg.task.Floor
-		b := msg.task.Button
-
-		if b == elevio.BT_Cab {
-			e.cabRequests[f] = false
-		} else {
-			e.hallRequests[f][b] = NotActive
-		}
-		e.clearCurrentFloor(f, b)
-
-	case MSG_T_TaskRequest:
-		// will just be replied to with a task, probably don't need this one on slave just send to TaskAssign
+		e.updateElevatorRegistery(msg.btnStatus, msg.task, msg.senderId)
 
 	case MSG_T_LostComs:
+		e.lostComsProtocol(msg.senderId)
 
 	case MSG_T_NewToChannel:
-
+		e.connectToNetwork(msg.elevatorStatus, *msg.fullstate)
 	}
 
+	// I don't know if we need this
 	// msg.msgState = MSG_S_Applied
-	e.msgSendCh <- msg
+	// e.msgSendCh <- msg
 }
 
-// To remember which messages we are waiting for
-// var openMsgThreads = make(map[int]Message) // Maybe we don't need this one
-// var msgNumber = 0
-// var isSender = make(map[int]bool)
-
+// TODO chat don't like this name either
 func (e *Elevator) messageHandler_master(msg Message) {
-	// switch msg.msgState {
-	// case MSG_S_Sent:
-	// 	switch msg.msgType {
-	// 	case MSG_T_TaskRequest:
-	// 		// task = compute new task for that specific elevator
-	// 		// msg.chan <- Message{Type: MSG_T_TaskAssign, Task: task, msgState: MSG_S_Sent}
-	// 	}
-	// case MSG_S_Ack:
-	// 	switch msg.msgType {
-	// 	case MSG_T_StatusReport:
-	// 		// commit the change
-	// 		// broadcast that all should commit the change
-	// 	case MSG_T_TaskCreate:
-	// 		// tell all to commit the new task
-	// 	case MSG_T_TaskAssign:
-	// 		// send a delegate message
-	// 		// mark task as being served
-	// 		// give task
-	// 	case MSG_T_TaskDelegate:
-	// 		// tell all to mark a task as being served
-	// 	// case MSG_T_TaskUpdate:
-	// 	// 	// TODO not sure we need this? re-release a task is the same as making it anew
-	// 	case MSG_T_TaskComplete:
-	// 		// tell all to cross off task
-
-	// 	case MSG_T_TaskRequest:
-	// 		// all it takes to commit the task
-
-	// 	}
-	// }
-
-	senderId := msg.id
-	msg.id = e.id
+	senderId := msg.senderId
+	msg.senderId = e.id
 
 	f := msg.task.Floor
 	b := msg.task.Button
@@ -161,31 +105,15 @@ func (e *Elevator) messageHandler_master(msg Message) {
 		e.elevatorRegistry[senderId] = msg.elevatorStatus
 
 	case MSG_T_TaskCreate:
-		// if isSender[msg.transactionNumber] {
-		// Maybe have a counter of number of ack we have received for this mission
-		// We have received a ack now we need them to commit
-		msg.msgState = MSG_S_Commit
-		for id, _ := range e.elevatorRegistry {
-			// Send commit to everyone
-		}
-		if b == elevio.BT_Cab {
-			e.cabRequests[f] = true
-		} else {
-			e.hallRequests[f][b] = msg.btnStatus
-		}
-		elevio.SetButtonLamp(b, f, true)
+		sentCommitMsg := e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.msgState, msg.comNumber)
 
-		// Need to delete the msg thread when the other elevators have received
-		// }
-		// Probably don't need this, in case we don't allways commit
-		// else {
-		// 	// Need them first to be warned, when we receive ack we will send commit
-		// 	msgNumber++ // Maybe we need this
-		// 	isSender[msg.transactionNumber] = true
-		// 	msg.msgState = MSG_S_Sent
-		// 	for id, _ := range e.elevatorRegistry {
-		// 		network.Trancive(msg, e.ports[id], "unicom", "udp4")
-		// 	}
+		if sentCommitMsg { // If we have sent commit we can turn on lights
+			if msg.btnStatus == NotActive {
+				e.clearHallLamp(msg.task.Floor, msg.task.Button)
+			} else {
+				elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
+			}
+		}
 
 	case MSG_T_TaskAssign:
 		msg.msgState = MSG_S_Commit
@@ -203,7 +131,7 @@ func (e *Elevator) messageHandler_master(msg Message) {
 		}
 		// Add the request to your own map
 		if b == elevio.BT_Cab {
-			e.cabRequests[f] = false
+			e.cabRequests[f] = NotActive
 		} else {
 			e.hallRequests[f][b] = NotActive
 		}
@@ -215,6 +143,7 @@ func (e *Elevator) messageHandler_master(msg Message) {
 		msg.msgState = MSG_S_Sent
 
 	case MSG_T_LostComs:
+		// I don't know what we should do here just try to say to the slave that master hears you
 
 	case MSG_T_NewToChannel:
 		// TODO Should we send a init pos?
@@ -246,6 +175,10 @@ func (e *Elevator) messageHandler_master(msg Message) {
 }
 
 func (e *Elevator) messageHandler(msg Message) {
+	if msg.senderId == e.id {
+		return // Ignore own messages
+	}
+
 	if e.isMaster {
 		e.messageHandler_master(msg)
 	} else {
@@ -266,46 +199,59 @@ func (e *Elevator) messageListener(msgCh chan Message) {
 	for msg := range e.msgRecieveCh {
 		e.messageHandler(msg)
 	}
-
 }
 
-// func (e *Elevator) messageHandler(msgCh chan Message) {
-// 	for {
-// 		select {
-// 		case msg := <-msgCh:
-// 			fmt.Println("Received msg")
+func (e *Elevator) updateBtnMap(btnStatus ButtonStatus, task elevio.ButtonEvent) {
+	f := task.Floor
+	b := task.Button
 
-// 			id_num, err := strconv.Atoi(msg.Id) // Should do this somewhere where it does not happen when sending ip
-// 			if err != nil {
-// 				fmt.Println("Error when converting to int")
-// 				return
-// 			}
+	if b == elevio.BT_Cab {
+		e.cabRequests[f] = btnStatus
+	} else {
+		e.hallRequests[f][b] = btnStatus
+	}
+}
 
-// 			switch msg.MsgType {
-// 			case 0:
-// 				// broadcast basic
-// 				// If there is a new request, need to add it to button map, turn on lights, send ack
-// 			case 1:
-// 				// direct msg
-// 				if id_num == 0 {
-// 					// Need to be sure that the overwritten target dose'nt get lost
-// 					e.nextTarget = msg.NextTarget
-// 					// Need to send ack to master
-// 				} else {
-// 					// Master need to add request to que and inform other elevators
-// 				}
-// 			case 2:
-// 				// lost coms
-// 				// Meesage your communication status with the master
-// 			case 3:
-// 				// New to chanel
-// 				// Check if the IP has been here before, if this is the case, send back the id and button map
-// 				// and all the cab calls
-// 			}
+func (e *Elevator) updateElevatorRegistery(btnStatus ButtonStatus, task elevio.ButtonEvent, id int) {
+	e.elevatorRegistry[id].cabRequests[task.Floor] = btnStatus
+}
 
-// 		case <-time.After(2 * time.Second):
-// 			fmt.Println("Maybe lost comunication")
-// 			//Broadcast that you have lost communication, figure out how to restart yourself or other
-// 		}
-// 	}
-// }
+func (e *Elevator) connectToNetwork(elevator ElevatorsStatus, fullstate SystemState) {
+	e.cabRequests = elevator.cabRequests
+	e.id = elevator.id
+	e.isMaster = false
+	e.connectedToMaster = true
+	// e.ipToId Need to know the ip/id to the others
+	e.hallRequests = fullstate.hallRequests
+	e.elevatorRegistry = fullstate.Elevators
+}
+
+func (e *Elevator) lostComsProtocol(senderId int) {
+	// We need a way to know who initiatet the msg:
+	// if we initiated the msg{
+	if senderId == e.ipToId["Master"] {
+		e.connectedToMaster = true
+		// Make the msg resolved
+	} else {
+		// Need to count if any elevator har connection to master
+		// Need to count how many does not have connection
+		// if you are the problem, restart or complete cab then restart
+		// If you are not the problem, select a new master
+	}
+}
+
+func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, msgState MessageState, comNumber int) bool {
+	if msgState == MSG_S_Sent {
+		// Send prepare to commit for this request to every elevator
+	} else {
+		if e.ackArray[comNumber] == len(e.elevatorRegistry) {
+			// Send commit message
+			e.updateBtnMap(btnStatus, task)
+			return true
+		} else {
+			// TODO Maybe need to check that it is a unique elevator and not the same
+			e.ackArray[comNumber] += 1
+		}
+	}
+	return false
+}

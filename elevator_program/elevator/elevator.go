@@ -34,7 +34,7 @@ type Elevator struct {
 	initFloor       int
 
 	hallRequests [][2]ButtonStatus
-	cabRequests  []bool // TODO Maybe make it a ButtonStatus as well
+	cabRequests  []ButtonStatus
 
 	doorState DoorState
 	doorTimer time.Time
@@ -50,6 +50,9 @@ type Elevator struct {
 	isMaster          bool
 	connectedToMaster bool
 	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
+
+	// TODO temp need a place to put the ack
+	ackArray map[int]int
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
@@ -59,7 +62,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]ButtonStatus, numFloors)
-	e.cabRequests = make([]bool, numFloors)
+	e.cabRequests = make([]ButtonStatus, numFloors)
 	// e.elevatorState = ES_Uninitialized
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)

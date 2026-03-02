@@ -4,7 +4,7 @@ import (
 	"elevator_program/elevio"
 )
 
-func (e *Elevator) clearCabRequest(floor int) { e.cabRequests[floor] = false }
+func (e *Elevator) clearCabRequest(floor int) { e.cabRequests[floor] = NotActive }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
 	e.hallRequests[floor][button] = NotActive
