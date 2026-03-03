@@ -1,12 +1,12 @@
 package main
 
 import (
-	// "fmt"
+	"elevator_program/config"
 	"elevator_program/elevator"
-	// "elevator_program/utilities"
 	"elevator_program/elevio"
 )
 
+// Remove this later if we see that the communication works
 func testElevator() {
 	var e elevator.Elevator
 	// fmt.Println(e)
@@ -21,7 +21,10 @@ func testElevator() {
 	elevio.Init(ip_address+":"+port, numFloors)
 
 	e.InitElevator(id, numFloors, initFloor)
-	e.RunElevatorProgram()
+	// e.RunElevatorProgram()
+
+	e.TestMasterLogic()
+
 	/*
 		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
 	*/
@@ -29,5 +32,17 @@ func testElevator() {
 }
 
 func main() {
-	testElevator()
+	cfg := config.ParseFlags()
+
+	// Launcher mode (no ID given)
+	if cfg.ID == 0 {
+		config.SpawnElevators(cfg)
+		select {}
+	}
+
+	// Single elevator mode
+	config.RunOneElevator(cfg)
+	select {}
 }
+
+//testElevator()

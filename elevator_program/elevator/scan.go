@@ -29,7 +29,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 			if e.cabRequests[f] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if e.hallRequests[f][elevio.BT_HallUp] {
+			} else if e.hallRequests[f][elevio.BT_HallUp] == Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 			}
 		}
@@ -37,7 +37,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 		for f := from; f >= to; f-- {
 			if e.cabRequests[f] {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if e.hallRequests[f][elevio.BT_HallDown] {
+			} else if e.hallRequests[f][elevio.BT_HallDown] == Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 			}
 
@@ -64,7 +64,7 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 		}
 
 		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
-			if e.hallRequests[f][b] {
+			if e.hallRequests[f][b] == Pending {
 				if closest.Floor == -1 || dist < minDist {
 					closest.Floor = f
 					closest.Button = b
