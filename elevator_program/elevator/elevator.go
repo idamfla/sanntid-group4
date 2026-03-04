@@ -52,7 +52,7 @@ type Elevator struct {
 	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
 
 	// TODO Trying to split ut the code
-	protocol *Protocol
+	protocol *Protocol // TODO should we remove this one from elevator struct and put in a different package
 	system   System
 
 	// TODO temp need a place to put the ack

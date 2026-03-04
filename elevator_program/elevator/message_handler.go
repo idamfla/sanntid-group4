@@ -67,9 +67,10 @@ msgCh := make(chan string)
 func (p *Protocol) messageHandler_slave(e *Elevator, msg Message) {
 	switch msg.msgType {
 	case MSG_T_StatusReport:
-	// target the updated elevator in the map and add the changes
+		// target the updated elevator in the map and add the changes
+		p.applyStatusReport(e, msg)
 
-	case MSG_T_TaskUpdate: // Maybe use TaskUpdate istead, is a more general name.
+	case MSG_T_TaskUpdate:
 		p.applyTaskUpdate(e, msg)
 
 	case MSG_T_TaskDelegate:
@@ -89,17 +90,15 @@ func (p *Protocol) messageHandler_master(e *Elevator, msg Message) {
 	switch msg.msgType {
 	case MSG_T_StatusReport:
 		// Update the information about the elevator
-		e.elevatorRegistry[msg.senderId] = msg.elevatorStatus
+		p.applyStatusReport(e, msg)
 
 	case MSG_T_TaskUpdate:
-		sentCommitMsg := e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.comNumber)
+		e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.comNumber)
 
-		if sentCommitMsg { // If we have sent commit we can turn on lights
-			if msg.btnStatus == NotActive {
-				e.clearHallLamp(msg.task.Floor, msg.task.Button)
-			} else {
-				elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
-			}
+		if msg.btnStatus == NotActive {
+			e.clearHallLamp(msg.task.Floor, msg.task.Button)
+		} else {
+			elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
 		}
 
 	case MSG_T_TaskAssign:
@@ -139,6 +138,10 @@ func (e *Elevator) messageListener(msgCh chan Message) {
 	}
 }
 
+func (s *System) setStatusReport(senderId int, targetElevator ElevatorsStatus) {
+	s.Elevators[senderId] = targetElevator
+}
+
 func (s *System) setRequestStatus(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
 	f := btnEvent.Floor
 	b := btnEvent.Button
@@ -174,17 +177,14 @@ func (s *System) handleLostConnection(e Elevator, senderId int) {
 	}
 }
 
-func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, comNumber int) bool {
+func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, comNumber int) {
 	if e.ackArray[comNumber] == len(e.elevatorRegistry) {
 		// Send commit message
 		e.setRequestStatus(btnStatus, task)
-		return true
 	} else {
 		// TODO Maybe need to check that it is a unique elevator and not the same
 		e.ackArray[comNumber] += 1
 	}
-
-	return false
 }
 
 func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fullstate System) {
@@ -212,20 +212,6 @@ func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fulls
 	}
 }
 
-// Can't just change targetElevator, it won't affect anything outside of this function
-// A better structure to giveAllInfoToElev()
-// func (e *Elevator) registerAndSyncElevator(ip string) {
-
-// 	id, exists := e.ipToId[ip]
-// 	if !exists {
-// 		id = e.allocateNewElevatorID()
-// 		e.elevatorRegistry[id] = ElevatorsStatus{id: id}
-// 		e.ipToId[ip] = id
-// 	}
-
-// 	e.sendFullStateTo(id)
-// }
-
 func (e Elevator) updateBtnLamp(msg Message) {
 	if msg.btnStatus == NotActive {
 		e.clearHallLamp(msg.task.Floor, msg.task.Button)
@@ -246,6 +232,10 @@ func (e *Elevator) setConnectionState(self ElevatorsStatus) {
 Applying protocol functions which is ment to split between the different roles
 ------------------------------------------------------------------------------
 */
+
+func (p Protocol) applyStatusReport(e *Elevator, msg Message) {
+	e.system.setStatusReport(msg.senderId, msg.elevatorStatus)
+}
 
 func (p Protocol) applyTaskUpdate(e *Elevator, msg Message) {
 	e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
