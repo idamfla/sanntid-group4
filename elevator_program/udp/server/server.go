@@ -45,13 +45,10 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 	}
 
 	// create broadcast-listening UDP socket
-	// TODO for running test when only using one pc
-	idOffset := int(int(id[0] - 'a')) // 'a' -> 0, 'b' -> 1, 'c' -> 2
-	// listen on broadcast
 
 	bcConn, bcErr := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4zero,             // listen on all interfaces
-		Port: BroadcastPort + idOffset, // the port you want to receive on
+		IP:   net.IPv4zero,  // listen on all interfaces
+		Port: BroadcastPort, // the port you want to receive on
 	})
 	if bcErr != nil {
 		return nil, err

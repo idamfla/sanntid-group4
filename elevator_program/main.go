@@ -41,6 +41,33 @@ func testElevator() {
 	select {}
 }
 
+func createServer() *server.Server {
+	s1, err := server.NewServer(myIP, 9000, "A")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create s1: %v", err))
+	}
+	if s1 == nil {
+		panic("s1 is nil")
+	}
+
+	// s2, err := server.NewServer(myIP, 9001, "B")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("Failed to create s2: %v", err))
+	// }
+	// if s2 == nil {
+	// 	panic("s2 is nil")
+	// }
+
+	fmt.Println("Server(s) running...")
+	// Start listening in goroutines
+	go s1.Listen()
+	// go s2.Listen()
+
+	// Give them a moment to start
+	time.Sleep(time.Second)
+	return s1
+}
+
 func testServer(s1 *server.Server, s2 *server.Server) {
 	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
 
@@ -52,7 +79,7 @@ func testServer(s1 *server.Server, s2 *server.Server) {
 }
 
 func testBroadcast_send(srv *server.Server) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	seq := uint32(0)
@@ -65,13 +92,13 @@ func testBroadcast_send(srv *server.Server) {
 		if err != nil {
 			fmt.Println("Broadcast error:", err)
 		} else {
-			fmt.Println(bcMsg)
+			fmt.Println(srv.ID, "send:", bcMsg)
 		}
 		seq++ // increment sequence if needed
 	}
 }
 
-func closeProgram(s1 *server.Server, s2 *server.Server) {
+func closeProgram(s1 *server.Server) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -83,43 +110,21 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 
 	// Print session counts
 	s1.PrintSessions()
-	s2.PrintSessions()
+	// s2.PrintSessions()
 
 	// Graceful shutdown
 	s1.Close()
-	s2.Close()
+	// s2.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
 
 func main() {
-	serverA, err := server.NewServer(myIP, 9000, "A")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create serverA: %v", err))
-	}
-	if serverA == nil {
-		panic("serverA is nil")
-	}
-
-	serverB, err := server.NewServer(myIP, 9001, "B")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create serverB: %v", err))
-	}
-	if serverB == nil {
-		panic("serverB is nil")
-	}
-
-	fmt.Println("Server(s) running...")
-	// Start listening in goroutines
-	// go serverA.Listen()
-	go serverB.Listen()
-
-	// Give them a moment to start
-	time.Sleep(time.Second)
+	serverA := createServer()
 
 	// go testServer(serverA, serverB)
 
 	go testBroadcast_send(serverA)
 
-	closeProgram(serverA, serverB)
+	closeProgram(serverA)
 }

@@ -82,7 +82,13 @@ func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg string) error
 
 	// broadcastIP := net.IPv4(localIP[0], localIP[1], localIP[2], 255)
 
+	// addr := &net.UDPAddr{
+	// 	IP:   net.ParseIP(broadcastIP),
+	// 	Port: BroadcastPort,
+	// }
+
 	addr := &net.UDPAddr{
+		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(Group4IP),
 		Port: BroadcastPort,
 	}
