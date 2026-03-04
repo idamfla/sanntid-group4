@@ -177,16 +177,6 @@ func (s *System) handleLostConnection(e Elevator, senderId int) {
 	}
 }
 
-func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, comNumber int) {
-	if e.ackArray[comNumber] == len(e.elevatorRegistry) {
-		// Send commit message
-		e.setRequestStatus(btnStatus, task)
-	} else {
-		// TODO Maybe need to check that it is a unique elevator and not the same
-		e.ackArray[comNumber] += 1
-	}
-}
-
 func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fullstate System) {
 	// TODO Should we send a init pos?
 	senderId, ok := e.ipToId[targetElevator.ip]
@@ -253,4 +243,14 @@ func (p Protocol) applyLostComsProtocol(e *Elevator, msg Message) {
 func (p Protocol) applySystemSync(e *Elevator, msg Message) {
 	e.system.initializeFromSystemState(msg.elevatorStatus, *msg.fullstate)
 	e.setConnectionState(msg.elevatorStatus)
+}
+
+func (p Protocol) addNewRequestToSystem(e *Elevator, msg Message) {
+	if e.ackArray[comNumber] == len(e.elevatorRegistry) {
+		// Send commit message
+		e.setRequestStatus(btnStatus, task)
+	} else {
+		// TODO Maybe need to check that it is a unique elevator and not the same
+		e.ackArray[comNumber] += 1
+	}
 }
