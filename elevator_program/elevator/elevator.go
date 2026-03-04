@@ -17,14 +17,14 @@ const (
 )
 
 // Uses to add a new elevator to our system
-type SystemState struct {
+type System struct {
 	hallRequests [][2]ButtonStatus
 	Elevators    map[int]ElevatorsStatus
 }
 
 type Elevator struct {
 	id int
-	// Temp need to know the ip using the id
+	// TODO temp need to know the ip using the id
 	ipToId map[string]int
 
 	inBetweenFloors bool
@@ -33,8 +33,8 @@ type Elevator struct {
 	direction       elevio.MotorDirection
 	initFloor       int
 
-	hallRequests [][2]ButtonStatus
-	cabRequests  []ButtonStatus
+	hallRequests [][2]ButtonStatus // TODO Should remove these
+	cabRequests  []ButtonStatus    // TODO Should remove these
 
 	doorState DoorState
 	doorTimer time.Time
@@ -50,6 +50,10 @@ type Elevator struct {
 	isMaster          bool
 	connectedToMaster bool
 	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
+
+	// TODO Trying to split ut the code
+	protocol *Protocol
+	system   System
 
 	// TODO temp need a place to put the ack
 	ackArray map[int]int

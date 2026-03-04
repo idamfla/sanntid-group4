@@ -43,7 +43,6 @@ type Message struct {
 	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
 	btnStatus      ButtonStatus       // Type what we want the button to be: nonActive, pending, active
 	elevatorStatus ElevatorsStatus
-	msgState       MessageState
 
 	// TODO temp need a com number
 	comNumber int
@@ -51,10 +50,12 @@ type Message struct {
 	// TODO Maybe we need target id as well
 
 	// Used for a full sync
-	fullstate *SystemState
+	fullstate *System
 	// msgTimer       time.Time
 	// TODO how to be able to send their chan Message as well
 }
+
+type Protocol struct{}
 
 /*
 TODO Needs this somewhere
@@ -63,42 +64,35 @@ msgCh := make(chan string)
 */
 
 // Chat don't like these function names. Don't want any underscores
-func (e *Elevator) messageHandler_slave(msg Message) {
+func (p *Protocol) messageHandler_slave(e *Elevator, msg Message) {
 	switch msg.msgType {
 	case MSG_T_StatusReport:
 	// target the updated elevator in the map and add the changes
-	case MSG_T_TaskUpdate: // Maybe use TaskUpdate istead, is a more general name.
-		e.setRequestStatus(msg.btnStatus, msg.task)
 
-		if msg.btnStatus == NotActive {
-			e.clearHallLamp(msg.task.Floor, msg.task.Button)
-		} else {
-			elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
-		}
+	case MSG_T_TaskUpdate: // Maybe use TaskUpdate istead, is a more general name.
+		p.applyTaskUpdate(e, msg)
+
 	case MSG_T_TaskDelegate:
 		// Delegating task to another elevator, everything that is not cab should be sent on TaskCreate
-		e.updateRemoteCabBtn(msg.btnStatus, msg.task, msg.senderId)
+		p.applyRemoteCabUpdate(e, msg)
 
 	case MSG_T_LostComs:
-		e.handleLostConnection(msg.senderId)
+		p.applyLostComsProtocol(e, msg)
 
 	case MSG_T_NewToChannel:
-		e.initializeFromSystemState(msg.elevatorStatus, *msg.fullstate)
+		p.applySystemSync(e, msg)
 	}
 }
 
 // TODO chat don't like this name either
-func (e *Elevator) messageHandler_master(msg Message) {
-	senderId := msg.senderId
-	msg.senderId = e.id // TODO is this something we want here?
-
+func (p *Protocol) messageHandler_master(e *Elevator, msg Message) {
 	switch msg.msgType {
 	case MSG_T_StatusReport:
 		// Update the information about the elevator
-		e.elevatorRegistry[senderId] = msg.elevatorStatus
+		e.elevatorRegistry[msg.senderId] = msg.elevatorStatus
 
 	case MSG_T_TaskUpdate:
-		sentCommitMsg := e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.msgState, msg.comNumber)
+		sentCommitMsg := e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.comNumber)
 
 		if sentCommitMsg { // If we have sent commit we can turn on lights
 			if msg.btnStatus == NotActive {
@@ -109,7 +103,6 @@ func (e *Elevator) messageHandler_master(msg Message) {
 		}
 
 	case MSG_T_TaskAssign:
-		msg.msgState = MSG_S_Commit
 		// Send commit
 		// Then we need to send to everyone that, this request is now running
 		// This need to be sent to everyone except the one we are sending the assignment to
@@ -118,13 +111,12 @@ func (e *Elevator) messageHandler_master(msg Message) {
 	case MSG_T_TaskRequest:
 		// Scan for the next request and send it back
 		msg.msgType = MSG_T_TaskAssign
-		msg.msgState = MSG_S_Sent
 
 	case MSG_T_LostComs:
 		// I don't know what we should do here just try to say to the slave that master hears you
 
 	case MSG_T_NewToChannel:
-		e.registerAndSyncElevator(msg.msgState, msg.elevatorStatus, *msg.fullstate)
+		e.registerAndSyncElevator(msg.elevatorStatus, *msg.fullstate)
 	}
 }
 
@@ -134,17 +126,9 @@ func (e *Elevator) messageHandler(msg Message) {
 	}
 
 	if e.isMaster {
-		e.messageHandler_master(msg)
+		e.protocol.messageHandler_master(e, msg)
 	} else {
-		if msg.msgState == MSG_S_Sent {
-			// Send ack back to master/coordinator
-			msg.msgState = MSG_S_Ack
-			e.msgSendCh <- msg
-			// Return early: we don't commit/apply yet
-			return
-		}
-
-		e.messageHandler_slave(msg)
+		e.protocol.messageHandler_slave(e, msg)
 	}
 }
 
@@ -155,32 +139,28 @@ func (e *Elevator) messageListener(msgCh chan Message) {
 	}
 }
 
-func (e *Elevator) setRequestStatus(status ButtonStatus, btnEvent elevio.ButtonEvent) {
+func (s *System) setRequestStatus(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
 	f := btnEvent.Floor
 	b := btnEvent.Button
 
 	if b == elevio.BT_Cab {
-		e.cabRequests[f] = status
+		s.Elevators[id].cabRequests[f] = status
 	} else {
-		e.hallRequests[f][b] = status
+		s.hallRequests[f][b] = status
 	}
 }
 
-func (e *Elevator) updateRemoteCabBtn(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
-	e.elevatorRegistry[id].cabRequests[btnEvent.Floor] = status
+func (s *System) updateRemoteCabBtn(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
+	s.Elevators[id].cabRequests[btnEvent.Floor] = status
 }
 
-func (e *Elevator) initializeFromSystemState(self ElevatorsStatus, state SystemState) {
-	e.cabRequests = self.cabRequests
-	e.id = self.id
-	e.isMaster = false
-	e.connectedToMaster = true
-	// e.ipToId Need to know the ip/id to the others
-	e.hallRequests = state.hallRequests
-	e.elevatorRegistry = state.Elevators
+func (s *System) initializeFromSystemState(self ElevatorsStatus, state System) {
+	s.hallRequests = state.hallRequests
+	s.Elevators = state.Elevators
 }
 
-func (e *Elevator) handleLostConnection(senderId int) {
+// TODO This function is wierd, either we need to have it as e or something else if it is msg sending
+func (s *System) handleLostConnection(e Elevator, senderId int) {
 	// We need a way to know who initiatet the msg:
 	// if we initiated the msg{
 	if senderId == e.ipToId["Master"] {
@@ -194,25 +174,21 @@ func (e *Elevator) handleLostConnection(senderId int) {
 	}
 }
 
-func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, msgState MessageState, comNumber int) bool {
-	if msgState == MSG_S_Sent {
-		// Send prepare to commit for this request to every elevator
+func (e *Elevator) addNewRequestToSystem(btnStatus ButtonStatus, task elevio.ButtonEvent, comNumber int) bool {
+	if e.ackArray[comNumber] == len(e.elevatorRegistry) {
+		// Send commit message
+		e.setRequestStatus(btnStatus, task)
+		return true
 	} else {
-		if e.ackArray[comNumber] == len(e.elevatorRegistry) {
-			// Send commit message
-			e.setRequestStatus(btnStatus, task)
-			return true
-		} else {
-			// TODO Maybe need to check that it is a unique elevator and not the same
-			e.ackArray[comNumber] += 1
-		}
+		// TODO Maybe need to check that it is a unique elevator and not the same
+		e.ackArray[comNumber] += 1
 	}
+
 	return false
 }
 
-func (e *Elevator) registerAndSyncElevator(msgState MessageState, targetElevator ElevatorsStatus, fullstate SystemState) {
+func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fullstate System) {
 	// TODO Should we send a init pos?
-	msgState = MSG_S_Commit
 	senderId, ok := e.ipToId[targetElevator.ip]
 	if ok {
 		targetElevator = e.elevatorRegistry[senderId]
@@ -249,3 +225,42 @@ func (e *Elevator) registerAndSyncElevator(msgState MessageState, targetElevator
 
 // 	e.sendFullStateTo(id)
 // }
+
+func (e Elevator) updateBtnLamp(msg Message) {
+	if msg.btnStatus == NotActive {
+		e.clearHallLamp(msg.task.Floor, msg.task.Button)
+	} else {
+		elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
+	}
+}
+
+func (e *Elevator) setConnectionState(self ElevatorsStatus) {
+	e.id = self.id
+	e.isMaster = false
+	e.connectedToMaster = true
+	// e.ipToId Need to know the ip/id to the others
+}
+
+/*
+------------------------------------------------------------------------------
+Applying protocol functions which is ment to split between the different roles
+------------------------------------------------------------------------------
+*/
+
+func (p Protocol) applyTaskUpdate(e *Elevator, msg Message) {
+	e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
+	e.updateBtnLamp(msg)
+}
+
+func (p Protocol) applyRemoteCabUpdate(e *Elevator, msg Message) {
+	e.system.updateRemoteCabBtn(msg.btnStatus, msg.task, e.id)
+}
+
+func (p Protocol) applyLostComsProtocol(e *Elevator, msg Message) {
+	e.system.handleLostConnection(*e, msg.senderId)
+}
+
+func (p Protocol) applySystemSync(e *Elevator, msg Message) {
+	e.system.initializeFromSystemState(msg.elevatorStatus, *msg.fullstate)
+	e.setConnectionState(msg.elevatorStatus)
+}
