@@ -14,6 +14,6 @@ type Header struct {
 	Seq           uint32
 	SessionID     uint32
 	MsgType       MessageType // Data, Ack, Heartbeat
-	SenderAddr    string      // where this message came from (IP:Port)
 	RecipientAddr string      // where the reply should go
+	SenderAddr    string      // where this message came from (IP:Port)
 }

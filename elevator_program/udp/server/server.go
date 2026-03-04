@@ -8,8 +8,9 @@ import (
 )
 
 const (
+	// Group4IP        = "10.100.23.15"
 	NtnuBroadcastIP = "10.100.23.255"
-	Group4IP        = "10.100.23.15"
+	HomeBroadcastIP = "192.168.50.255"
 	BroadcastPort   = 3000
 )
 
@@ -46,11 +47,12 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 
 	// create broadcast-listening UDP socket
 
-	bcConn, bcErr := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4zero,  // listen on all interfaces
-		Port: BroadcastPort, // the port you want to receive on
+	bcConn, err := net.ListenUDP("udp4", &net.UDPAddr{
+		IP:   net.IPv4zero,                       // listen on all interfaces
+		Port: BroadcastPort - 1 + int(id[0]-'A'), // the port you want to receive on
+		// Port: BroadcastPort,
 	})
-	if bcErr != nil {
+	if err != nil {
 		return nil, err
 	}
 

@@ -81,21 +81,12 @@ func (ses *Session) Run() {
 
 func (ses *Session) handlePacket(incPck IncomingPacket) {
 	pck := incPck.Packet
-	addr := incPck.Addr // <-- source addr
 
 	replyAddr, err := net.ResolveUDPAddr("udp", pck.Header.SenderAddr)
 	if err != nil {
 		fmt.Printf("Session %d: invalid reply address %s\n", ses.id, pck.Header.SenderAddr)
 		return
 	}
-
-	fmt.Printf(
-		"Session %d received from %s: %+v, reply to %s\n",
-		ses.id,
-		addr.String(),
-		pck.Payload,
-		replyAddr.String(),
-	)
 
 	switch pck.Header.MsgType {
 	case MSG_T_Data:

@@ -44,12 +44,29 @@ func (srv *Server) handleIncoming(incPck udp.IncomingPacket) {
 	}
 	srv.mu.Unlock()
 
+	fmt.Printf(
+		`%s, Session %d:
+	sent from : %s
+	to        : %s
+	reply sock: %s
+	msg: %+v
+`,
+		srv.ID,
+		incPck.Packet.Header.SessionID,
+		incPck.Addr.String(),
+		incPck.Packet.Header.RecipientAddr,
+		incPck.Packet.Header.SenderAddr,
+		incPck.Packet.Payload,
+	)
+
 	ses.Incoming <- incPck
 }
 
 func (srv *Server) readLoop(conn *net.UDPConn, out chan<- udp.IncomingPacket) {
 	defer srv.wg.Done()
 	buf := make([]byte, 2048)
+
+	fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
 
 	for {
 		n, addr, err := conn.ReadFromUDP(buf)

@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	localhost = "127.0.0.1"
-	myIP      = "10.22.118.234"
-	receiver  = "10.100.23.15"
+	localIP  = "127.0.0.1"
+	myIP     = "192.168.50.97"
+	receiver = "10.100.23.15"
 )
 
 func testElevator() {
@@ -41,8 +41,8 @@ func testElevator() {
 	select {}
 }
 
-func createServer() *server.Server {
-	s1, err := server.NewServer(myIP, 9000, "A")
+func createServer(port int, id string) *server.Server {
+	s1, err := server.NewServer(localIP, port, id)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create s1: %v", err))
 	}
@@ -58,10 +58,7 @@ func createServer() *server.Server {
 	// 	panic("s2 is nil")
 	// }
 
-	fmt.Println("Server(s) running...")
-	// Start listening in goroutines
-	go s1.Listen()
-	// go s2.Listen()
+	fmt.Println("Server", id, "is running...")
 
 	// Give them a moment to start
 	time.Sleep(time.Second)
@@ -79,11 +76,11 @@ func testServer(s1 *server.Server, s2 *server.Server) {
 }
 
 func testBroadcast_send(srv *server.Server) {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	seq := uint32(0)
-	sessionID := uint32(123) // or whatever you need
+	sessionID := uint32(1) // or whatever you need
 
 	bcMsg := "Hello, broadcast from " + srv.ID
 
@@ -92,13 +89,14 @@ func testBroadcast_send(srv *server.Server) {
 		if err != nil {
 			fmt.Println("Broadcast error:", err)
 		} else {
-			fmt.Println(srv.ID, "send:", bcMsg)
+			fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 		}
 		seq++ // increment sequence if needed
+		sessionID++
 	}
 }
 
-func closeProgram(s1 *server.Server) {
+func closeProgram(s1 *server.Server, s2 *server.Server) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -110,21 +108,30 @@ func closeProgram(s1 *server.Server) {
 
 	// Print session counts
 	s1.PrintSessions()
-	// s2.PrintSessions()
+	s2.PrintSessions()
 
 	// Graceful shutdown
 	s1.Close()
-	// s2.Close()
+	s2.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
 
 func main() {
-	serverA := createServer()
+	serverA := createServer(9000, "A")
+	serverB := createServer(9001, "B")
+
+	// go serverA.SendSession(1, "127.0.0.1", 9001, "Hello from A")
 
 	// go testServer(serverA, serverB)
 
+	go serverA.Listen()
+	go serverB.Listen()
+
+	// bcMsg := "Hello, broadcast from " + "A"
+	// serverA.SendBroadcast(1, 1, bcMsg)
+
 	go testBroadcast_send(serverA)
 
-	closeProgram(serverA)
+	closeProgram(serverA, serverB)
 }

@@ -6,13 +6,11 @@ import (
 )
 
 // TODO dont send string but rather the Message-struct
-func (
-	srv *Server) send(
+func (srv *Server) send(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
 	msgType udp.MessageType,
-	senderAddr string,
 	msg string,
 ) error {
 
@@ -21,8 +19,8 @@ func (
 			Seq:           seq,
 			SessionID:     sessionID,
 			MsgType:       msgType,
-			SenderAddr:    senderAddr,
 			RecipientAddr: remoteAddr.String(),
+			SenderAddr:    srv.recvConn.LocalAddr().String(),
 		},
 		Payload: udp.Message{
 			Content: msg,
@@ -39,14 +37,11 @@ func (srv *Server) SendMessage(
 	msg string,
 ) error {
 
-	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
-
 	return srv.send(
 		remoteAddr,
 		seq,
 		sessionID,
 		udp.MSG_T_Data,
-		localAddr.String(),
 		msg,
 	)
 }
@@ -58,11 +53,11 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, pck udp.Packet, msgType ud
 	replyContent := ""
 	switch msgType {
 	case udp.MSG_T_Ack:
-		replyContent = "ACK"
+		replyContent = srv.ID + " received: ACK"
 	case udp.MSG_T_Commit:
-		replyContent = "COMMIT"
+		replyContent = srv.ID + " received: COMMIT"
 	case udp.MSG_T_Done:
-		replyContent = "DONE"
+		replyContent = srv.ID + " received: DONE"
 	}
 
 	return srv.send(
@@ -70,7 +65,6 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, pck udp.Packet, msgType ud
 		h.Seq+1,
 		h.SessionID,
 		msgType,
-		h.RecipientAddr,
 		replyContent,
 	)
 }
@@ -89,7 +83,7 @@ func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg string) error
 
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(Group4IP),
+		IP:   net.ParseIP(HomeBroadcastIP),
 		Port: BroadcastPort,
 	}
 
