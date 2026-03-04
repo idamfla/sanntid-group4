@@ -6,5 +6,183 @@ how to know if the elevator in question is the issue or the one that it is commu
 
 how to make the elevator kill itself and then start anew
 
+
 how to force another elevator to restart
 */
+
+import(
+ "os"
+ "os/exec"
+ "time"
+)
+
+type Role int
+
+const(
+    RoleSlave Role= iota
+    RoleMaster
+
+)
+
+
+type FaultConfig struct{
+    MasterTimeout time.Duration
+    PeerTimeout time.Duration
+    MotorTimeout time.Duration
+    Tick         time.Duration
+}
+
+type FaultManager struct{
+
+    cfg FaultConfig
+    role Role
+    id int
+
+    lastSeenMaster time.Time
+    lastSeenPeer map[int]time.Time
+
+    lastFloorEvent time.Time
+    motorRunning bool
+
+    online bool
+    faulty bool
+
+    onBecomeMaster func()
+    onPeerDead     func(peerID int)
+    onGoOnline     func()
+    onGoOffline    func()
+    onFaulty       func(reason string)
+
+
+
+}
+
+func NewFaultManager(id int, cfg FaultConfig)*FaultManager{
+    return&FaultManager{
+        cfg:            cfg,
+        id:             id,
+        role:           RoleSlave,
+        online:         true,
+        lastSeenPeer:   make(map[int]time.Time),
+        lastFloorEvent: time.Now(),
+
+ }
+}
+
+
+func(fm*FaultManager) SeenMaster(){
+    fm.lastSeenMaster= time.Now()
+    if!fm.online{
+        fm.online= true
+        if fm.onGoOnline!= nil{
+            fm.onGoOnline()
+         }
+
+ }
+}
+
+func(fm*FaultManager) SeenPeer(peerID int){
+    fm.lastSeenPeer[peerID]= time.Now()
+}
+
+func(fm*FaultManager) FloorEvent(){
+    fm.lastFloorEvent= time.Now()
+
+}
+
+func(fm*FaultManager) SetMotorRunning(running bool){
+	fm.motorRunning= running
+}
+
+func(fm*FaultManager) SetRoleMaster(){
+    fm.role= RoleMaster
+}
+
+func(fm*FaultManager) SetRoleSlave(){
+    fm.role= RoleSlave
+ }
+
+
+func (fm *FaultManager) checkMasterTimeout() {
+    if fm.role != RoleSlave {
+        return
+    }
+
+    if fm.lastSeenMaster.IsZero(){
+        return
+    }
+
+    if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout{
+
+        if fm.online{
+            fm.online= false
+
+            if fm.onGoOffline!= nil{
+                fm.onGoOffline()
+            }
+        }
+    }
+}
+
+
+
+
+ func (fm *FaultManager) checkPeerTimeout() {
+    if fm.role != RoleMaster{
+        return
+    }
+
+    for peerID, ts:= range fm.lastSeenPeer{
+        if (time.Since(ts) > fm.cfg.PeerTimeout){
+            delete(fm.lastSeenPeer, peerID)
+
+            if fm.onPeerDead!= nil{
+                fm.onPeerDead(peerID)
+            }
+        }
+    }
+}
+
+func (fm *FaultManager) checkMotorTimeout() {
+
+    if !fm.motorRunning {
+        return
+    }
+     if time.Since(fm.lastFloorEvent)> fm.cfg.MotorTimeout{
+
+        if!fm.faulty{
+            fm.faulty= true
+
+            if fm.onFaulty!= nil{
+                fm.onFaulty("motor watchdog timeout")
+            }
+        }
+    }
+}
+
+
+func restartSelf(reason string){
+	exe, err:= os.Executable()
+	if err!= nil{
+		os.Exit(1)
+	}
+	cmd:= exec.Command(exe, os.Args[1:]...)
+	cmd.Stdout= os.Stdout
+	cmd.Stderr= os.Stderr
+	= cmd.Start()
+	os.Exit(0)
+}
+
+
+
+func (fm *FaultManager) Run() {
+    _ = cmd.Start()
+    ticker := time.NewTicker(fm.cfg.Tick)
+    defer ticker.Stop()
+
+    for range ticker.C {
+        fm.checkMasterTimeout()
+        fm.checkPeerTimeout()
+        fm.checkMotorTimeout()
+    }
+}
