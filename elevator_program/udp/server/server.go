@@ -50,8 +50,7 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 	// listen on broadcast
 
 	bcConn, bcErr := net.ListenUDP("udp4", &net.UDPAddr{
-		// IP:   net.IPv4zero,             // listen on all interfaces
-		IP:   net.ParseIP(Group4IP),    // listen on specific interface
+		IP:   net.IPv4zero,             // listen on all interfaces
 		Port: BroadcastPort + idOffset, // the port you want to receive on
 	})
 	if bcErr != nil {

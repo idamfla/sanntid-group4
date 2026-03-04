@@ -16,7 +16,7 @@ import (
 
 const (
 	localhost = "127.0.0.1"
-	sender    = "10.100.23.4."
+	myIP      = "10.22.118.234"
 	receiver  = "10.100.23.15"
 )
 
@@ -39,30 +39,6 @@ func testElevator() {
 		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
 	*/
 	select {}
-}
-
-func createServers() (*server.Server, *server.Server) {
-	serverA, err := server.NewServer(localhost, 9000, "A")
-	if err != nil {
-		panic(err)
-	}
-
-	serverB, err := server.NewServer(localhost, 9001, "B")
-	if err != nil {
-		panic(err)
-	}
-
-	// GlobalServers["A"] = serverA
-	// GlobalServers["B"] = serverB
-
-	fmt.Println("Server(s) running...")
-	// Start listening in goroutines
-	go serverA.Listen()
-	go serverB.Listen()
-
-	// Give them a moment to start
-	time.Sleep(time.Second)
-	return serverA, serverB
 }
 
 func testServer(s1 *server.Server, s2 *server.Server) {
@@ -117,7 +93,29 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 }
 
 func main() {
-	serverA, serverB := createServers()
+	serverA, err := server.NewServer(myIP, 9000, "A")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create serverA: %v", err))
+	}
+	if serverA == nil {
+		panic("serverA is nil")
+	}
+
+	serverB, err := server.NewServer(myIP, 9001, "B")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create serverB: %v", err))
+	}
+	if serverB == nil {
+		panic("serverB is nil")
+	}
+
+	fmt.Println("Server(s) running...")
+	// Start listening in goroutines
+	// go serverA.Listen()
+	go serverB.Listen()
+
+	// Give them a moment to start
+	time.Sleep(time.Second)
 
 	// go testServer(serverA, serverB)
 
