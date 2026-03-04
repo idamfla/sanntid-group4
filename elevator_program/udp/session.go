@@ -13,7 +13,7 @@ type Sender interface {
 type Session struct {
 	id       uint32
 	addr     *net.UDPAddr // addr of original sender
-	incoming chan incommingPacket
+	Incoming chan IncomingPacket
 
 	// retries  int
 	// lastSeen time.Time
@@ -27,7 +27,7 @@ func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, sndr Sende
 	ses := &Session{
 		id:       id,
 		addr:     addr,
-		incoming: make(chan incommingPacket, 10),
+		Incoming: make(chan IncomingPacket, 10),
 		pending:  make([]Packet, 0),
 		closeReq: closeReq,
 
@@ -41,7 +41,7 @@ func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, sndr Sende
 
 func (ses *Session) Close() { // TODO maybe guard against closing ses.incoming if already closed ...
 	// optional: close incoming channel if you don't plan to reuse the session
-	close(ses.incoming)
+	close(ses.Incoming)
 
 	fmt.Printf("Session %d closed\n", ses.id)
 }
@@ -60,7 +60,7 @@ func (ses *Session) Run() {
 
 	for {
 		select {
-		case incPck, ok := <-ses.incoming:
+		case incPck, ok := <-ses.Incoming:
 			if !ok {
 				// Channel closed, stop the session
 				fmt.Printf("Session %d incoming channel closed, stopping\n", ses.id)
@@ -79,9 +79,9 @@ func (ses *Session) Run() {
 	}
 }
 
-func (ses *Session) handlePacket(incPck incommingPacket) {
-	pck := incPck.packet
-	addr := incPck.addr // <-- source addr
+func (ses *Session) handlePacket(incPck IncomingPacket) {
+	pck := incPck.Packet
+	addr := incPck.Addr // <-- source addr
 
 	replyAddr, err := net.ResolveUDPAddr("udp", pck.Header.SenderAddr)
 	if err != nil {
