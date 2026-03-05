@@ -64,6 +64,14 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]ButtonStatus, numFloors)
 	e.cabRequests = make([]ButtonStatus, numFloors)
+
+	e.system.hallRequests = make([][2]ButtonStatus, numFloors)
+	e.system.Elevators = make(map[int]ElevatorsStatus)
+	e.system.Elevators[id] = ElevatorsStatus{
+		cabRequests: make([]ButtonStatus, numFloors),
+		id:          id,
+	}
+
 	// e.elevatorState = ES_Uninitialized
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
@@ -117,8 +125,8 @@ func (e Elevator) String() string {
 		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.elevatorState)
 
 	for f := 0; f < len(e.hallRequests); f++ {
-		req := e.hallRequests[f]
-		cab := e.cabRequests[f]
+		req := e.system.hallRequests[f]
+		cab := e.system.Elevators[e.id].cabRequests[f]
 
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%s Down:%s Cab:%s]\n",

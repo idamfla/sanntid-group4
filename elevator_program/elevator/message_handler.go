@@ -4,6 +4,7 @@ import (
 	// "elevator_program/elevator"
 	"elevator_program/elevio"
 	"fmt"
+	"time"
 )
 
 /*
@@ -47,6 +48,8 @@ type Message struct { // TODO Have to make everyone big letters for testing mayb
 
 	// TODO temp need a com number
 	comNumber int
+	// TODO temp Need to know who the mission is to
+	idToElevatorMission int
 
 	// TODO Maybe we need target id as well
 
@@ -235,7 +238,7 @@ func (p Protocol) applyTaskUpdate_slave(e *Elevator, msg Message) {
 }
 
 func (p Protocol) applyRemoteCabUpdate_slave(e *Elevator, msg Message) {
-	e.system.updateRemoteCabBtn(msg.btnStatus, msg.task, e.id)
+	e.system.updateRemoteCabBtn(msg.btnStatus, msg.task, msg.idToElevatorMission)
 }
 
 func (p Protocol) applyLostComsProtocol_slave(e *Elevator, msg Message) {
@@ -262,59 +265,86 @@ func (p *Protocol) applyRegisterAndSyncElevatorToServer(e *Elevator, msg Message
 	e.system.registerAndSyncElevator(*e, msg.elevatorStatus)
 }
 
-func (e Elevator) InitMsg() Message {
-	msg := Message{
-		msgType:  MSG_T_TaskUpdate,
-		senderId: 2,
+func (e Elevator) InitMsg() map[int]Message {
+	msg := make(map[int]Message)
+
+	msg[1] = Message{
+		msgType:  MSG_T_TaskAssign,
+		senderId: 3,
 		task: elevio.ButtonEvent{
 			Floor:  2,
 			Button: elevio.BT_HallUp,
 		},
 		btnStatus: Pending,
 	}
+
+	msg[2] = Message{
+		msgType:  MSG_T_TaskUpdate,
+		senderId: 3,
+		task: elevio.ButtonEvent{
+			Floor:  2,
+			Button: elevio.BT_HallUp,
+		},
+		btnStatus: NotActive,
+	}
+
+	msg[3] = Message{
+		msgType:  MSG_T_TaskUpdate,
+		senderId: 1,
+		task: elevio.ButtonEvent{
+			Floor:  3,
+			Button: elevio.BT_HallDown,
+		},
+		btnStatus: Pending,
+	}
+
+	msg[4] = Message{
+		msgType:  MSG_T_TaskDelegate,
+		senderId: 3,
+		task: elevio.ButtonEvent{
+			Floor:  1,
+			Button: elevio.BT_Cab,
+		},
+		btnStatus:           Pending,
+		idToElevatorMission: 2,
+	}
+
 	return msg
 }
-func TestMsgHandler(numFloors int) {
-	// Create system
-	system := &System{
-		hallRequests: make([][2]ButtonStatus, numFloors),
-		Elevators:    make(map[int]ElevatorsStatus),
-	}
+func (e Elevator) TestMsgHandler(numFloors int) {
+	empty_hallRequests := e.system.hallRequests
 
-	// Create protocol
-	protocol := &Protocol{
-		ackArray: make(map[int]int),
-	}
-
-	// Create elevator
-	e := &Elevator{
-		id:           1,
-		isMaster:     false,
-		system:       *system,
-		protocol:     protocol,
-		msgRecieveCh: make(chan Message, 10),
-	}
-
-	// Fake elevator status
-	system.Elevators[1] = ElevatorsStatus{
-		id:          1,
-		cabRequests: make([]ButtonStatus, numFloors),
-	}
-	system.Elevators[2] = ElevatorsStatus{
+	e.system.Elevators[2] = ElevatorsStatus{
 		id:          2,
 		cabRequests: make([]ButtonStatus, numFloors),
 	}
 
 	fmt.Println("Initial system state:")
-	fmt.Println(system)
+	fmt.Println(e.system)
 
 	// Create test message
 	msg := e.InitMsg()
 
-	fmt.Println("\nSending message:", msg.msgType)
+	for _, currMsg := range msg {
+		fmt.Println("\nSending message:", currMsg.msgType)
 
-	e.MessageHandler(msg)
+		e.MessageHandler(currMsg)
 
+		fmt.Println("\nSystem state after message:")
+		fmt.Println(e.system)
+		time.Sleep(2 * time.Second)
+	}
+	msg[5] = Message{
+		msgType:        MSG_T_NewToChannel,
+		senderId:       3,
+		elevatorStatus: e.system.Elevators[1],
+		fullstate:      &e.system,
+	}
+	e.system.hallRequests = empty_hallRequests
+	e.system.Elevators = make(map[int]ElevatorsStatus)
+	fmt.Println("\nEmpty system:")
+	fmt.Println(e.system)
+	e.MessageHandler(msg[5])
 	fmt.Println("\nSystem state after message:")
-	fmt.Println(system)
+	fmt.Println(e.system)
 }
