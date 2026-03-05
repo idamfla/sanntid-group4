@@ -30,9 +30,9 @@ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
 
 	case HW_T_ButtonPress:
 		if hwEvent.Button == elevio.BT_Cab {
-			e.cabRequests[hwEvent.Floor] = true
+			e.cabRequests[hwEvent.Floor] = Pending
 		} else {
-			e.hallRequests[hwEvent.Floor][hwEvent.Button] = true
+			e.hallRequests[hwEvent.Floor][hwEvent.Button] = Pending
 		}
 		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true) // TODO don't turn on lamp before master says to do so
 

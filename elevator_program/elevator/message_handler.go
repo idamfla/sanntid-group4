@@ -1,6 +1,7 @@
 package elevator
 
 import (
+	// "elevator_program/elevator"
 	"elevator_program/elevio"
 	"fmt"
 )
@@ -37,7 +38,7 @@ const (
 	MSG_S_Applied
 )
 
-type Message struct {
+type Message struct { // TODO Have to make everyone big letters for testing maybe change back
 	msgType        MessageType
 	senderId       int
 	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
@@ -55,7 +56,10 @@ type Message struct {
 	// TODO how to be able to send their chan Message as well
 }
 
-type Protocol struct{}
+type Protocol struct {
+	// TODO temp need a place to put the ack
+	ackArray map[int]int
+}
 
 /*
 TODO Needs this somewhere
@@ -71,17 +75,17 @@ func (p *Protocol) messageHandler_slave(e *Elevator, msg Message) {
 		p.applyStatusReport(e, msg)
 
 	case MSG_T_TaskUpdate:
-		p.applyTaskUpdate(e, msg)
+		p.applyTaskUpdate_slave(e, msg)
 
 	case MSG_T_TaskDelegate:
 		// Delegating task to another elevator, everything that is not cab should be sent on TaskCreate
-		p.applyRemoteCabUpdate(e, msg)
+		p.applyRemoteCabUpdate_slave(e, msg)
 
 	case MSG_T_LostComs:
-		p.applyLostComsProtocol(e, msg)
+		p.applyLostComsProtocol_slave(e, msg)
 
 	case MSG_T_NewToChannel:
-		p.applySystemSync(e, msg)
+		p.applySystemSync_slave(e, msg)
 	}
 }
 
@@ -93,16 +97,9 @@ func (p *Protocol) messageHandler_master(e *Elevator, msg Message) {
 		p.applyStatusReport(e, msg)
 
 	case MSG_T_TaskUpdate:
-		e.addNewRequestToSystem(msg.btnStatus, msg.task, msg.comNumber)
-
-		if msg.btnStatus == NotActive {
-			e.clearHallLamp(msg.task.Floor, msg.task.Button)
-		} else {
-			elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
-		}
+		p.addNewRequestToSystem_master(e, msg)
 
 	case MSG_T_TaskAssign:
-		// Send commit
 		// Then we need to send to everyone that, this request is now running
 		// This need to be sent to everyone except the one we are sending the assignment to
 		// Maybe set on a timer so know it uses to much time
@@ -115,11 +112,11 @@ func (p *Protocol) messageHandler_master(e *Elevator, msg Message) {
 		// I don't know what we should do here just try to say to the slave that master hears you
 
 	case MSG_T_NewToChannel:
-		e.registerAndSyncElevator(msg.elevatorStatus, *msg.fullstate)
+		p.applyRegisterAndSyncElevatorToServer(e, msg)
 	}
 }
 
-func (e *Elevator) messageHandler(msg Message) {
+func (e *Elevator) MessageHandler(msg Message) {
 	if msg.senderId == e.id {
 		return // Ignore own messages
 	}
@@ -131,10 +128,10 @@ func (e *Elevator) messageHandler(msg Message) {
 	}
 }
 
-func (e *Elevator) messageListener(msgCh chan Message) {
+func (e *Elevator) messageListener() { // TODO Maybe need msgCh chan Message
 	fmt.Println("MESSAGE LISTENER STARTED")
 	for msg := range e.msgRecieveCh {
-		e.messageHandler(msg)
+		e.MessageHandler(msg)
 	}
 }
 
@@ -157,13 +154,13 @@ func (s *System) updateRemoteCabBtn(status ButtonStatus, btnEvent elevio.ButtonE
 	s.Elevators[id].cabRequests[btnEvent.Floor] = status
 }
 
-func (s *System) initializeFromSystemState(self ElevatorsStatus, state System) {
+func (s *System) initializeFromSystemState(state System) {
 	s.hallRequests = state.hallRequests
 	s.Elevators = state.Elevators
 }
 
 // TODO This function is wierd, either we need to have it as e or something else if it is msg sending
-func (s *System) handleLostConnection(e Elevator, senderId int) {
+func (e *Elevator) handleLostConnection(senderId int) {
 	// We need a way to know who initiatet the msg:
 	// if we initiated the msg{
 	if senderId == e.ipToId["Master"] {
@@ -177,11 +174,16 @@ func (s *System) handleLostConnection(e Elevator, senderId int) {
 	}
 }
 
-func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fullstate System) {
+func (s *System) registerAndSyncElevator(e Elevator, targetElevator ElevatorsStatus) {
+	// TODO Hmm this is wierd, do we even want Message to be in elevator package??
+	newMessage := Message{
+		senderId: e.id,
+	}
 	// TODO Should we send a init pos?
 	senderId, ok := e.ipToId[targetElevator.ip]
 	if ok {
-		targetElevator = e.elevatorRegistry[senderId]
+
+		newMessage.elevatorStatus = s.Elevators[senderId]
 	} else {
 		// TODO Do the master have itself in the elevatorRegistery?
 		senderId = len(e.elevatorRegistry) + 1
@@ -189,16 +191,16 @@ func (e *Elevator) registerAndSyncElevator(targetElevator ElevatorsStatus, fulls
 			id: senderId,
 			// Hope everything else is already configured
 		}
-		e.elevatorRegistry[senderId] = newElevator
-		targetElevator = newElevator
+		s.Elevators[senderId] = newElevator
+		newMessage.elevatorStatus = newElevator
 	}
-	fullstate.hallRequests = e.hallRequests
-	for id, _ := range e.elevatorRegistry {
-		if senderId == id {
+	s.hallRequests = e.hallRequests
+	for id, currentElevator := range s.Elevators {
+		if newMessage.senderId == id {
 			continue
 		}
 		// TODO We have the ip in the elevatorsStatus struct but maybe we need to send a map of them as well
-		fullstate.Elevators[id] = e.elevatorRegistry[id]
+		newMessage.fullstate.Elevators[id] = currentElevator
 	}
 }
 
@@ -227,30 +229,92 @@ func (p Protocol) applyStatusReport(e *Elevator, msg Message) {
 	e.system.setStatusReport(msg.senderId, msg.elevatorStatus)
 }
 
-func (p Protocol) applyTaskUpdate(e *Elevator, msg Message) {
+func (p Protocol) applyTaskUpdate_slave(e *Elevator, msg Message) {
 	e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
 	e.updateBtnLamp(msg)
 }
 
-func (p Protocol) applyRemoteCabUpdate(e *Elevator, msg Message) {
+func (p Protocol) applyRemoteCabUpdate_slave(e *Elevator, msg Message) {
 	e.system.updateRemoteCabBtn(msg.btnStatus, msg.task, e.id)
 }
 
-func (p Protocol) applyLostComsProtocol(e *Elevator, msg Message) {
-	e.system.handleLostConnection(*e, msg.senderId)
+func (p Protocol) applyLostComsProtocol_slave(e *Elevator, msg Message) {
+	e.handleLostConnection(msg.senderId)
 }
 
-func (p Protocol) applySystemSync(e *Elevator, msg Message) {
-	e.system.initializeFromSystemState(msg.elevatorStatus, *msg.fullstate)
+func (p Protocol) applySystemSync_slave(e *Elevator, msg Message) {
+	e.system.initializeFromSystemState(*msg.fullstate)
 	e.setConnectionState(msg.elevatorStatus)
 }
 
-func (p Protocol) addNewRequestToSystem(e *Elevator, msg Message) {
-	if e.ackArray[comNumber] == len(e.elevatorRegistry) {
+func (p *Protocol) addNewRequestToSystem_master(e *Elevator, msg Message) {
+	if p.ackArray[msg.comNumber] == len(e.elevatorRegistry) { // TODO is this the right length??
 		// Send commit message
-		e.setRequestStatus(btnStatus, task)
+		e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
+		e.updateBtnLamp(msg)
 	} else {
 		// TODO Maybe need to check that it is a unique elevator and not the same
-		e.ackArray[comNumber] += 1
+		p.ackArray[msg.comNumber] += 1
 	}
+}
+
+func (p *Protocol) applyRegisterAndSyncElevatorToServer(e *Elevator, msg Message) {
+	e.system.registerAndSyncElevator(*e, msg.elevatorStatus)
+}
+
+func (e Elevator) InitMsg() Message {
+	msg := Message{
+		msgType:  MSG_T_TaskUpdate,
+		senderId: 2,
+		task: elevio.ButtonEvent{
+			Floor:  2,
+			Button: elevio.BT_HallUp,
+		},
+		btnStatus: Pending,
+	}
+	return msg
+}
+func TestMsgHandler(numFloors int) {
+	// Create system
+	system := &System{
+		hallRequests: make([][2]ButtonStatus, numFloors),
+		Elevators:    make(map[int]ElevatorsStatus),
+	}
+
+	// Create protocol
+	protocol := &Protocol{
+		ackArray: make(map[int]int),
+	}
+
+	// Create elevator
+	e := &Elevator{
+		id:           1,
+		isMaster:     false,
+		system:       *system,
+		protocol:     protocol,
+		msgRecieveCh: make(chan Message, 10),
+	}
+
+	// Fake elevator status
+	system.Elevators[1] = ElevatorsStatus{
+		id:          1,
+		cabRequests: make([]ButtonStatus, numFloors),
+	}
+	system.Elevators[2] = ElevatorsStatus{
+		id:          2,
+		cabRequests: make([]ButtonStatus, numFloors),
+	}
+
+	fmt.Println("Initial system state:")
+	fmt.Println(system)
+
+	// Create test message
+	msg := e.InitMsg()
+
+	fmt.Println("\nSending message:", msg.msgType)
+
+	e.MessageHandler(msg)
+
+	fmt.Println("\nSystem state after message:")
+	fmt.Println(system)
 }

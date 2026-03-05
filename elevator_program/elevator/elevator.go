@@ -54,9 +54,6 @@ type Elevator struct {
 	// TODO Trying to split ut the code
 	protocol *Protocol // TODO should we remove this one from elevator struct and put in a different package
 	system   System
-
-	// TODO temp need a place to put the ack
-	ackArray map[int]int
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
@@ -124,7 +121,7 @@ func (e Elevator) String() string {
 		cab := e.cabRequests[f]
 
 		s += fmt.Sprintf(
-			"	floor %d: [Up:%s Down:%s Cab:%t]\n",
+			"	floor %d: [Up:%s Down:%s Cab:%s]\n",
 			f,
 			req[elevio.BT_HallUp],
 			req[elevio.BT_HallDown],
