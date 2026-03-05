@@ -6,6 +6,7 @@ import (
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
+
 )
 
 type ButtonStatus int
@@ -19,6 +20,8 @@ const (
 
 type Elevator struct {
 	id int
+
+    offline         bool
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -42,6 +45,8 @@ type Elevator struct {
 
 	isMaster         bool
 	elevatorRegistry map[string]ElevatorsStatus
+
+	faultTolerance            *FaultManager
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
@@ -62,13 +67,30 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
-}
+
+
+	e.faultTolerance = NewFaultManager(id, FaultConfig{
+	    StartupGrace:  2 * time.Second,
+	    MasterTimeout: 1 * time.Second,
+	    PeerTimeout:   1 * time.Second,
+	    MotorTimeout:  4 * time.Second,
+	    Tick:          50 * time.Millisecond,
+	    })
+    }
 
 func (e *Elevator) RunElevatorProgram() {
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
+
+	e.faultTolerance.onGoOffline = func() { e.enterOfflineMode() }
+	e.faultTolerance.onGoOnline = func() { e.exitOfflineMode()  }
+	e.faultTolerance.onFaulty = func(reason string) { e.handleFault(reason) }
+	e.faultTolerance.onPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
+
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
+	go e.faultTolerance.Run()
+	
 	e.StartHardwareEventsListeners()
 
 	done := make(chan struct{})

@@ -29,6 +29,11 @@ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
 		e.emergencyStop = hwEvent.EmergencyStop
 
 	case HW_T_ButtonPress:
+        if e.offline && hwEvent.Button != elevio.BT_Cab {
+                elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, false)
+                break
+            }
+
 		if hwEvent.Button == elevio.BT_Cab {
 			e.cabRequests[hwEvent.Floor] = true
 		} else {

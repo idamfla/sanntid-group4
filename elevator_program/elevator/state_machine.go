@@ -85,6 +85,7 @@ func (e Elevator) uninitializedAction() elevio.MotorDirection {
 func (e *Elevator) updateElevatorState() { // TODO rename, this change state and controls the motor
 	if e.emergencyStop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
+	    e.faultTolerance.SetMotorRunning(false)
 		return
 	}
 
@@ -95,6 +96,8 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 
 	if e.elevatorState != ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
+		e.faultTolerance.SetMotorRunning(false)
+
 		return
 	}
 
@@ -141,11 +144,13 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 			}
 		}
 	case ES_EmergencyStop:
+        elevio.SetMotorDirection(elevio.MD_Stop)
+        e.faultTolerance.SetMotorRunning(false)
 		return
 	}
 
 	elevio.SetMotorDirection(dir)
-}
+    e.faultTolerance.SetMotorRunning(dir != elevio.MD_Stop)}
 
 func (e *Elevator) RunElevatorStateMachine() {
 	fmt.Println("ELEVATOR STATE MACHINE STARTED")

@@ -11,6 +11,7 @@ how to force another elevator to restart
 */
 
 import(
+ "fmt"
  "os"
  "os/exec"
  "time"
@@ -26,6 +27,7 @@ const(
 
 
 type FaultConfig struct{
+    StartupGrace  time.Duration
     MasterTimeout time.Duration
     PeerTimeout time.Duration
     MotorTimeout time.Duration
@@ -35,8 +37,10 @@ type FaultConfig struct{
 type FaultManager struct{
 
     cfg FaultConfig
-    role Role
+    role Role //TODO: do we need this?
     id int
+
+    startedAt time.Time
 
     lastSeenMaster time.Time
     lastSeenPeer map[int]time.Time
@@ -63,8 +67,11 @@ func NewFaultManager(id int, cfg FaultConfig)*FaultManager{
         id:             id,
         role:           RoleSlave,
         online:         true,
+
+        startedAt:      time.Now(),
         lastSeenPeer:   make(map[int]time.Time),
         lastFloorEvent: time.Now(),
+        lastSeenMaster: time.Now(),
 
  }
 }
@@ -72,7 +79,7 @@ func NewFaultManager(id int, cfg FaultConfig)*FaultManager{
 
 func(fm*FaultManager) SeenMaster(){
     fm.lastSeenMaster= time.Now()
-    if!fm.online{
+    if !fm.online{
         fm.online= true
         if fm.onGoOnline!= nil{
             fm.onGoOnline()
@@ -104,6 +111,11 @@ func(fm*FaultManager) SetRoleSlave(){
 
 
 func (fm *FaultManager) checkMasterTimeout() {
+
+    if time.Since(fm.startedAt) < fm.cfg.StartupGrace {
+            return
+        }
+
     if fm.role != RoleSlave {
         return
     }
@@ -113,6 +125,7 @@ func (fm *FaultManager) checkMasterTimeout() {
     }
 
     if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout{
+        fmt.Println("Master timeout detected")
 
         if fm.online{
             fm.online= false
@@ -134,6 +147,8 @@ func (fm *FaultManager) checkMasterTimeout() {
 
     for peerID, ts:= range fm.lastSeenPeer{
         if (time.Since(ts) > fm.cfg.PeerTimeout){
+
+            fmt.Println("Peer timeout:", peerID)
             delete(fm.lastSeenPeer, peerID)
 
             if fm.onPeerDead!= nil{
@@ -161,22 +176,22 @@ func (fm *FaultManager) checkMotorTimeout() {
 }
 
 
-func restartSelf(reason string){
-	exe, err:= os.Executable()
-	if err!= nil{
-		os.Exit(1)
-	}
-	cmd:= exec.Command(exe, os.Args[1:]...)
-	cmd.Stdout= os.Stdout
-	cmd.Stderr= os.Stderr
-	= cmd.Start()
-	os.Exit(0)
+func restartSelf() {
+    exe, err := os.Executable()
+    if err != nil {
+        os.Exit(1)
+    }
+
+    cmd := exec.Command(exe, os.Args[1:]...)
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+
+    _ = cmd.Start()
+    os.Exit(0)
 }
 
 
-
 func (fm *FaultManager) Run() {
-    _ = cmd.Start()
     ticker := time.NewTicker(fm.cfg.Tick)
     defer ticker.Stop()
 
