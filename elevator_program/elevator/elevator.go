@@ -20,6 +20,7 @@ const (
 type System struct {
 	hallRequests [][2]ButtonStatus
 	Elevators    map[int]ElevatorsStatus
+	// mutex        sync.Mutex // Add a mutex to protect shared data
 }
 
 type Elevator struct {
@@ -71,6 +72,11 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 		cabRequests: make([]ButtonStatus, numFloors),
 		id:          id,
 	}
+	e.isMaster = false
+
+	e.protocol = &Protocol{
+		ackArray: make(map[int]int),
+	} // Initialize the Protocol field
 
 	// e.elevatorState = ES_Uninitialized
 
@@ -90,7 +96,11 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
+	time.Sleep(10 * time.Second)
 
+	// Temp for testing msgHandler
+	// go e.TestMsgHandler(4)
+	go e.TestMsgHandler_Master(4)
 	done := make(chan struct{})
 	<-done
 }

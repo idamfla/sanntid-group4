@@ -3,7 +3,6 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
-	"time"
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
@@ -29,10 +28,8 @@ func testElevator() {
 	elevio.Init(ip_address+":"+port, numFloors)
 
 	e.InitElevator(id, numFloors, initFloor)
-
 	e.RunElevatorProgram()
-	time.Sleep(5 * time.Second)
-	go e.TestMsgHandler(numFloors)
+
 	/*
 		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
 	*/

@@ -26,19 +26,24 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
-			if e.system.Elevators[e.id].cabRequests[f] == Pending { // Changed to be compatible with system struct
+			if e.system.Elevators[e.id].cabRequests[f] != NotActive { // Changed to be compatible with system struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if e.system.hallRequests[f][elevio.BT_HallUp] == Pending { // Changed to be compatible with system struct
-				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
+			} else if e.system.hallRequests[f][elevio.BT_HallUp] != NotActive { // Changed to be compatible with system struct
+				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallUp { // To not steal anyone elses task
+					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
+				}
 			}
 		}
 	case elevio.MD_Down:
 		for f := from; f >= to; f-- {
-			if e.system.Elevators[e.id].cabRequests[f] == Pending { // Changed to be compatible with system struct
+			if e.system.Elevators[e.id].cabRequests[f] != NotActive { // Changed to be compatible with system struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if e.system.hallRequests[f][elevio.BT_HallDown] == Pending { // Changed to be compatible with system struct
-				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
+
+			} else if e.system.hallRequests[f][elevio.BT_HallDown] != NotActive { // Changed to be compatible with system struct
+				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallDown { // To not steal anyone elses task
+					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
+				}
 			}
 
 		}
@@ -54,7 +59,7 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - e.currentFloor)
 
-		if e.system.Elevators[e.id].cabRequests[f] == Pending { // Changed to be compatible with system struct
+		if e.system.Elevators[e.id].cabRequests[f] != NotActive { // Changed to be compatible with system struct
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab

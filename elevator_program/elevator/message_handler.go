@@ -4,7 +4,6 @@ import (
 	// "elevator_program/elevator"
 	"elevator_program/elevio"
 	"fmt"
-	"time"
 )
 
 /*
@@ -77,6 +76,10 @@ func (p *Protocol) messageHandler_slave(e *Elevator, msg Message) {
 		// target the updated elevator in the map and add the changes
 		p.applyStatusReport(e, msg)
 
+	case MSG_T_TaskAssign:
+		e.nextTarget = msg.task // TODO you should not be able to loose this requests unless you get a new TaskAssign
+		p.applyTaskUpdate_slave(e, msg)
+
 	case MSG_T_TaskUpdate:
 		p.applyTaskUpdate_slave(e, msg)
 
@@ -145,7 +148,6 @@ func (s *System) setStatusReport(senderId int, targetElevator ElevatorsStatus) {
 func (s *System) setRequestStatus(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
 	f := btnEvent.Floor
 	b := btnEvent.Button
-
 	if b == elevio.BT_Cab {
 		s.Elevators[id].cabRequests[f] = status
 	} else {
@@ -219,6 +221,7 @@ func (e *Elevator) setConnectionState(self ElevatorsStatus) {
 	e.id = self.id
 	e.isMaster = false
 	e.connectedToMaster = true
+	e.elevatorState = ES_Idle
 	// e.ipToId Need to know the ip/id to the others
 }
 
@@ -251,100 +254,16 @@ func (p Protocol) applySystemSync_slave(e *Elevator, msg Message) {
 }
 
 func (p *Protocol) addNewRequestToSystem_master(e *Elevator, msg Message) {
-	if p.ackArray[msg.comNumber] == len(e.elevatorRegistry) { // TODO is this the right length??
+	// TODO Maybe need to check that it is a unique elevator and not the same
+	p.ackArray[msg.comNumber] += 1
+	if p.ackArray[msg.comNumber] == (len(e.system.Elevators) - 1) {
 		// Send commit message
 		e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
 		e.updateBtnLamp(msg)
-	} else {
-		// TODO Maybe need to check that it is a unique elevator and not the same
-		p.ackArray[msg.comNumber] += 1
+		// Then we need to close the msg
 	}
 }
 
 func (p *Protocol) applyRegisterAndSyncElevatorToServer(e *Elevator, msg Message) {
 	e.system.registerAndSyncElevator(*e, msg.elevatorStatus)
-}
-
-func (e Elevator) InitMsg() map[int]Message {
-	msg := make(map[int]Message)
-
-	msg[1] = Message{
-		msgType:  MSG_T_TaskAssign,
-		senderId: 3,
-		task: elevio.ButtonEvent{
-			Floor:  2,
-			Button: elevio.BT_HallUp,
-		},
-		btnStatus: Pending,
-	}
-
-	msg[2] = Message{
-		msgType:  MSG_T_TaskUpdate,
-		senderId: 3,
-		task: elevio.ButtonEvent{
-			Floor:  2,
-			Button: elevio.BT_HallUp,
-		},
-		btnStatus: NotActive,
-	}
-
-	msg[3] = Message{
-		msgType:  MSG_T_TaskUpdate,
-		senderId: 1,
-		task: elevio.ButtonEvent{
-			Floor:  3,
-			Button: elevio.BT_HallDown,
-		},
-		btnStatus: Pending,
-	}
-
-	msg[4] = Message{
-		msgType:  MSG_T_TaskDelegate,
-		senderId: 3,
-		task: elevio.ButtonEvent{
-			Floor:  1,
-			Button: elevio.BT_Cab,
-		},
-		btnStatus:           Pending,
-		idToElevatorMission: 2,
-	}
-
-	return msg
-}
-func (e Elevator) TestMsgHandler(numFloors int) {
-	empty_hallRequests := e.system.hallRequests
-
-	e.system.Elevators[2] = ElevatorsStatus{
-		id:          2,
-		cabRequests: make([]ButtonStatus, numFloors),
-	}
-
-	fmt.Println("Initial system state:")
-	fmt.Println(e.system)
-
-	// Create test message
-	msg := e.InitMsg()
-
-	for _, currMsg := range msg {
-		fmt.Println("\nSending message:", currMsg.msgType)
-
-		e.MessageHandler(currMsg)
-
-		fmt.Println("\nSystem state after message:")
-		fmt.Println(e.system)
-		time.Sleep(2 * time.Second)
-	}
-	msg[5] = Message{
-		msgType:        MSG_T_NewToChannel,
-		senderId:       3,
-		elevatorStatus: e.system.Elevators[1],
-		fullstate:      &e.system,
-	}
-	e.system.hallRequests = empty_hallRequests
-	e.system.Elevators = make(map[int]ElevatorsStatus)
-	fmt.Println("\nEmpty system:")
-	fmt.Println(e.system)
-	e.MessageHandler(msg[5])
-	fmt.Println("\nSystem state after message:")
-	fmt.Println(e.system)
 }
