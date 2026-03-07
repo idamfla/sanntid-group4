@@ -7,8 +7,9 @@ import (
 
 type ElevatorsStatus struct {
 	Id           int
+	Ip           string
 	CurrentFloor int
-	CabRequests  []bool
+	CabRequests  []ButtonStatus
 	Target       elevio.ButtonEvent
 	Direction    elevio.MotorDirection
 	State        ElevatorState

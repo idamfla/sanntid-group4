@@ -25,7 +25,7 @@ func (e Elevator) atTargetFloor() bool {
 }
 
 func (e Elevator) isTargetValid() bool {
-	return e.nextTarget.Floor >= 0 || e.nextTarget.Floor < len(e.hallRequests)
+	return e.nextTarget.Floor >= 0 && e.nextTarget.Floor < len(e.hallRequests)
 }
 
 func (e Elevator) getMotion(target int) elevio.MotorDirection {
@@ -135,6 +135,18 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 		} else {
 			nextTarget, dir = e.computeNextTargetAndDirection()
 			if nextTarget.Floor != -1 {
+				// TODO I don't know if this is the best way to write it but now can use running
+				if e.nextTarget.Button == elevio.BT_Cab {
+					e.system.Elevators[e.id].CabRequests[e.nextTarget.Floor] = Pending // TODO Need to message that the buttons have changed
+				} else {
+					e.system.hallRequests[e.nextTarget.Floor][e.nextTarget.Button] = Pending // TODO Need to message that the buttons have changed
+				}
+
+				if nextTarget.Button == elevio.BT_Cab {
+					e.system.Elevators[e.id].CabRequests[nextTarget.Floor] = Running
+				} else {
+					e.system.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
+				}
 				e.nextTarget = nextTarget
 				// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
 				e.updateDirection(nextTarget, dir)

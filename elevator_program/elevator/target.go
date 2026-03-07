@@ -82,7 +82,7 @@ func (e Elevator) ClosestToTarget(elevatorRegistry map[int]*ElevatorsStatus, new
 
 // when an elevator asks for a new target
 // Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
-func (e Elevator) computeNewTarget(currFloor int, cabRequests []bool, dir elevio.MotorDirection) elevio.ButtonEvent {
+func (e Elevator) computeNewTarget(currFloor int, cabRequests []ButtonStatus, dir elevio.MotorDirection) elevio.ButtonEvent {
 	// ruffly same as the basic scan_logic
 
 	// Hallrequests need to change its logic, pending, active, ...
