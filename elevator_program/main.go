@@ -3,6 +3,7 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
+	"elevator_program/udp"
 	"elevator_program/udp/server"
 	"fmt"
 	"os"
@@ -41,8 +42,8 @@ func testElevator() {
 	select {}
 }
 
-func createServer(port int, id string) *server.Server {
-	s1, err := server.NewServer(localIP, port, id)
+func createServer(port int, id string, ch1 chan<- udp.ElevatorMessage) *server.Server {
+	s1, err := server.NewServer(localIP, port, id, ch1)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create s1: %v", err))
 	}
@@ -68,11 +69,14 @@ func createServer(port int, id string) *server.Server {
 func testServer(s1 *server.Server, s2 *server.Server) {
 	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
 
+	aMsg := udp.Message{Content: "Hello from A"}
+	bMsg := udp.Message{Content: "Hello from B"}
+
 	// Server A sends to B
-	go s1.SendSession(1, "127.0.0.1", 9001, "Hello from A")
+	go s1.SendSession(1, "127.0.0.1", 9001, aMsg)
 
 	// Server B sends to A
-	go s2.SendSession(2, "127.0.0.1", 9000, "Hello from B")
+	go s2.SendSession(2, "127.0.0.1", 9000, bMsg)
 }
 
 func testBroadcast_send(srv *server.Server) {
@@ -82,7 +86,7 @@ func testBroadcast_send(srv *server.Server) {
 	seq := uint32(0)
 	sessionID := uint32(1) // or whatever you need
 
-	bcMsg := "Hello, broadcast from " + srv.ID
+	bcMsg := udp.Message{Content: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
 		err := srv.SendBroadcast(seq, sessionID, bcMsg)
@@ -118,20 +122,27 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 }
 
 func main() {
-	serverA := createServer(9000, "A")
-	serverB := createServer(9001, "B")
+	chA := make(chan udp.ElevatorMessage)
+	serverA := createServer(9000, "A", chA)
+
+	chB := make(chan udp.ElevatorMessage)
+	serverB := createServer(9001, "B", chB)
 
 	// go serverA.SendSession(1, "127.0.0.1", 9001, "Hello from A")
 
-	// go testServer(serverA, serverB)
+	go testServer(serverA, serverB)
 
 	go serverA.Listen()
 	go serverB.Listen()
 
 	// bcMsg := "Hello, broadcast from " + "A"
-	// serverA.SendBroadcast(1, 1, bcMsg)
+	// serverA.SendBroadcast(1, 1, udp.Message{Content: bcMsg})
 
-	go testBroadcast_send(serverA)
+	// go testBroadcast_send(serverA)
+
+	for msg := range chB {
+		fmt.Println("mshChan test:", msg)
+	}
 
 	closeProgram(serverA, serverB)
 }

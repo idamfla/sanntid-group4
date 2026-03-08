@@ -11,7 +11,7 @@ func (srv *Server) send(
 	seq uint32,
 	sessionID uint32,
 	msgType udp.MessageType,
-	msg string,
+	msg udp.Message,
 ) error {
 
 	pck := udp.Packet{
@@ -22,9 +22,7 @@ func (srv *Server) send(
 			RecipientAddr: remoteAddr.String(),
 			SenderAddr:    srv.recvConn.LocalAddr().String(),
 		},
-		Payload: udp.Message{
-			Content: msg,
-		},
+		Payload: msg,
 	}
 
 	return udp.SendPacket(srv.sendConn, remoteAddr, pck)
@@ -34,7 +32,7 @@ func (srv *Server) SendMessage(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msg string,
+	msg udp.Message,
 ) error {
 
 	return srv.send(
@@ -46,9 +44,7 @@ func (srv *Server) SendMessage(
 	)
 }
 
-func (srv *Server) SendReply(remoteAddr *net.UDPAddr, pck udp.Packet, msgType udp.MessageType) error {
-	h := pck.Header
-
+func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType udp.MessageType) error {
 	// TODO maybe it's own function, what to when skipping commit messages and go straight to "done"
 	replyContent := ""
 	switch msgType {
@@ -62,32 +58,25 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, pck udp.Packet, msgType ud
 
 	return srv.send(
 		remoteAddr,
-		h.Seq+1,
-		h.SessionID,
+		seq,
+		sessionID,
 		msgType,
-		replyContent,
+		udp.Message{Content: replyContent},
 	)
 }
 
-func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg string) error {
-	// Broadcast address (255.255.255.255/net.IPv4bcast sends to entire subnet) --> we use local subnet
-	// localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
-	// localIP := localAddr.IP
-
-	// broadcastIP := net.IPv4(localIP[0], localIP[1], localIP[2], 255)
-
-	// addr := &net.UDPAddr{
-	// 	IP:   net.ParseIP(broadcastIP),
-	// 	Port: BroadcastPort,
-	// }
-
+func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg udp.Message) error {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(HomeBroadcastIP),
 		Port: BroadcastPort,
 	}
 
-	// TODO make session, send count of recipients
-
-	return srv.SendMessage(addr, seq, sessionID, msg)
+	return srv.send(
+		addr,
+		seq,
+		sessionID,
+		udp.MSG_T_BroadcastData,
+		msg,
+	)
 }

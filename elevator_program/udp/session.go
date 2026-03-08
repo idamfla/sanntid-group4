@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
-type Sender interface {
-	SendReply(remoteAddr *net.UDPAddr, pck Packet, msgType MessageType) error
+type PacketSender interface {
+	SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType MessageType) error
+	SendBroadcast(seq uint32, sessionID uint32, msg Message) error
 }
 
 type Session struct {
@@ -17,21 +18,27 @@ type Session struct {
 
 	// retries  int
 	// lastSeen time.Time
-	pending  []Packet
-	closeReq chan<- uint32
+	pending  Message
+	closeReq chan<- uint32 // make the server/owner close this session
 
-	sender Sender // <-- session uses this to reply
+	// communication with the actual elevator
+	elev     chan<- ElevatorMessage
+	elevDone chan Message
+
+	tx PacketSender // <-- session uses this to reply
 }
 
-func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, sndr Sender) *Session {
+func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, elevator chan<- ElevatorMessage, transmitter PacketSender) *Session {
 	ses := &Session{
 		id:       id,
 		addr:     addr,
 		Incoming: make(chan IncomingPacket, 10),
-		pending:  make([]Packet, 0),
+		pending:  Message{},
 		closeReq: closeReq,
 
-		sender: sndr,
+		elev: elevator,
+
+		tx: transmitter,
 	}
 
 	go ses.Run()
@@ -81,6 +88,7 @@ func (ses *Session) Run() {
 
 func (ses *Session) handlePacket(incPck IncomingPacket) {
 	pck := incPck.Packet
+	h := pck.Header
 
 	replyAddr, err := net.ResolveUDPAddr("udp", pck.Header.SenderAddr)
 	if err != nil {
@@ -88,22 +96,49 @@ func (ses *Session) handlePacket(incPck IncomingPacket) {
 		return
 	}
 
-	switch pck.Header.MsgType {
+	switch h.MsgType {
 	case MSG_T_Data:
-		ses.pending = append(ses.pending, pck)
-		ses.sender.SendReply(replyAddr, pck, MSG_T_Ack)
+		ses.pending = pck.Payload
+		ses.tx.SendReply(replyAddr, h.Seq+1, h.SessionID, MSG_T_Ack)
+
+	case MSG_T_BroadcastData:
+		ses.pending = pck.Payload
+		ses.tx.SendReply(replyAddr, h.Seq+1, h.SessionID, MSG_T_BroadcastAck)
+
+	case MSG_T_MasterData:
+		// ses.tx.SendReply(replyAddr, h.Seq+1, h.SessionID, MSG_T_Done)
+		// go ses.startTimeWaitTimer()
 
 	case MSG_T_Ack:
-		ses.sender.SendReply(replyAddr, pck, MSG_T_Commit)
+		ses.tx.SendReply(replyAddr, h.Seq+1, h.SessionID, MSG_T_Commit)
+
+	case MSG_T_BroadcastAck:
 
 	case MSG_T_Commit:
 		// clear pending
-		ses.pending = ses.pending[:0]
-		ses.sender.SendReply(replyAddr, pck, MSG_T_Done)
+		ses.elev <- ElevatorMessage{
+			SessionID: ses.id,
+			Message:   ses.pending,
+			Done:      ses.elevDone,
+		}
+
+		// TODO make elevator send to channel ses.elev.CommitDone (rename later) when it has completed the task
+		ses.pending = Message{}
+		ses.tx.SendReply(replyAddr, h.Seq+1, h.SessionID, MSG_T_Done)
 		go ses.startTimeWaitTimer()
 
+	case MSG_T_BroadcastCommit:
+		// // clear pending
+		// ses.pending = ses.pending[:0]
+		// ses.commitCh <- pck.Payload
+
 	case MSG_T_Done:
-		// tell session initator/manager to remove this session
 		ses.closeReq <- ses.id
+
+	case MSG_T_BroadcastDone:
+		// bcDone++
+		// if bcDone >= 60% of active elevators {
+		// 	ses.closeReq <- ses.id
+		// }
 	}
 }

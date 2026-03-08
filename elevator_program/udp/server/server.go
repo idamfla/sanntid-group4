@@ -25,9 +25,11 @@ type Server struct {
 
 	stopListening chan struct{}
 	wg            sync.WaitGroup
+
+	elevator chan<- udp.ElevatorMessage
 }
 
-func NewServer(ip string, port int, id string) (*Server, error) {
+func NewServer(ip string, port int, id string, toElevator chan<- udp.ElevatorMessage) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -46,15 +48,7 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 	}
 
 	// create broadcast-listening UDP socket
-
-	bcConn, err := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4zero,                       // listen on all interfaces
-		Port: BroadcastPort - 1 + int(id[0]-'A'), // the port you want to receive on
-		// Port: BroadcastPort,
-	})
-	if err != nil {
-		return nil, err
-	}
+	bcConn, err := NewReusableListenUDPConn(BroadcastPort)
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
@@ -69,6 +63,7 @@ func NewServer(ip string, port int, id string) (*Server, error) {
 		sessions:      make(map[uint32]*udp.Session),
 		closeReq:      make(chan uint32),
 		stopListening: make(chan struct{}),
+		elevator:      toElevator,
 	}
 
 	return srv, nil

@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"elevator_program/udp"
 	"errors"
 	"fmt"
 	"net"
+	"syscall"
 )
 
 func (srv *Server) Listen() {
@@ -39,7 +41,7 @@ func (srv *Server) handleIncoming(incPck udp.IncomingPacket) {
 	ses, exists := srv.sessions[id]
 
 	if !exists {
-		ses = udp.NewSession(id, incPck.Addr, srv.closeReq, srv)
+		ses = udp.NewSession(id, incPck.Addr, srv.closeReq, srv.elevator, srv)
 		srv.sessions[id] = ses
 	}
 	srv.mu.Unlock()
@@ -49,6 +51,7 @@ func (srv *Server) handleIncoming(incPck udp.IncomingPacket) {
 	sent from : %s
 	to        : %s
 	reply sock: %s
+	msgType   : %s
 	msg: %+v
 `,
 		srv.ID,
@@ -56,6 +59,7 @@ func (srv *Server) handleIncoming(incPck udp.IncomingPacket) {
 		incPck.Addr.String(),
 		incPck.Packet.Header.RecipientAddr,
 		incPck.Packet.Header.SenderAddr,
+		incPck.Packet.Header.MsgType,
 		incPck.Packet.Payload,
 	)
 
@@ -92,4 +96,22 @@ func (srv *Server) readLoop(conn *net.UDPConn, out chan<- udp.IncomingPacket) {
 			Addr:   addr,
 		}
 	}
+}
+
+// Helper
+func NewReusableListenUDPConn(port int) (*net.UDPConn, error) {
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			})
+		},
+	}
+
+	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
+	return pc.(*net.UDPConn), nil
 }

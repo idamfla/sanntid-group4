@@ -1,11 +1,12 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"fmt"
 	"net"
 )
 
-func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int, message string) error {
+func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int, msg udp.Message) error {
 	addr := fmt.Sprintf("%s:%d", remoteIP, remotePort)
 	remoteAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
@@ -14,5 +15,5 @@ func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int
 
 	seq := uint32(1) // could be improved per session
 
-	return srv.SendMessage(remoteAddr, seq, sessionID, message)
+	return srv.SendMessage(remoteAddr, seq, sessionID, msg)
 }
