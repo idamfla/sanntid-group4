@@ -36,7 +36,8 @@ func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, elevator c
 		pending:  Message{},
 		closeReq: closeReq,
 
-		elev: elevator,
+		elev:     elevator,
+		elevDone: make(chan Message),
 
 		tx: transmitter,
 	}
@@ -49,6 +50,7 @@ func NewSession(id uint32, addr *net.UDPAddr, closeReq chan<- uint32, elevator c
 func (ses *Session) Close() { // TODO maybe guard against closing ses.incoming if already closed ...
 	// optional: close incoming channel if you don't plan to reuse the session
 	close(ses.Incoming)
+	close(ses.elevDone)
 
 	fmt.Printf("Session %d closed\n", ses.id)
 }
