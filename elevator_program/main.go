@@ -129,20 +129,21 @@ func main() {
 	chB := make(chan session.PacketContext)
 	serverB := createServer(9001, "B", chB)
 
-	// go serverA.SendSession(1, "127.0.0.1", 9001, "Hello from A")
+	go serverA.SendSession(1, "127.0.0.1", 9001, message.Message{Content: "Hello from A"})
 
-	go testServer(serverA, serverB)
+	// go testServer(serverA, serverB)
 
 	go serverA.Listen()
 	go serverB.Listen()
 
 	// bcMsg := "Hello, broadcast from " + "A"
-	// serverA.SendBroadcast(1, 1, udp.Message{Content: bcMsg})
+	// serverA.SendBroadcast(1, 1, message.Message{Content: bcMsg})
 
 	// go testBroadcast_send(serverA)
 
 	for msg := range chB {
-		fmt.Println("msgCh test:", msg)
+		fmt.Println("msgCh test:", msg.Packet.Payload.Content)
+		close(msg.Done)
 	}
 
 	closeProgram(serverA, serverB)

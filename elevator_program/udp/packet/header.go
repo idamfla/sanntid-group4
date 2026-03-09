@@ -10,6 +10,8 @@ const (
 	PKT_T_Ack
 	PKT_T_BroadcastAck
 	PKT_T_Commit
+	PKT_T_CommitReceived
+	PKT_T_CommitFailed
 	PKT_T_BroadcastCommit
 	PKT_T_Done
 	PKT_T_BroadcastDone
@@ -39,6 +41,10 @@ func (p PacketType) String() string {
 		return "Broadcast Ack"
 	case PKT_T_Commit:
 		return "Commit"
+	case PKT_T_CommitReceived:
+		return "Commit Received"
+	case PKT_T_CommitFailed:
+		return "Commit Failed"
 	case PKT_T_BroadcastCommit:
 		return "Broadcast Commit"
 	case PKT_T_Done:

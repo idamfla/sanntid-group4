@@ -13,7 +13,7 @@ func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int
 		return fmt.Errorf("resolve UDP addr: %w", err)
 	}
 
-	seq := uint32(1) // could be improved per session
+	seq := uint32(1) // could be incremented per session
 
 	return srv.SendMessage(remoteAddr, seq, sessionID, msg)
 }
