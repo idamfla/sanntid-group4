@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// TODO rename
 type ElevatorsStatus struct {
 	Id           int
 	Ip           string

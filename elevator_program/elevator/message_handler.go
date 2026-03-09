@@ -3,6 +3,7 @@ package elevator
 import (
 	// "elevator_program/elevator"
 	"elevator_program/elevio"
+	"elevator_program/utilities"
 	"fmt"
 )
 
@@ -11,52 +12,6 @@ import (
 Trying to use new infrastructure
 --------------------------------
 */
-
-// TODO Chat saying this MSG_T_ naming convention is very c -style and noisy in Go
-type MessageType int
-
-const (
-	MSG_T_StatusReport MessageType = iota
-
-	MSG_T_TaskCreate   // a new task is created/published
-	MSG_T_TaskAssign   // a task is assigned to you
-	MSG_T_TaskDelegate // a task is assigned to another person
-	MSG_T_TaskUpdate   // task changed, Don't think we need it
-	MSG_T_TaskComplete // task was completed
-	MSG_T_TaskRequest  // someone requests a new task
-	MSG_T_LostComs     // A routine to check if you have lost communication
-	MSG_T_NewToChannel // Send the latest information
-)
-
-// TODO Same thing as the comment above MSG_S_
-type MessageState int
-
-const (
-	MSG_S_Sent MessageState = iota
-	MSG_S_Ack
-	MSG_S_Commit
-	MSG_S_Applied
-)
-
-type Message struct { // TODO Have to make everyone big letters for testing maybe change back
-	msgType        MessageType
-	senderId       int
-	task           elevio.ButtonEvent // Elevators current target (floor, btnType) or change current target
-	btnStatus      ButtonStatus       // Type what we want the button to be: nonActive, pending, active
-	elevatorStatus ElevatorsStatus
-
-	// TODO temp need a com number
-	comNumber int
-	// TODO temp Need to know who the mission is to
-	idToElevatorMission int
-
-	// TODO Maybe we need target id as well
-
-	// Used for a full sync
-	fullstate *System
-	// msgTimer       time.Time
-	// TODO how to be able to send their chan Message as well
-}
 
 type Protocol struct {
 	// TODO temp need a place to put the ack
@@ -70,14 +25,14 @@ msgCh := make(chan string)
 */
 
 // Chat don't like these function names. Don't want any underscores
-func (p *Protocol) messageHandler_slave(e *Elevator, msg Message) {
-	switch msg.msgType {
+func (p *Protocol) messageHandler_slave(e *Elevator, msg utilities.Message) {
+	switch msg.MsgType {
 	case MSG_T_StatusReport:
 		// target the updated elevator in the map and add the changes
 		p.applyStatusReport(e, msg)
 
 	case MSG_T_TaskAssign:
-		e.nextTarget = msg.task // TODO you should not be able to loose this requests unless you get a new TaskAssign
+		e.nextTarget = msg.Task // TODO you should not be able to loose this requests unless you get a new TaskAssign
 		p.applyTaskUpdate_slave(e, msg)
 
 	case MSG_T_TaskUpdate:

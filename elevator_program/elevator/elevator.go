@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	// "elevator_program/utilities"
 	"elevator_program/elevio"
+	"elevator_program/utilities"
 )
 
 type ButtonStatus int
@@ -45,8 +45,8 @@ type Elevator struct {
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	msgRecieveCh chan Message
-	msgSendCh    chan Message
+	msgRecieveCh chan utilities.Message
+	msgSendCh    chan utilities.Message
 
 	isMaster          bool
 	connectedToMaster bool

@@ -2,6 +2,9 @@ package main
 
 import (
 	"elevator_program/elevator"
+	"elevator_program/udp"
+	"elevator_program/udp/server"
+	"fmt"
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
@@ -51,8 +54,15 @@ func main() {
 	// config.RunOneElevator(cfg)
 
 	go testElevator()
-	// go testServer(serverA, serverB)
 
-	// go testBroadcast_send(serverA)
+	msgCh := make(chan udp.ElevatorMessage)
+
+	server, err := server.NewServer("1.127.0.0", 9000, "A", msgCh)
+	if err != nil {
+		fmt.Println("Failed to make server:", err)
+	}
+
+	go server.Listen()
+
 	select {}
 }
