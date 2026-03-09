@@ -10,13 +10,6 @@ import (
 	"elevator_program/elevio"
 )
 
-const (
-	localhost = "127.0.0.1"
-	myIP      = "192.168.50.123"
-	receiver  = "10.100.23.15"
-)
-
-// Remove this later if we see that the communication works
 func testElevator() {
 	var e elevator.Elevator
 	// fmt.Println(e)
@@ -38,7 +31,7 @@ func testElevator() {
 	/*
 		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
 	*/
-	// select {}
+	select {}
 }
 
 func main() {
