@@ -23,7 +23,7 @@ func testElevator() {
 	// "localhost:15657"
 	elevio.Init(ip_address+":"+port, numFloors)
 
-	e.InitElevator(id, numFloors, initFloor)
+	e.InitElevator(id, numFloors, initFloor, ip_address, port)
 	e.RunElevatorProgram()
 
 	// e.TestMasterLogic()

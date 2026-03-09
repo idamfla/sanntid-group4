@@ -2,12 +2,14 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/udp/message"
+	"elevator_program/udp/server"
 	"fmt"
 	"time"
 )
 
-func (e Elevator) InitMsg() []Message {
-	msg := []Message{
+func (e Elevator) InitMsg() []message.Message {
+	msg := []message.Message{
 		{
 			msgType:  MSG_T_TaskAssign,
 			senderId: 3,
@@ -200,4 +202,11 @@ func (e *Elevator) TestMsgHandler_Master(numFloors int) {
 	// slave.MessageHandler(assignMsg)
 
 	// fmt.Println("Slave next target:", slave.nextTarget)
+}
+
+// call by using e.server as the parameter
+// NB need to make two elevators on two different ports, also both "e.server.Listen()"
+// must be called as go-routines for them to start listening
+func test_sending(srv *server.Server, sessionID int, ip_receiver string, port_receiver int) {
+	srv.SendSession(sessionID, ip_receiver, port_receiver, message.Message{Content: "Dette er en test :)"})
 }

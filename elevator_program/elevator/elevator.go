@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"elevator_program/elevio"
-	"elevator_program/utilities"
+	"elevator_program/udp/message"
+	"elevator_program/udp/server"
 )
 
 type ButtonStatus int
@@ -45,8 +46,8 @@ type Elevator struct {
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	msgRecieveCh chan utilities.Message
-	msgSendCh    chan utilities.Message
+	msgRecieveCh chan message.Message
+	// msgSendCh    chan message.Message
 
 	isMaster          bool
 	connectedToMaster bool
@@ -55,9 +56,11 @@ type Elevator struct {
 	// TODO Trying to split ut the code
 	protocol *Protocol // TODO should we remove this one from elevator struct and put in a different package
 	system   System
+
+	server server.Server
 }
 
-func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
+func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port int) {
 	e.id = id
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
@@ -86,6 +89,8 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
+	msgRecieveCh = make(chan message.Message, 10)
+	server = server.NewServer(ip, port, e.id, msgRecieveCh)
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }
@@ -101,6 +106,7 @@ func (e *Elevator) RunElevatorProgram() {
 	// Temp for testing msgHandler
 	// go e.TestMsgHandler(4)
 	go e.TestMsgHandler_Master(4)
+	go e.server.Listen() // TODO check that this work
 	done := make(chan struct{})
 	<-done
 }
