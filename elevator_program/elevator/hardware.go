@@ -21,6 +21,7 @@ func (e *Elevator) startFloorPoller() {
 	go func() {
 		for f := range drv_floors {
 			e.hardwareEventsCh <- HardwareEvent{Type: HW_T_FloorSensor, Floor: f}
+			//TODO: Call another place
 			e.faultTolerance.FloorEvent()
 		}
 	}()

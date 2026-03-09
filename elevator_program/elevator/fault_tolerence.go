@@ -92,6 +92,7 @@ func(fm*FaultManager) SeenPeer(peerID int){
     fm.lastSeenPeer[peerID]= time.Now()
 }
 
+//TODO: FIX place
 func(fm*FaultManager) FloorEvent(){
     fm.lastFloorEvent= time.Now()
 

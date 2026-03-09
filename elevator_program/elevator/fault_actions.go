@@ -3,6 +3,7 @@ package elevator
 import "fmt"
 
 func (e *Elevator) enterOfflineMode() {
+
     fmt.Println("Entering offline mode (cab-only)")
     e.offline = true
 
@@ -18,9 +19,13 @@ func (e *Elevator) exitOfflineMode() {
     e.offline = false
 }
 
-func (e *Elevator) handleFault(reason string) {
-    fmt.Println("FAULT:", reason)
+func (e *Elevator) handleMotorStopFault(reason string){
+   //TODO: implement
+}
 
+func (e *Elevator) handleNetworkFault(reason string) {
+    fmt.Println("FAULT:", reason)
+    //TODO: Check which fault
     e.offline = true
     elevio.SetMotorDirection(elevio.MD_Stop)
 
