@@ -3,8 +3,9 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
-	"elevator_program/udp"
+	"elevator_program/udp/message"
 	"elevator_program/udp/server"
+	"elevator_program/udp/session"
 	"fmt"
 	"os"
 	"os/signal"
@@ -42,7 +43,7 @@ func testElevator() {
 	select {}
 }
 
-func createServer(port int, id string, ch1 chan<- udp.ElevatorMessage) *server.Server {
+func createServer(port int, id string, ch1 chan<- session.PacketContext) *server.Server {
 	s1, err := server.NewServer(localIP, port, id, ch1)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create s1: %v", err))
@@ -69,8 +70,8 @@ func createServer(port int, id string, ch1 chan<- udp.ElevatorMessage) *server.S
 func testServer(s1 *server.Server, s2 *server.Server) {
 	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
 
-	aMsg := udp.Message{Content: "Hello from A"}
-	bMsg := udp.Message{Content: "Hello from B"}
+	aMsg := message.Message{Content: "Hello from A"}
+	bMsg := message.Message{Content: "Hello from B"}
 
 	// Server A sends to B
 	go s1.SendSession(1, "127.0.0.1", 9001, aMsg)
@@ -86,7 +87,7 @@ func testBroadcast_send(srv *server.Server) {
 	seq := uint32(0)
 	sessionID := uint32(1) // or whatever you need
 
-	bcMsg := udp.Message{Content: "Hello, broadcast from " + srv.ID}
+	bcMsg := message.Message{Content: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
 		err := srv.SendBroadcast(seq, sessionID, bcMsg)
@@ -122,10 +123,10 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 }
 
 func main() {
-	chA := make(chan udp.ElevatorMessage)
+	chA := make(chan session.PacketContext)
 	serverA := createServer(9000, "A", chA)
 
-	chB := make(chan udp.ElevatorMessage)
+	chB := make(chan session.PacketContext)
 	serverB := createServer(9001, "B", chB)
 
 	// go serverA.SendSession(1, "127.0.0.1", 9001, "Hello from A")
@@ -141,7 +142,7 @@ func main() {
 	// go testBroadcast_send(serverA)
 
 	for msg := range chB {
-		fmt.Println("mshChan test:", msg)
+		fmt.Println("msgCh test:", msg)
 	}
 
 	closeProgram(serverA, serverB)

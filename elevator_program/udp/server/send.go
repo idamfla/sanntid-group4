@@ -1,7 +1,8 @@
 package server
 
 import (
-	"elevator_program/udp"
+	"elevator_program/udp/message"
+	"elevator_program/udp/packet"
 	"net"
 )
 
@@ -10,49 +11,49 @@ func (srv *Server) send(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msgType udp.MessageType,
-	msg udp.Message,
+	msgType packet.PacketType,
+	msg message.Message,
 ) error {
 
-	pck := udp.Packet{
-		Header: udp.Header{
+	pkt := packet.Packet{
+		Header: packet.Header{
 			Seq:           seq,
 			SessionID:     sessionID,
-			MsgType:       msgType,
+			PktType:       msgType,
 			RecipientAddr: remoteAddr.String(),
 			SenderAddr:    srv.recvConn.LocalAddr().String(),
 		},
 		Payload: msg,
 	}
 
-	return udp.SendPacket(srv.sendConn, remoteAddr, pck)
+	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
 func (srv *Server) SendMessage(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msg udp.Message,
+	msg message.Message,
 ) error {
 
 	return srv.send(
 		remoteAddr,
 		seq,
 		sessionID,
-		udp.MSG_T_Data,
+		packet.PKT_T_Data,
 		msg,
 	)
 }
 
-func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType udp.MessageType) error {
+func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType) error {
 	// TODO maybe it's own function, what to when skipping commit messages and go straight to "done"
 	replyContent := ""
 	switch msgType {
-	case udp.MSG_T_Ack:
+	case packet.PKT_T_Ack:
 		replyContent = srv.ID + " received: ACK"
-	case udp.MSG_T_Commit:
+	case packet.PKT_T_Commit:
 		replyContent = srv.ID + " received: COMMIT"
-	case udp.MSG_T_Done:
+	case packet.PKT_T_Done:
 		replyContent = srv.ID + " received: DONE"
 	}
 
@@ -61,11 +62,11 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint
 		seq,
 		sessionID,
 		msgType,
-		udp.Message{Content: replyContent},
+		message.Message{Content: replyContent},
 	)
 }
 
-func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg udp.Message) error {
+func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(HomeBroadcastIP),
@@ -76,7 +77,7 @@ func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg udp.Message) 
 		addr,
 		seq,
 		sessionID,
-		udp.MSG_T_BroadcastData,
+		packet.PKT_T_BroadcastData,
 		msg,
 	)
 }

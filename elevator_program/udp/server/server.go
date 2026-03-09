@@ -1,7 +1,7 @@
 package server
 
 import (
-	"elevator_program/udp"
+	"elevator_program/udp/session"
 	"fmt"
 	"net"
 	"sync"
@@ -19,17 +19,17 @@ type Server struct {
 	recvConn      *net.UDPConn
 	sendConn      *net.UDPConn
 	broadcastConn *net.UDPConn
-	sessions      map[uint32]*udp.Session
+	sessions      map[uint32]*session.Session
 	mu            sync.Mutex
 	closeReq      chan uint32
 
 	stopListening chan struct{}
 	wg            sync.WaitGroup
 
-	elevator chan<- udp.ElevatorMessage
+	elevator chan<- session.PacketContext
 }
 
-func NewServer(ip string, port int, id string, toElevator chan<- udp.ElevatorMessage) (*Server, error) {
+func NewServer(ip string, port int, id string, toElevator chan<- session.PacketContext) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -48,7 +48,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- udp.ElevatorMes
 	}
 
 	// create broadcast-listening UDP socket
-	bcConn, err := NewReusableListenUDPConn(BroadcastPort)
+	bcConn, err := newReusableListenUDPConn(BroadcastPort)
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
@@ -60,7 +60,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- udp.ElevatorMes
 		recvConn:      recvConn,
 		sendConn:      sendConn,
 		broadcastConn: bcConn,
-		sessions:      make(map[uint32]*udp.Session),
+		sessions:      make(map[uint32]*session.Session),
 		closeReq:      make(chan uint32),
 		stopListening: make(chan struct{}),
 		elevator:      toElevator,
@@ -78,8 +78,8 @@ func (srv *Server) Close() {
 	srv.wg.Wait() // wait for goroutines
 
 	srv.mu.Lock()
-	for id := range srv.sessions {
-		srv.closeSessionLocked(id)
+	for sesID := range srv.sessions {
+		srv.closeSessionLocked(sesID)
 	}
 	srv.mu.Unlock()
 
