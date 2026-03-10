@@ -1,12 +1,12 @@
 package server
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/udp/udp_message"
 	"fmt"
 	"net"
 )
 
-func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int, msg message.Message) error {
+func (srv *Server) SendSession(sessionID uint32, remoteIP string, remotePort int, msg udp_message.Message) error {
 	addr := fmt.Sprintf("%s:%d", remoteIP, remotePort)
 	remoteAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {

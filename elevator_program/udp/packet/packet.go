@@ -1,15 +1,15 @@
 package packet
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/udp/udp_message"
 	"encoding/json"
 	"fmt"
 	"net"
 )
 
 type Packet struct {
-	Header  Header          `json:"header"`
-	Payload message.Message `json:"payload"`
+	Header  Header              `json:"header"`
+	Payload udp_message.Message `json:"payload"`
 }
 
 func (p Packet) encodePacket() ([]byte, error) {

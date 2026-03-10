@@ -1,8 +1,8 @@
 package server
 
 import (
-	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/udp_message"
 	"net"
 )
 
@@ -12,7 +12,7 @@ func (srv *Server) send(
 	seq uint32,
 	sessionID uint32,
 	msgType packet.PacketType,
-	msg message.Message,
+	msg udp_message.Message,
 ) error {
 
 	pkt := packet.Packet{
@@ -33,7 +33,7 @@ func (srv *Server) SendMessage(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msg message.Message,
+	msg udp_message.Message,
 ) error {
 
 	return srv.send(
@@ -62,11 +62,11 @@ func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint
 		seq,
 		sessionID,
 		msgType,
-		message.Message{Content: replyContent},
+		udp_message.Message{Content: replyContent},
 	)
 }
 
-func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error {
+func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg udp_message.Message) error {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(HomeBroadcastIP),

@@ -3,7 +3,7 @@ package elevator
 import (
 	// "elevator_program/elevator"
 	"elevator_program/elevio"
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"fmt"
 )
 
@@ -12,22 +12,6 @@ import (
 Trying to use new infrastructure
 --------------------------------
 */
-
-// // TODO Chat saying this MSG_T_ naming convention is very c -style and noisy in Go
-// type MessageType int
-
-// const (
-// 	MSG_T_StatusReport MessageType = iota
-
-// 	MSG_T_TaskCreate   // a new task is created/published
-// 	MSG_T_TaskAssign   // a task is assigned to you
-// 	MSG_T_TaskDelegate // a task is assigned to another person
-// 	MSG_T_TaskUpdate   // task changed, Don't think we need it
-// 	MSG_T_TaskComplete // task was completed
-// 	MSG_T_TaskRequest  // someone requests a new task
-// 	MSG_T_LostComs     // A routine to check if you have lost communication
-// 	MSG_T_NewToChannel // Send the latest information
-// )
 
 type Protocol struct {
 	// TODO temp need a place to put the ack
@@ -83,7 +67,13 @@ func (p *Protocol) messageHandler_master(e *Elevator, msg message.Message) {
 
 	case message.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
-		// msg.msgType = MSG_T_TaskAssign
+		cabRequestsTemp := make([]ButtonStatus, len(msg.CabRequests))
+		for i, req := range msg.CabRequests {
+			cabRequestsTemp[i] = ButtonStatus(req) // Explicit conversion
+		}
+		task := e.computeNewTarget(msg.CurrentFloor, cabRequestsTemp, msg.Direction)
+		// Need to send assign to the elevator
+		// And send task uppdate to the other
 
 	case message.MSG_T_LostComs:
 		// I don't know what we should do here just try to say to the slave that master hears you
@@ -94,9 +84,9 @@ func (p *Protocol) messageHandler_master(e *Elevator, msg message.Message) {
 }
 
 func (e *Elevator) MessageHandler(msg message.Message) {
-	if msg.SenderId == e.id {
-		return // Ignore own messages
-	}
+	// if msg.SenderId == e.id {
+	// 	return // Ignore own messages
+	// }
 
 	if e.isMaster {
 		e.protocol.messageHandler_master(e, msg)
@@ -114,8 +104,22 @@ func (e *Elevator) messageListener() { // TODO Maybe need msgCh chan Message
 	}
 }
 
-func (s *System) setStatusReport(senderId int, targetElevator ElevatorsStatus) {
-	s.Elevators[senderId] = targetElevator
+func (s *System) setStatusReport(msg message.Message) {
+	// Convert CabRequests from Message.CabRequests to ElevatorsStatus.CabRequests
+	cabRequests := make([]ButtonStatus, len(msg.CabRequests))
+	for i, req := range msg.CabRequests {
+		cabRequests[i] = ButtonStatus(req) // Explicit conversion
+	}
+
+	s.Elevators[msg.Id] = ElevatorsStatus{
+		Id:           msg.Id,
+		Ip:           msg.Ip,
+		CurrentFloor: msg.CurrentFloor,
+		CabRequests:  cabRequests,
+		Target:       msg.Task,
+		Direction:    msg.Direction,
+		State:        ElevatorState(msg.Direction),
+	}
 }
 
 func (s *System) setRequestStatus(status ButtonStatus, btnEvent elevio.ButtonEvent, id int) {
@@ -132,9 +136,16 @@ func (s *System) updateRemoteCabBtn(status ButtonStatus, btnEvent elevio.ButtonE
 	s.Elevators[id].CabRequests[btnEvent.Floor] = status
 }
 
-func (s *System) initializeFromSystemState(state System) {
-	s.hallRequests = state.hallRequests
-	s.Elevators = state.Elevators
+func (s *System) initializeFromSystemState(msg message.Message) {
+	// Ensure the hallRequests slice is properly initialized
+	s.hallRequests = make([][2]ButtonStatus, len(msg.HallRequests))
+
+	// Deep copy each element from msg.HallRequests to s.hallRequests
+	for i := range msg.HallRequests {
+		s.hallRequests[i][0] = ButtonStatus(msg.HallRequests[i][0])
+		s.hallRequests[i][1] = ButtonStatus(msg.HallRequests[i][1])
+	}
+	// s.Elevators = state.Elevators // TODO Fix this one
 }
 
 // TODO This function is wierd, either we need to have it as e or something else if it is msg sending
@@ -152,16 +163,27 @@ func (e *Elevator) handleLostConnection(senderId int) {
 	}
 }
 
-func (s *System) registerAndSyncElevator(e Elevator, targetElevator ElevatorsStatus) {
+func (s *System) registerAndSyncElevator(e Elevator, msg message.Message) {
 	// TODO Hmm this is wierd, do we even want Message to be in elevator package??
-	newMessage := message.Message{
-		senderId: e.id,
-	}
-	// TODO Should we send a init pos?
-	senderId, ok := e.ipToId[targetElevator.Ip]
-	if ok {
+	newMessage := message.Message{}
 
-		newMessage.elevatorStatus = s.Elevators[senderId]
+	// TODO Should we send a init pos?
+	senderId, ok := e.ipToId[msg.Ip]
+	if ok {
+		foundElevator := s.Elevators[senderId]
+
+		newMessage.Id = senderId
+		newMessage.Ip = msg.Ip
+		newMessage.CurrentFloor = foundElevator.CurrentFloor
+
+		cabRequests := make([]message.ButtonStatus, len(foundElevator.CabRequests))
+		for i, req := range foundElevator.CabRequests {
+			cabRequests[i] = message.ButtonStatus(req) // Explicit conversion
+		}
+		newMessage.CabRequests = cabRequests
+		newMessage.Task = foundElevator.Target
+		newMessage.Direction = foundElevator.Direction
+		newMessage.State = message.ElevatorState(foundElevator.State)
 	} else {
 		// TODO Do the master have itself in the elevatorRegistery?
 		senderId = len(e.elevatorRegistry) + 1
@@ -170,31 +192,40 @@ func (s *System) registerAndSyncElevator(e Elevator, targetElevator ElevatorsSta
 			// Hope everything else is already configured
 		}
 		s.Elevators[senderId] = newElevator
-		newMessage.elevatorStatus = newElevator
+		newMessage.Id = newElevator.Id
 	}
-	s.hallRequests = e.hallRequests
-	for id, currentElevator := range s.Elevators {
-		if newMessage.senderId == id {
-			continue
-		}
-		// TODO We have the ip in the elevatorsStatus struct but maybe we need to send a map of them as well
-		newMessage.fullstate.Elevators[id] = currentElevator
+	// Ensure the hallRequests slice is properly initialized
+	newMessage.HallRequests = make([][2]message.ButtonStatus, len(s.hallRequests))
+
+	// Deep copy each element from msg.HallRequests to s.hallRequests
+	for i := range s.hallRequests {
+		newMessage.HallRequests[i][0] = message.ButtonStatus(s.hallRequests[i][0])
+		newMessage.HallRequests[i][1] = message.ButtonStatus(s.hallRequests[i][1])
 	}
+
+	// Need to figure out what to do with Elevator map
+	// for id, currentElevator := range s.Elevators {
+	// 	if newMessage.senderId == id {
+	// 		continue
+	// 	}
+	// 	// TODO We have the ip in the elevatorsStatus struct but maybe we need to send a map of them as well
+	// 	newMessage.fullstate.Elevators[id] = currentElevator
+	// }
 }
 
 func (e Elevator) updateBtnLamp(msg message.Message) {
-	if msg.btnStatus == NotActive {
-		e.clearHallLamp(msg.task.Floor, msg.task.Button)
+	if ButtonStatus(msg.BtnStatus) == NotActive {
+		e.clearHallLamp(msg.Task.Floor, msg.Task.Button)
 	} else {
-		elevio.SetButtonLamp(msg.task.Button, msg.task.Floor, true)
+		elevio.SetButtonLamp(msg.Task.Button, msg.Task.Floor, true)
 	}
 }
 
-func (e *Elevator) setConnectionState(self ElevatorsStatus) {
-	e.id = self.Id
+func (e *Elevator) setConnectionState(msg message.Message) {
+	e.id = msg.Id
 	e.isMaster = false
 	e.connectedToMaster = true
-	e.elevatorState = ES_Idle
+	e.elevatorState = ES_Idle // TODO Do I need this one here?
 	// e.ipToId Need to know the ip/id to the others
 }
 
@@ -205,38 +236,39 @@ Applying protocol functions which is ment to split between the different roles
 */
 
 func (p Protocol) applyStatusReport(e *Elevator, msg message.Message) {
-	e.system.setStatusReport(msg.senderId, msg.elevatorStatus)
+	e.system.setStatusReport(msg)
 }
 
 func (p Protocol) applyTaskUpdate_slave(e *Elevator, msg message.Message) {
-	e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
+	e.system.setRequestStatus(ButtonStatus(msg.BtnStatus), msg.Task, e.id)
 	e.updateBtnLamp(msg)
 }
 
 func (p Protocol) applyRemoteCabUpdate_slave(e *Elevator, msg message.Message) {
-	e.system.updateRemoteCabBtn(msg.btnStatus, msg.task, msg.idToElevatorMission)
+	e.system.updateRemoteCabBtn(ButtonStatus(msg.BtnStatus), msg.Task, msg.Id)
 }
 
 func (p Protocol) applyLostComsProtocol_slave(e *Elevator, msg message.Message) {
-	e.handleLostConnection(msg.senderId)
+	e.handleLostConnection(msg.Id)
 }
 
 func (p Protocol) applySystemSync_slave(e *Elevator, msg message.Message) {
-	e.system.initializeFromSystemState(*msg.fullstate)
-	e.setConnectionState(msg.elevatorStatus)
+	e.system.initializeFromSystemState(msg)
+	e.setConnectionState(msg)
 }
 
 func (p *Protocol) addNewRequestToSystem_master(e *Elevator, msg message.Message) {
+	// TODO Lets hope that we only get commit messages, or else we need to count ack
 	// TODO Maybe need to check that it is a unique elevator and not the same
-	p.ackArray[msg.comNumber] += 1
-	if p.ackArray[msg.comNumber] == (len(e.system.Elevators) - 1) {
-		// Send commit message
-		e.system.setRequestStatus(msg.btnStatus, msg.task, e.id)
-		e.updateBtnLamp(msg)
-		// Then we need to close the msg
-	}
+	// p.ackArray[msg.comNumber] += 1
+	// if p.ackArray[msg.comNumber] == (len(e.system.Elevators) - 1) {
+	// Send commit message
+	e.system.setRequestStatus(ButtonStatus(msg.BtnStatus), msg.Task, e.id)
+	e.updateBtnLamp(msg)
+	// Then we need to close the msg
+	// }
 }
 
 func (p *Protocol) applyRegisterAndSyncElevatorToServer(e *Elevator, msg message.Message) {
-	e.system.registerAndSyncElevator(*e, msg.elevatorStatus)
+	e.system.registerAndSyncElevator(*e, msg)
 }

@@ -49,12 +49,12 @@ type Message struct {
 	BtnStatus ButtonStatus
 
 	Id           int
-	Ip           int
+	Ip           string
 	CurrentFloor int
-	State        ElevatorState
 	CabRequests  []ButtonStatus
+	Direction    elevio.MotorDirection
+	State        ElevatorState
 
 	HallRequests [][2]ButtonStatus
-	// TODO How should I send The Elevators Map?
-
+	// I think we send one message at the time, for each elevator
 }

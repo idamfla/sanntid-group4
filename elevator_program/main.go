@@ -2,7 +2,7 @@ package main
 
 import (
 	"elevator_program/elevator"
-	"elevator_program/udp"
+	"elevator_program/message"
 	"elevator_program/udp/server"
 	"fmt"
 
@@ -48,7 +48,7 @@ func main() {
 
 	go testElevator()
 
-	msgCh := make(chan udp.ElevatorMessage)
+	msgCh := make(chan message.Message) // TODO Changed to message: Was udp.ElevatorMessage
 
 	server, err := server.NewServer("1.127.0.0", 9000, "A", msgCh)
 	if err != nil {

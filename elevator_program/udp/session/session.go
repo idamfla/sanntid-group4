@@ -2,8 +2,8 @@ package session
 
 import (
 	"elevator_program/udp"
-	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/udp_message"
 	"fmt"
 	"net"
 	"time"
@@ -11,7 +11,7 @@ import (
 
 type PacketSender interface {
 	SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType) error
-	SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error
+	SendBroadcast(seq uint32, sessionID uint32, msg udp_message.Message) error
 }
 
 type Session struct {

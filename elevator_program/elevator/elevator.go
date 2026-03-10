@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"elevator_program/elevio"
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/server"
 )
 
@@ -47,7 +47,7 @@ type Elevator struct {
 	hardwareEventsCh chan HardwareEvent
 
 	msgRecieveCh chan message.Message
-	// msgSendCh    chan message.Message
+	msgSendCh    chan message.Message
 
 	isMaster          bool
 	connectedToMaster bool
@@ -57,10 +57,10 @@ type Elevator struct {
 	protocol *Protocol // TODO should we remove this one from elevator struct and put in a different package
 	system   System
 
-	server server.Server
+	// server server.Server // TODO Something here makes everything yellow, complaining about locks
 }
 
-func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port int) {
+func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port string) { // TODO Changed port to string, hope everything works
 	e.id = id
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
@@ -89,8 +89,8 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	msgRecieveCh = make(chan message.Message, 10)
-	server = server.NewServer(ip, port, e.id, msgRecieveCh)
+	msgRecieveCh = make(chan message.Message, 10)           // TODO Should have this in the code
+	server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }
