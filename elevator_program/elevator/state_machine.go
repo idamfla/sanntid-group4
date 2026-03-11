@@ -25,7 +25,7 @@ func (e Elevator) atTargetFloor() bool {
 }
 
 func (e Elevator) isTargetValid() bool {
-	return e.nextTarget.Floor >= 0 && e.nextTarget.Floor < len(e.hallRequests)
+	return e.nextTarget.Floor >= 0 && e.nextTarget.Floor < len(e.system.hallRequests)
 }
 
 func (e Elevator) getMotion(target int) elevio.MotorDirection {
@@ -157,12 +157,20 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 		}
 	case ES_EmergencyStop:
         elevio.SetMotorDirection(elevio.MD_Stop)
-        e.faultTolerance.SetMotorRunning(false)
-		return
+
+        if e.faultTolerance != nil {
+            e.faultTolerance.SetMotorRunning(false)
+        }		return
 	}
 
+
 	elevio.SetMotorDirection(dir)
-    e.faultTolerance.SetMotorRunning(dir != elevio.MD_Stop)}
+    if e.faultTolerance != nil {
+        e.faultTolerance.SetMotorRunning(dir != elevio.MD_Stop)
+}
+
+    e.checkOfflineRestart()
+}
 
 func (e *Elevator) RunElevatorStateMachine() {
 	fmt.Println("ELEVATOR STATE MACHINE STARTED")

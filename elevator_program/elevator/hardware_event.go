@@ -48,7 +48,10 @@ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
+            if e.faultTolerance != nil {
+                e.faultTolerance.FloorEvent()
 		}
+    }
 
 	case HW_T_Obstruction:
 		if e.doorState == DS_Closed {

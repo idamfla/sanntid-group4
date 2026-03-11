@@ -29,6 +29,7 @@ type Elevator struct {
 	ipToId map[string]int
 
     offline         bool
+    restartScheduled bool
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -95,7 +96,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
-
+//Magicnumber big nono
 	e.faultTolerance = NewFaultManager(id, FaultConfig{
 	    StartupGrace:  2 * time.Second,
 	    MasterTimeout: 1 * time.Second,
@@ -110,7 +111,8 @@ func (e *Elevator) RunElevatorProgram() {
 
 	e.faultTolerance.onGoOffline = func() { e.enterOfflineMode() }
 	e.faultTolerance.onGoOnline = func() { e.exitOfflineMode()  }
-	e.faultTolerance.onFaulty = func(reason string) { e.handleFault(reason) }
+	e.faultTolerance.onMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
+	e.faultTolerance.onNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
 	e.faultTolerance.onPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
 
 	go e.RunHardwareEventLoop()

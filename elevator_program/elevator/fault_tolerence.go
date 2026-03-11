@@ -29,9 +29,9 @@ const(
 type FaultConfig struct{
     StartupGrace  time.Duration
     MasterTimeout time.Duration
-    PeerTimeout time.Duration
-    MotorTimeout time.Duration
-    Tick         time.Duration
+    PeerTimeout   time.Duration
+    MotorTimeout  time.Duration
+    Tick          time.Duration
 }
 
 type FaultManager struct{
@@ -51,12 +51,13 @@ type FaultManager struct{
     online bool
     faulty bool
 
-    onBecomeMaster func()
-    onPeerDead     func(peerID int)
-    onGoOnline     func()
-    onGoOffline    func()
-    onFaulty       func(reason string)
-
+    onBecomeMaster    func()
+    onMasterSuspected func(reason string)
+    onPeerDead        func(peerID int)
+    onGoOnline        func()
+    onGoOffline       func()
+    onMotorFault      func(reason string)
+    onNetworkFault    func(reason string)
 
 
 }
@@ -100,6 +101,10 @@ func(fm*FaultManager) FloorEvent(){
 
 func(fm*FaultManager) SetMotorRunning(running bool){
 	fm.motorRunning= running
+	if running {
+		fm.lastFloorEvent = time.Now()
+		fm.faulty = false
+	}
 }
 
 func(fm*FaultManager) SetRoleMaster(){
@@ -128,11 +133,19 @@ func (fm *FaultManager) checkMasterTimeout() {
     if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout{
         fmt.Println("Master timeout detected")
 
-        if fm.online{
-            fm.online= false
+        if fm.online {
+            if fm.onMasterSuspected != nil {
+                fm.onMasterSuspected("master timeout")
+            }
 
-            if fm.onGoOffline!= nil{
+            fm.online = false
+
+           if fm.onGoOffline != nil {
                 fm.onGoOffline()
+            }
+
+            if fm.onNetworkFault != nil {
+                fm.onNetworkFault("master timeout")
             }
         }
     }
@@ -169,8 +182,8 @@ func (fm *FaultManager) checkMotorTimeout() {
         if!fm.faulty{
             fm.faulty= true
 
-            if fm.onFaulty!= nil{
-                fm.onFaulty("motor watchdog timeout")
+            if fm.onMotorFault != nil{
+                fm.onMotorFault("motor watchdog timeout")
             }
         }
     }

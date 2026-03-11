@@ -29,7 +29,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 			if e.system.Elevators[e.id].CabRequests[f] != NotActive { // Changed to be compatible with system struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if !e.offline && e.hallRequests[f][elevio.BT_HallUp] == Pending {
+			} else if !e.offline && e.system.hallRequests[f][elevio.BT_HallUp] == Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 			} else if e.system.hallRequests[f][elevio.BT_HallUp] != NotActive { // Changed to be compatible with system struct
 				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallUp { // To not steal anyone elses task
@@ -41,7 +41,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 		for f := from; f >= to; f-- {
 			if e.system.Elevators[e.id].CabRequests[f] != NotActive { // Changed to be compatible with system struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if !e.offline && e.hallRequests[f][elevio.BT_HallDown] == Pending {
+			} else if !e.offline && e.system.hallRequests[f][elevio.BT_HallDown] == Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 
 			} else if e.system.hallRequests[f][elevio.BT_HallDown] != NotActive { // Changed to be compatible with system struct
