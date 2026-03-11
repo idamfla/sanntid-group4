@@ -2,19 +2,9 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/types"
 	"fmt"
 	"time"
-)
-
-type ElevatorState int
-
-const (
-	ES_Uninitialized ElevatorState = iota
-	ES_Idle
-	ES_Moving
-	ES_DoorOpen
-	// ES_Obstruction // TODO move to DoorState
-	ES_EmergencyStop
 )
 
 // ------------------------
@@ -93,23 +83,23 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 	var dir elevio.MotorDirection = elevio.MD_Stop
 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 
-	if e.elevatorState != ES_Uninitialized && e.doorState != DS_Closed {
+	if e.elevatorState != types.ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
 
 	switch e.elevatorState {
-	case ES_Uninitialized:
+	case types.ES_Uninitialized:
 		dir = e.uninitializedAction()
 
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
-			e.elevatorState = ES_Idle
+			e.elevatorState = types.ES_Idle
 			e.doorState = DS_Opening
 			fmt.Println(e)
 		}
 
-	case ES_Idle:
+	case types.ES_Idle:
 		nextTarget, dir = e.computeNextTargetAndDirection()
 		if nextTarget.Floor != -1 {
 			e.nextTarget = nextTarget
@@ -123,36 +113,36 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 
 		dir = e.getMotion(e.nextTarget.Floor)
 		if dir != elevio.MD_Stop {
-			e.elevatorState = ES_Moving
+			e.elevatorState = types.ES_Moving
 		}
 
-	case ES_Moving:
+	case types.ES_Moving:
 		dir = e.getMotion(e.nextTarget.Floor)
 
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
-			e.elevatorState = ES_Idle
+			e.elevatorState = types.ES_Idle
 		} else {
 			nextTarget, dir = e.computeNextTargetAndDirection()
 			if nextTarget.Floor != -1 {
 				// TODO I don't know if this is the best way to write it but now can use running
 				if e.nextTarget.Button == elevio.BT_Cab {
-					e.system.Elevators[e.id].CabRequests[e.nextTarget.Floor] = Pending // TODO Need to message that the buttons have changed
+					e.System.Elevators[e.id].CabRequests[e.nextTarget.Floor] = types.Pending // TODO Need to message that the buttons have changed
 				} else {
-					e.system.hallRequests[e.nextTarget.Floor][e.nextTarget.Button] = Pending // TODO Need to message that the buttons have changed
+					e.System.HallRequests[e.nextTarget.Floor][e.nextTarget.Button] = types.Pending // TODO Need to message that the buttons have changed
 				}
 
 				if nextTarget.Button == elevio.BT_Cab {
-					e.system.Elevators[e.id].CabRequests[nextTarget.Floor] = Running
+					e.System.Elevators[e.id].CabRequests[nextTarget.Floor] = types.Running
 				} else {
-					e.system.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
+					e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
 				}
 				e.nextTarget = nextTarget
 				// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
 				e.updateDirection(nextTarget, dir)
 			}
 		}
-	case ES_EmergencyStop:
+	case types.ES_EmergencyStop:
 		return
 	}
 
@@ -174,17 +164,17 @@ func (s ElevatorState) String() string {
 	switch s {
 	// case Idle:
 	// 		return "idle"
-	case ES_Uninitialized:
+	case types.ES_Uninitialized:
 		return "uninitialized"
-	case ES_Idle:
+	case types.ES_Idle:
 		return "idle"
-	case ES_Moving:
+	case types.ES_Moving:
 		return "moving"
-	case ES_DoorOpen:
+	case types.ES_DoorOpen:
 		return "door open"
 	// case ES_Obstruction:
 	// 	return "obstruction"
-	case ES_EmergencyStop:
+	case types.ES_EmergencyStop:
 		return "emergency stop"
 	default:
 		return "unknown"

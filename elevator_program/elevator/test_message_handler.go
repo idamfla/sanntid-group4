@@ -3,6 +3,8 @@ package elevator
 import (
 	"elevator_program/elevio"
 	"elevator_program/message"
+	"elevator_program/system"
+	"elevator_program/types"
 	"elevator_program/udp/server"
 	"fmt"
 	"time"
@@ -11,58 +13,58 @@ import (
 func (e Elevator) InitMsg() []message.Message {
 	msg := []message.Message{
 		{
-			MsgType: message.MSG_T_TaskAssign,
+			MsgType: types.MSG_T_TaskAssign,
 			Id:      3,
 			Task: elevio.ButtonEvent{
 				Floor:  2,
 				Button: elevio.BT_HallUp,
 			},
-			BtnStatus: message.ButtonPending,
+			BtnStatus: types.Pending,
 		},
 		{
-			MsgType: message.MSG_T_TaskUpdate,
+			MsgType: types.MSG_T_TaskUpdate,
 			Id:      3,
 			Task: elevio.ButtonEvent{
 				Floor:  0,
 				Button: elevio.BT_Cab,
 			},
-			BtnStatus: message.ButtonPending,
+			BtnStatus: types.Pending,
 		},
 		{
-			MsgType: message.MSG_T_TaskUpdate,
+			MsgType: types.MSG_T_TaskUpdate,
 			Id:      3,
 			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_HallUp,
 			},
-			BtnStatus: message.ButtonPending,
+			BtnStatus: types.Pending,
 		},
 		{
-			MsgType: message.MSG_T_TaskDelegate,
+			MsgType: types.MSG_T_TaskDelegate,
 			Id:      1,
 			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_Cab,
 			},
-			BtnStatus: message.ButtonPending,
+			BtnStatus: types.Pending,
 		},
 		{
-			MsgType:     message.MSG_T_StatusReport,
+			MsgType:     types.MSG_T_StatusReport,
 			Id:          20,
-			CabRequests: make([]message.ButtonStatus, 4),
+			CabRequests: make([]types.ButtonStatus, 4),
 		},
 	}
 
 	return msg
 }
 func (e *Elevator) TestMsgHandler(numFloors int) {
-	e.system.Elevators[2] = ElevatorsStatus{
+	e.System.Elevators[2] = types.ElevatorsStatus{
 		Id:          2,
-		CabRequests: make([]ButtonStatus, numFloors),
+		CabRequests: make([]types.ButtonStatus, numFloors),
 	}
 
 	fmt.Println("Initial system state:")
-	fmt.Println(e.system)
+	fmt.Println(e.System)
 
 	// Create test message
 	msg := e.InitMsg()
@@ -74,7 +76,7 @@ func (e *Elevator) TestMsgHandler(numFloors int) {
 		e.MessageHandler(currMsg)
 
 		fmt.Println("\nSystem state after message:")
-		fmt.Println(e.system)
+		fmt.Println(e.System)
 		time.Sleep(2 * time.Second)
 	}
 
@@ -87,8 +89,8 @@ func (e *Elevator) TestMsgHandler(numFloors int) {
 	// 	fullstate:      &newCopy,
 	// }
 
-	e.system.hallRequests = make([][2]ButtonStatus, numFloors)
-	e.system.Elevators = make(map[int]ElevatorsStatus)
+	e.System.HallRequests = make([][2]types.ButtonStatus, numFloors)
+	e.System.Elevators = make(map[int]types.ElevatorsStatus)
 	e.nextTarget = elevio.ButtonEvent{
 		Floor:  -1,
 		Button: elevio.BT_HallUp,
@@ -108,13 +110,13 @@ func copySystem(original *System) System {
 	newCopy := *original
 
 	// Deep copy the map to ensure independence
-	newCopy.Elevators = make(map[int]ElevatorsStatus)
+	newCopy.Elevators = make(map[int]types.ElevatorsStatus)
 	for id, elevator := range original.Elevators {
 		newCopy.Elevators[id] = elevator
 	}
 
 	// Deep copy the hallRequests slice
-	newCopy.hallRequests = make([][2]ButtonStatus, len(original.hallRequests))
+	newCopy.hallRequests = make([][2]types.ButtonStatus, len(original.hallRequests))
 	copy(newCopy.hallRequests, original.hallRequests)
 
 	return newCopy
@@ -128,11 +130,11 @@ func (e *Elevator) TestMsgHandler_Master(numFloors int) {
 	// }
 
 	// Create system
-	system := System{
-		hallRequests: make([][2]ButtonStatus, numFloors),
-		Elevators:    make(map[int]ElevatorsStatus),
+	system := system.System{
+		HallRequests: make([][2]types.ButtonStatus, numFloors),
+		Elevators:    make(map[int]types.ElevatorsStatus),
 	}
-	system.Elevators[1] = e.system.Elevators[1]
+	system.Elevators[1] = e.System.Elevators[1]
 
 	// Create master elevator
 	e.isMaster = true
@@ -141,15 +143,15 @@ func (e *Elevator) TestMsgHandler_Master(numFloors int) {
 	slave := Elevator{
 		// id:       2,
 		// isMaster: false,
-		system: system,
+		System: system,
 		// protocol: &protocol,
 	}
-	slave.system.Elevators[2] = ElevatorsStatus{
-		CabRequests: make([]ButtonStatus, numFloors),
+	slave.System.Elevators[2] = types.ElevatorsStatus{
+		CabRequests: make([]types.ButtonStatus, numFloors),
 		Id:          2,
 	}
 
-	slave.system.Elevators[2].CabRequests[2] = Pending
+	slave.System.Elevators[2].CabRequests[2] = types.Pending
 
 	// TODO Figure out Elevator map
 	// fmt.Println("---- TEST: Status Report ----")
@@ -171,18 +173,18 @@ func (e *Elevator) TestMsgHandler_Master(numFloors int) {
 	fmt.Println("---- TEST: Task Update ----")
 
 	taskMsg := message.Message{
-		MsgType: message.MSG_T_TaskUpdate,
+		MsgType: types.MSG_T_TaskUpdate,
 		Id:      2,
 		Task: elevio.ButtonEvent{
 			Floor:  0,
 			Button: elevio.BT_HallUp,
 		},
-		BtnStatus: message.ButtonPending,
+		BtnStatus: types.Pending,
 	}
 
 	e.MessageHandler(taskMsg)
 
-	fmt.Println("Hall requests:", e.system.hallRequests)
+	fmt.Println("Hall requests:", e.System.HallRequests)
 
 	// fmt.Println("---- TEST: Slave receiving TaskAssign ----")
 
