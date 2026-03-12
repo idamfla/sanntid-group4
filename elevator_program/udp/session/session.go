@@ -79,6 +79,13 @@ func NewSession(id uint32,
 	return ses
 }
 
+func (ses *Session) Start() {
+	ses.wg.Add(2)
+	go ses.Listen()
+	go ses.SendLoop()
+	fmt.Printf("Session %d started\n", ses.ID)
+}
+
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
 		close(ses.stop)
@@ -90,12 +97,4 @@ func (ses *Session) Close() {
 
 		fmt.Printf("Session %d closed\n", ses.ID)
 	})
-}
-
-// TODO this is not working ....
-func (ses *Session) Start() {
-	ses.wg.Add(2)
-	go ses.Listen()
-	go ses.SendLoop()
-	fmt.Printf("Session %d started\n", ses.ID)
 }

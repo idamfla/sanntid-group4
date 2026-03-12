@@ -14,13 +14,14 @@ const (
 )
 
 type Server struct {
-	ID            string
-	recvConn      *net.UDPConn
-	sendConn      *net.UDPConn
-	broadcastConn *net.UDPConn
-	sessions      map[uint32]*session.Session
-	mu            sync.Mutex
-	closeReq      chan uint32
+	ID              string
+	incomingPackets chan session.IncomingPacket
+	recvConn        *net.UDPConn
+	sendConn        *net.UDPConn
+	broadcastConn   *net.UDPConn
+	sessions        map[uint32]*session.Session
+	mu              sync.Mutex
+	closeReq        chan uint32
 
 	stopListening chan struct{}
 	wg            sync.WaitGroup
@@ -56,17 +57,41 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.Elevato
 	}
 
 	srv := &Server{
-		ID:            id,
-		recvConn:      recvConn,
-		sendConn:      sendConn,
-		broadcastConn: bcConn,
-		sessions:      make(map[uint32]*session.Session),
-		closeReq:      make(chan uint32),
-		stopListening: make(chan struct{}),
-		elevator:      toElevator,
+		ID:              id,
+		incomingPackets: make(chan session.IncomingPacket),
+		recvConn:        recvConn,
+		sendConn:        sendConn,
+		broadcastConn:   bcConn,
+		sessions:        make(map[uint32]*session.Session),
+		closeReq:        make(chan uint32),
+		stopListening:   make(chan struct{}),
+		elevator:        toElevator,
 	}
 
 	return srv, nil
+}
+
+func (srv *Server) Start() {
+	srv.wg.Add(3)
+	go srv.readLoop(srv.recvConn)
+	go srv.readLoop(srv.broadcastConn)
+
+	go srv.run()
+}
+
+func (srv *Server) run() {
+	for {
+		select {
+		case <-srv.stopListening:
+			return
+
+		case id := <-srv.closeReq:
+			srv.closeSession(id)
+
+		case incPkt := <-srv.incomingPackets:
+			srv.routeToSession(incPkt)
+		}
+	}
 }
 
 // TODO freezes if you close when there are sessions that are half-closed? might be that it just takes time ...

@@ -10,32 +10,56 @@ import (
 	"syscall"
 )
 
-func (srv *Server) Listen() {
-	incPktChan := make(chan session.IncomingPacket, 32)
+func (srv *Server) readLoop(conn *net.UDPConn) {
+	defer srv.wg.Done()
+	buf := make([]byte, 2048)
 
-	// UDP reader goroutines
-	srv.wg.Add(1)
-	go srv.readLoop(srv.recvConn, incPktChan)
+	fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
 
-	srv.wg.Add(1)
-	go srv.readLoop(srv.broadcastConn, incPktChan)
-
-	// Main event loop
 	for {
-		select {
-		case <-srv.stopListening:
-			return
+		n, addr, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			// normal shutdown, just exit the loop
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
 
-		case id := <-srv.closeReq:
-			srv.closeSession(id)
+			fmt.Println("Read error:", err)
+			continue
+		}
 
-		case incPkt := <-incPktChan:
-			srv.dispatchToSession(incPkt)
+		pkt, err := packet.DecodePacket(buf, n)
+		if err != nil {
+			fmt.Println("Decode error: ", err)
+			continue
+		}
+
+		srv.incomingPackets <- session.IncomingPacket{
+			Packet: pkt,
+			Addr:   addr,
 		}
 	}
 }
 
-func (srv *Server) dispatchToSession(incPkt session.IncomingPacket) {
+// Helper
+func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			})
+		},
+	}
+
+	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
+	return pc.(*net.UDPConn), nil
+}
+
+func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
 	sessionID := incPkt.Packet.Header.SessionID
 	senderAddr, err := net.ResolveUDPAddr("udp", incPkt.Packet.Header.SenderAddr)
 	if err != nil {
@@ -61,54 +85,4 @@ func (srv *Server) dispatchToSession(incPkt session.IncomingPacket) {
 	)
 
 	ses.RecvCh <- incPkt
-}
-
-func (srv *Server) readLoop(conn *net.UDPConn, out chan<- session.IncomingPacket) {
-	defer srv.wg.Done()
-	buf := make([]byte, 2048)
-
-	fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
-
-	for {
-		n, addr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-
-			// normal shutdown, just exit the loop
-			if errors.Is(err, net.ErrClosed) {
-				return
-			}
-
-			fmt.Println("Read error:", err)
-			continue
-		}
-
-		pkt, err := packet.DecodePacket(buf, n)
-		if err != nil {
-			fmt.Println("Decode error: ", err)
-			continue
-		}
-
-		out <- session.IncomingPacket{
-			Packet: pkt,
-			Addr:   addr,
-		}
-	}
-}
-
-// Helper
-func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
-	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-			})
-		},
-	}
-
-	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return nil, err
-	}
-
-	return pc.(*net.UDPConn), nil
 }
