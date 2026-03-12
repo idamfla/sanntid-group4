@@ -1,7 +1,26 @@
 package udp
 
-const (
-	RETRY_FREQUENCY = 50
-	MAX_RETRIES     = 5
-	TIMEOUT         = 5
+import (
+	"fmt"
+	"net"
 )
+
+const (
+	RETRY_FREQUENCY       = 50
+	MAX_RETRIES           = 5
+	LOCAL_COMMIT_TIMEOUT  = 5
+	REMOTE_COMMIT_TIMEOUT = 10
+)
+
+func IPPortToUDPAddr(ip string, port int) (*net.UDPAddr, error) {
+	addr := fmt.Sprintf("%s:%d", ip, port)
+	return net.ResolveUDPAddr("udp", addr)
+}
+
+func MustUDPAddr(ip string, port int) *net.UDPAddr {
+	udpAddr, err := IPPortToUDPAddr(ip, port)
+	if err != nil {
+		panic(err)
+	}
+	return udpAddr
+}

@@ -11,14 +11,14 @@ import (
 )
 
 func (srv *Server) Listen() {
-	packetChan := make(chan session.PacketContext, 32)
+	incPktChan := make(chan session.IncomingPacket, 32)
 
 	// UDP reader goroutines
 	srv.wg.Add(1)
-	go srv.readLoop(srv.recvConn, packetChan)
+	go srv.readLoop(srv.recvConn, incPktChan)
 
 	srv.wg.Add(1)
-	go srv.readLoop(srv.broadcastConn, packetChan)
+	go srv.readLoop(srv.broadcastConn, incPktChan)
 
 	// Main event loop
 	for {
@@ -29,17 +29,17 @@ func (srv *Server) Listen() {
 		case id := <-srv.closeReq:
 			srv.closeSession(id)
 
-		case pktCtx := <-packetChan:
-			srv.dispatchToSession(pktCtx)
+		case incPkt := <-incPktChan:
+			srv.dispatchToSession(incPkt)
 		}
 	}
 }
 
-func (srv *Server) dispatchToSession(pktCtx session.PacketContext) {
-	sessionID := pktCtx.Packet.Header.SessionID
-	senderAddr, err := net.ResolveUDPAddr("udp", pktCtx.Packet.Header.SenderAddr)
+func (srv *Server) dispatchToSession(incPkt session.IncomingPacket) {
+	sessionID := incPkt.Packet.Header.SessionID
+	senderAddr, err := net.ResolveUDPAddr("udp", incPkt.Packet.Header.SenderAddr)
 	if err != nil {
-		fmt.Printf("Invalid reply address %s\n", pktCtx.Packet.Header.SenderAddr)
+		fmt.Printf("Invalid reply address %s\n", incPkt.Packet.Header.SenderAddr)
 		return
 	}
 
@@ -51,34 +51,19 @@ func (srv *Server) dispatchToSession(pktCtx session.PacketContext) {
 	to        : %s
 	reply sock: %s
 	pktType   : %s
-	payload: %+v
 `,
 		srv.ID,
-		pktCtx.Packet.Header.SessionID,
-		pktCtx.Addr.String(),
-		pktCtx.Packet.Header.RecipientAddr,
+		incPkt.Packet.Header.SessionID,
+		incPkt.Addr.String(),
+		incPkt.Packet.Header.RecipientAddr,
 		senderAddr.String(),
-		pktCtx.Packet.Header.PktType,
-		pktCtx.Packet.Payload,
+		incPkt.Packet.Header.PktType,
 	)
 
-	ses.IncomingCh <- pktCtx
+	ses.RecvCh <- incPkt
 }
 
-// retrieves the session with the correct session id from the servers sessionMap and returns it. if there are no hits, a new session will be created
-func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) *session.Session {
-	srv.mu.Lock()
-	ses, exists := srv.sessions[sessionID]
-
-	if !exists {
-		ses = session.NewSession(sessionID, senderAddr, srv.closeReq, srv.elevator, srv)
-		srv.sessions[sessionID] = ses
-	}
-	srv.mu.Unlock()
-	return ses
-}
-
-func (srv *Server) readLoop(conn *net.UDPConn, out chan<- session.PacketContext) {
+func (srv *Server) readLoop(conn *net.UDPConn, out chan<- session.IncomingPacket) {
 	defer srv.wg.Done()
 	buf := make([]byte, 2048)
 
@@ -103,7 +88,7 @@ func (srv *Server) readLoop(conn *net.UDPConn, out chan<- session.PacketContext)
 			continue
 		}
 
-		out <- session.PacketContext{
+		out <- session.IncomingPacket{
 			Packet: pkt,
 			Addr:   addr,
 		}

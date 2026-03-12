@@ -3,6 +3,7 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
+	"elevator_program/udp"
 	"elevator_program/udp/message"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
@@ -43,7 +44,7 @@ func testElevator() {
 	select {}
 }
 
-func createServer(port int, id string, ch1 chan<- session.PacketContext) *server.Server {
+func createServer(port int, id string, ch1 chan<- session.ElevatorPacket) *server.Server {
 	s1, err := server.NewServer(localIP, port, id, ch1)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create s1: %v", err))
@@ -74,30 +75,21 @@ func testServer(s1 *server.Server, s2 *server.Server) {
 	bMsg := message.Message{Content: "Hello from B"}
 
 	// Server A sends to B
-	go s1.SendSession(1, "127.0.0.1", 9001, aMsg)
+	go s1.StartSession(udp.MustUDPAddr("127.0.0.1", 9001), aMsg)
 
 	// Server B sends to A
-	go s2.SendSession(2, "127.0.0.1", 9000, bMsg)
+	go s2.StartSession(udp.MustUDPAddr("127.0.0.1", 9000), bMsg)
 }
 
 func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	seq := uint32(0)
-	sessionID := uint32(1) // or whatever you need
-
 	bcMsg := message.Message{Content: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		err := srv.SendBroadcast(seq, sessionID, bcMsg)
-		if err != nil {
-			fmt.Println("Broadcast error:", err)
-		} else {
-			fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
-		}
-		seq++ // increment sequence if needed
-		sessionID++
+		srv.StartBroadcast(bcMsg)
+		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
 
@@ -123,13 +115,15 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 }
 
 func main() {
-	chA := make(chan session.PacketContext)
+	chA := make(chan session.ElevatorPacket)
 	serverA := createServer(9000, "A", chA)
 
-	chB := make(chan session.PacketContext)
+	chB := make(chan session.ElevatorPacket)
 	serverB := createServer(9001, "B", chB)
 
-	go serverA.SendSession(1, "127.0.0.1", 9001, message.Message{Content: "Hello from A"})
+	go serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
+		message.Message{Content: "Hello from A"})
+	// go serverA.StartBroadcast(message.Message{Content: "Hello from A"})
 
 	// go testServer(serverA, serverB)
 
@@ -143,7 +137,9 @@ func main() {
 
 	for msg := range chB {
 		fmt.Println("msgCh test:", msg.Packet.Payload.Content)
-		close(msg.Done)
+		if msg.Done != nil {
+			msg.Done <- struct{}{}
+		}
 	}
 
 	closeProgram(serverA, serverB)

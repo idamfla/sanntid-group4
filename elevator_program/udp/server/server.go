@@ -2,7 +2,6 @@ package server
 
 import (
 	"elevator_program/udp/session"
-	"fmt"
 	"net"
 	"sync"
 )
@@ -26,10 +25,10 @@ type Server struct {
 	stopListening chan struct{}
 	wg            sync.WaitGroup
 
-	elevator chan<- session.PacketContext
+	elevator chan<- session.ElevatorPacket
 }
 
-func NewServer(ip string, port int, id string, toElevator chan<- session.PacketContext) (*Server, error) {
+func NewServer(ip string, port int, id string, toElevator chan<- session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -45,6 +44,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.PacketC
 	sendAddr := &net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"), // binds to any local IP
 		Port: 0,                      // 0 = let OS pick a free port
+		// Port: port - 10, // TODO magic number, just testing sending from a choosen port
 	}
 
 	// create broadcast-listening UDP socket
@@ -84,34 +84,4 @@ func (srv *Server) Close() {
 	srv.mu.Unlock()
 
 	close(srv.closeReq)
-}
-
-// helper function, not called directly: *unsafe*
-func (srv *Server) closeSessionLocked(sesID uint32) {
-	ses, exists := srv.sessions[sesID]
-	if exists {
-		ses.Close()
-		delete(srv.sessions, sesID)
-
-		// TODO remove db
-		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
-
-	}
-}
-
-func (srv *Server) closeSession(sesID uint32) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.closeSessionLocked(sesID)
-}
-
-func (srv *Server) PrintSessions() {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
-	fmt.Printf("Active sessions (%d):\n", len(srv.sessions))
-	// for id := range srv.sessions {
-	// 	fmt.Println(" -", id)
-	// }
-	fmt.Printf("Server %s closed\n", srv.ID)
 }
