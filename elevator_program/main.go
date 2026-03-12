@@ -38,14 +38,11 @@ func testElevator() {
 
 	e.InitElevator(id, numFloors, initFloor)
 	e.RunElevatorProgram()
-	/*
-		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
-	*/
 	select {}
 }
 
-func createServer(port int, id string, ch1 chan<- session.ElevatorPacket) *server.Server {
-	s1, err := server.NewServer(localIP, port, id, ch1)
+func createServer(port int, id string, numberOfElevators int, ch1 chan<- session.ElevatorPacket) *server.Server {
+	s1, err := server.NewServer(localIP, port, id, numberOfElevators, ch1)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create s1: %v", err))
 	}
@@ -116,14 +113,14 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 
 func main() {
 	chA := make(chan session.ElevatorPacket)
-	serverA := createServer(9000, "A", chA)
+	serverA := createServer(9000, "A", 5, chA)
 
 	chB := make(chan session.ElevatorPacket)
-	serverB := createServer(9001, "B", chB)
+	serverB := createServer(9001, "B", 2, chB)
 
-	serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
-		message.Message{Content: "Hello from A"})
-	// go serverA.StartBroadcast(message.Message{Content: "Hello from A"})
+	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
+	// 	message.Message{Content: "Hello from A"})
+	serverA.StartBroadcast(message.Message{Content: "Hello from A"})
 
 	// go testServer(serverA, serverB)
 

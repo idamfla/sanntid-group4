@@ -8,23 +8,17 @@ import (
 	"net"
 )
 
-func (srv *Server) registerNewSession(id uint32, addr *net.UDPAddr) *session.Session {
-	ses := session.NewSession(id, addr, srv.closeReq, srv.elevator, srv)
-	srv.sessions[id] = ses
-	ses.Start()
-	return ses
-}
-
 // returns session from session map. if no hits, a new server is made
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) *session.Session {
 	srv.mu.Lock()
-	defer srv.mu.Unlock()
+	ses, exists := srv.sessions[sessionID]
+	srv.mu.Unlock()
 
-	if ses, exists := srv.sessions[sessionID]; exists {
+	if exists {
 		return ses
 	}
 
-	return srv.registerNewSession(sessionID, senderAddr)
+	return srv.createSession(senderAddr, &sessionID)
 }
 
 // helper function, not called directly: *unsafe*
@@ -57,20 +51,16 @@ func (srv *Server) PrintSessions() {
 	}
 }
 
-// region Session ID
 func generateSessionID() uint32 {
 	var b [4]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		panic(err) // extremely unlikely but correct
+		panic(err) // TODO i dont want panic, just something that makes it try again
 	}
 	return binary.LittleEndian.Uint32(b[:])
 }
 
-func (srv *Server) createSession(remoteAddr *net.UDPAddr) *session.Session {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
-	// generate unique id
+// generates a unique session id,the called must mutex lock srv
+func (srv *Server) generateSessionIDLocked() uint32 {
 	var id uint32
 	for {
 		id = generateSessionID()
@@ -80,7 +70,45 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr) *session.Session {
 		}
 	}
 
-	return srv.registerNewSession(id, remoteAddr)
+	return id
 }
 
-// endregion
+func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *session.Session {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	var id uint32
+	if sessionID != nil {
+		id = *sessionID
+	} else {
+		id = srv.generateSessionIDLocked()
+	}
+
+	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv.elevator, srv)
+	srv.sessions[ses.ID] = ses
+	ses.Start()
+	return ses
+}
+
+func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedResponses int) *session.BroadcastSession {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	// generate unique id
+	id := srv.generateSessionIDLocked()
+
+	bs := session.NewBroadcastSession(
+		id,
+		remoteAddr,
+		srv.closeReq,
+		srv.elevator,
+		srv,
+		expectedResponses,
+	)
+
+	// store it in sessions map (so server tracks it)
+	srv.sessions[bs.Session.ID] = bs.Session
+	bs.Session.Start()
+
+	return bs
+}

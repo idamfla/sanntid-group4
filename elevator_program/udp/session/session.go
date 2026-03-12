@@ -3,6 +3,7 @@ package session
 import (
 	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/timer"
 	"fmt"
 	"net"
 	"sync"
@@ -35,17 +36,17 @@ type Session struct {
 	sendCh chan OutgoingPacket
 
 	// --- timers/lifecycle ---
-	timeWaitTimer *SessionTimer
-	commitTimer   *SessionTimer
+	timeWaitTimer *timer.Timer
+	commitTimer   *timer.Timer
 
 	// --- external systems ---
 	elev chan<- ElevatorPacket
 	tx   PacketSender // <-- session uses this to reply
 
-	closeReq chan<- uint32 // make the server/owner close this session
-	wg       sync.WaitGroup
-	stop     chan struct{}
-
+	// --- session control ---
+	closeReq  chan<- uint32 // make the server/owner close this session
+	stop      chan struct{}
+	wg        sync.WaitGroup
 	closeOnce sync.Once
 }
 
@@ -63,8 +64,8 @@ func NewSession(id uint32,
 		// IsClosing:     false,
 		RecvCh:        make(chan IncomingPacket, 32),
 		sendCh:        make(chan OutgoingPacket, 32),
-		timeWaitTimer: NewSessionTimer(),
-		commitTimer:   NewSessionTimer(),
+		timeWaitTimer: timer.NewTimer(),
+		commitTimer:   timer.NewTimer(),
 
 		elev: elevator,
 		tx:   transmitter,
@@ -73,7 +74,6 @@ func NewSession(id uint32,
 		closeReq: closeReq,
 	}
 
-	// go ses.Run()
 	fmt.Println("New session created:", id)
 
 	return ses
@@ -88,6 +88,8 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
+		ses.commitTimer.Stop()
+		ses.timeWaitTimer.Stop()
 		close(ses.stop)
 		ses.wg.Wait()
 		close(ses.RecvCh)

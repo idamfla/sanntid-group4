@@ -39,7 +39,7 @@ func (srv *Server) StartSession(remoteAddr *net.UDPAddr, msg message.Message) {
 		return
 	}
 
-	ses := srv.createSession(remoteAddr)
+	ses := srv.createSession(remoteAddr, nil)
 	ses.SendDataMessage(msg)
 }
 
@@ -53,7 +53,7 @@ func (srv *Server) StartMasterSession(remoteAddr *net.UDPAddr, msg message.Messa
 		return
 	}
 
-	ses := srv.createSession(remoteAddr)
+	ses := srv.createSession(remoteAddr, nil)
 	ses.SendMasterMessage(msg)
 }
 
@@ -65,7 +65,8 @@ func (srv *Server) StartBroadcast(msg message.Message) {
 		Port: BroadcastPort,
 	}
 
-	ses := srv.createSession(addr)
+	quorum := srv.activePeers * (quorumPercent / percentDivisor)
+	ses := srv.createBroadcastSession(addr, quorum)
 
 	ses.SendBroadcastData(msg)
 }

@@ -11,6 +11,8 @@ const (
 	NtnuBroadcastIP = "10.100.23.255"
 	HomeBroadcastIP = "192.168.50.255"
 	BroadcastPort   = 3000
+	quorumPercent   = 50
+	percentDivisor  = 100
 )
 
 type Server struct {
@@ -26,10 +28,11 @@ type Server struct {
 	stopListening chan struct{}
 	wg            sync.WaitGroup
 
-	elevator chan<- session.ElevatorPacket
+	activePeers int
+	elevator    chan<- session.ElevatorPacket
 }
 
-func NewServer(ip string, port int, id string, toElevator chan<- session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, numberOfElevators int, toElevator chan<- session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -45,7 +48,6 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.Elevato
 	sendAddr := &net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"), // binds to any local IP
 		Port: 0,                      // 0 = let OS pick a free port
-		// Port: port - 10, // TODO magic number, just testing sending from a choosen port
 	}
 
 	// create broadcast-listening UDP socket
@@ -65,6 +67,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.Elevato
 		sessions:        make(map[uint32]*session.Session),
 		closeReq:        make(chan uint32),
 		stopListening:   make(chan struct{}),
+		activePeers:     numberOfElevators - 1, // excluding oneself
 		elevator:        toElevator,
 	}
 

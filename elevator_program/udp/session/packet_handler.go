@@ -4,17 +4,12 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 	"time"
 )
 
 func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 	pkt := incPkt.Packet
 	h := pkt.Header
-
-	if err := ses.resolveSenderAddr(h.SenderAddr); err != nil {
-		return err
-	}
 
 	if !ses.checkSequence(h.Seq) {
 		fmt.Printf("order of packages is off ... got: %d, expected: %d\n", h.Seq, ses.Seq+1)
@@ -33,9 +28,11 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 		incPkt.Packet.Payload,
 	)
 
+	ses.timeWaitTimer.Stop()
+
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
-		fmt.Printf("%s sent %s\n", h.SenderAddr, h.PktType) // TODO remove db
+		fmt.Printf("%s sent %s\n", h.SenderAddr, h.PktType) // TODO remove db, although ... heatbeat should not end up here
 
 	case packet.PKT_T_Data, packet.PKT_T_BroadcastData, packet.PKT_T_MasterData:
 		ses.handleData(&pkt, h.PktType)
@@ -52,20 +49,18 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 		ses.sendReply(packet.PKT_T_BroadcastCommit)
 
 	case packet.PKT_T_MasterAck:
-		ses.timeWaitTimer.Restart(udp.LOCAL_COMMIT_TIMEOUT*time.Second, func() {
-			ses.closeReq <- ses.ID
-		})
+		ses.scheduleSessionClose()
 
 	case packet.PKT_T_Commit, packet.PKT_T_BroadcastCommit:
 		commitPacket := ses.pendingPkt
-		go ses.commitToElevator(commitPacket, h.PktType)
+		go ses.handleCommit(commitPacket, h.PktType)
 
 	case packet.PKT_T_CommitFailed:
 		// TODO fault tolerence? what to do now ...
 
 	case packet.PKT_T_Done:
 		ses.commitTimer.Stop()
-		ses.closeReq <- ses.ID
+		ses.requestClose()
 
 	case packet.PKT_T_BroadcastDone:
 		// bcDone++
@@ -75,10 +70,6 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 	}
 	return nil
 }
-
-// func (ses *Session) sendRetry(outPkt OutgoingPacket) {
-// 	// return ses.tx.SendReply(ses.senderAddr, ses.seq, ses.id, incPkt)
-// }
 
 func (ses *Session) handleData(pkt *packet.Packet, pktType packet.PacketType) {
 	ses.pendingPkt = pkt
@@ -94,7 +85,20 @@ func (ses *Session) handleData(pkt *packet.Packet, pktType packet.PacketType) {
 	}
 }
 
-func (ses *Session) commitToElevator(pkt *packet.Packet, pktType packet.PacketType) {
+func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) {
+	if err := ses.commitToElevator(pkt); err != nil {
+		ses.sendReply(packet.PKT_T_CommitFailed)
+		fmt.Println(err)
+	}
+
+	ses.sendDoneAck(pktType)
+	ses.pendingPkt = nil
+
+	ses.scheduleSessionClose()
+}
+
+// --- elevator interaction
+func (ses *Session) commitToElevator(pkt *packet.Packet) error {
 	doneCh := make(chan struct{})
 
 	// send to elevator
@@ -105,41 +109,27 @@ func (ses *Session) commitToElevator(pkt *packet.Packet, pktType packet.PacketTy
 
 	select { // wait for completion
 	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT * time.Second):
-		ses.timeWaitTimer.Stop()
-		ses.sendReply(packet.PKT_T_CommitFailed)
-		fmt.Println("Elevator failed to commit ...")
-		return
+		return fmt.Errorf("Elevator failed to commit …")
 	case <-doneCh:
 		fmt.Println("Elevator done commiting")
+		return nil
 	}
+}
 
-	// reset pendingPkt and notify sender
-	switch pktType {
-	case packet.PKT_T_BroadcastCommit:
-		ses.sendReply(packet.PKT_T_BroadcastDone)
-	default:
-		ses.sendReply(packet.PKT_T_Done)
-	}
-	ses.pendingPkt = nil
+func (ses *Session) checkSequence(seq uint32) bool {
+	return seq == ses.Seq+1
+}
 
-	// start countdown to session termination
+// --- lifecycle / timers
+func (ses *Session) scheduleSessionClose() {
 	ses.timeWaitTimer.Restart(udp.LOCAL_COMMIT_TIMEOUT*time.Second, func() {
 		ses.closeReq <- ses.ID
 	})
 }
 
-func (ses *Session) resolveSenderAddr(addr string) error {
-	if ses.senderAddr == nil {
-		udpAddr, err := net.ResolveUDPAddr("udp", addr)
-		if err != nil {
-			fmt.Printf("Session %d: invalid reply address %s\n", ses.ID, addr)
-			return err
-		}
-		ses.senderAddr = udpAddr
+func (ses *Session) requestClose() {
+	select {
+	case ses.closeReq <- ses.ID:
+	default:
 	}
-	return nil
-}
-
-func (ses *Session) checkSequence(seq uint32) bool {
-	return seq == ses.Seq+1
 }

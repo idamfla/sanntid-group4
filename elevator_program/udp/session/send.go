@@ -51,6 +51,15 @@ func (ses *Session) sendReply(pktType packet.PacketType) {
 	<-done // wait until SendLoop actually sends it
 }
 
+func (ses *Session) sendDoneAck(pktType packet.PacketType) {
+	switch pktType {
+	case packet.PKT_T_BroadcastCommit:
+		ses.sendReply(packet.PKT_T_BroadcastDone)
+	default:
+		ses.sendReply(packet.PKT_T_Done)
+	}
+}
+
 func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error {
 	return ses.tx.Send(
 		ses.senderAddr,

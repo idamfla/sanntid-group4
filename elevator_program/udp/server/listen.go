@@ -60,12 +60,17 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 }
 
 func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
-	sessionID := incPkt.Packet.Header.SessionID
-	senderAddr, err := net.ResolveUDPAddr("udp", incPkt.Packet.Header.SenderAddr)
+	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
-		fmt.Printf("Invalid reply address %s\n", incPkt.Packet.Header.SenderAddr)
 		return
 	}
+
+	sessionID := incPkt.Packet.Header.SessionID
+	// senderAddr, err := net.ResolveUDPAddr("udp", incPkt.Packet.Header.SenderAddr)
+	// if err != nil {
+	// 	fmt.Printf("Invalid reply address %s\n", incPkt.Packet.Header.SenderAddr)
+	// 	return
+	// }
 
 	ses := srv.getOrCreateSession(senderAddr, sessionID)
 
@@ -85,4 +90,19 @@ func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
 	)
 
 	ses.RecvCh <- incPkt
+}
+
+func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
+	udpAddr, err := net.ResolveUDPAddr("udp", replyAddr)
+	if err != nil {
+		fmt.Printf("Invalid reply address %s\n", replyAddr)
+		return nil, err
+	}
+
+	if replyAddr == srv.recvConn.LocalAddr().String() {
+		err := fmt.Errorf("Server is receiving message from itself")
+		return nil, err
+	}
+
+	return udpAddr, nil
 }
