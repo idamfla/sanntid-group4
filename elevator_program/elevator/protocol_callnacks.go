@@ -3,6 +3,7 @@ package elevator
 import (
 	"elevator_program/elevio"
 	"elevator_program/message"
+	"elevator_program/system"
 	"elevator_program/types"
 )
 
@@ -31,8 +32,30 @@ func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button 
 
 func (e *Elevator) SetConnectionState(msg message.Message) {
 	e.id = msg.Id
-	e.isMaster = false
+	e.IsMaster = false
 	e.connectedToMaster = true
 	e.elevatorState = types.ES_Idle // TODO Do I need this one here?
 	// e.ipToId Need to know the ip/id to the others
+}
+
+// TODO Probably don't need, just for testing
+func (e *Elevator) ClearElevator(numFloors int) {
+	e.System.HallRequests = make([][2]types.ButtonStatus, numFloors)
+	e.System.Elevators = make(map[int]types.ElevatorsStatus)
+	e.nextTarget = elevio.ButtonEvent{
+		Floor:  -1,
+		Button: elevio.BT_HallUp,
+	}
+	elevio.SetMotorDirection(0)
+	e.elevatorState = types.ES_EmergencyStop
+}
+
+// TODO Don't need
+func (e Elevator) Create_slave(system system.System) Elevator {
+	slave := Elevator{
+		id:       2,
+		IsMaster: false,
+		System:   system,
+	}
+	return slave
 }

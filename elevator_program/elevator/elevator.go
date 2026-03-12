@@ -8,7 +8,6 @@ import (
 	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
-	"elevator_program/udp/server"
 )
 
 type Elevator struct {
@@ -33,10 +32,10 @@ type Elevator struct {
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	msgRecieveCh chan message.Message
+	MsgRecieveCh chan message.Message
 	msgSendCh    chan message.Message
 
-	isMaster          bool
+	IsMaster          bool
 	connectedToMaster bool
 	// elevatorRegistry  map[int]types.ElevatorsStatus // TODO Was string, could also make it uint
 
@@ -55,9 +54,11 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
 	e.cabRequests = make([]types.ButtonStatus, numFloors)
 
-	e.isMaster = false
+	e.IsMaster = false
 
-	// e.elevatorState = ES_Uninitialized
+	e.System.InitSystem(1, "192.168.0.1", 4)
+
+	e.elevatorState = types.ES_Uninitialized
 
 	// TODO Need to initialize system
 
@@ -67,8 +68,8 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	msgRecieveCh = make(chan message.Message, 10)           // TODO Should have this in the code
-	server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
+	// MsgRecieveCh = make(chan message.Message, 10)           // TODO Should have this in the code
+	// server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }
@@ -79,28 +80,14 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Temp for testing msgHandler
 	// go e.TestMsgHandler(4)
-	go e.TestMsgHandler_Master(4)
-	go e.server.Listen() // TODO check that this work
-	done := make(chan struct{})
-	<-done
-}
-
-// Temp for printing ButtonStatus
-func (r ButtonStatus) String() string {
-	switch r {
-	case types.NotActive:
-		return "NotActive"
-	case types.Pending:
-		return "Pending"
-	case types.Running:
-		return "Running"
-	default:
-		return "Unknown"
-	}
+	// go e.TestMsgHandler_Master(4)
+	// go e.server.Listen() // TODO check that this work
+	// done := make(chan struct{})
+	// <-done
 }
 
 // region printing, for debugging

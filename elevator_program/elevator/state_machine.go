@@ -158,27 +158,3 @@ func (e *Elevator) RunElevatorStateMachine() {
 		e.updateElevatorState()
 	}
 }
-
-// region printing
-func (s ElevatorState) String() string {
-	switch s {
-	// case Idle:
-	// 		return "idle"
-	case types.ES_Uninitialized:
-		return "uninitialized"
-	case types.ES_Idle:
-		return "idle"
-	case types.ES_Moving:
-		return "moving"
-	case types.ES_DoorOpen:
-		return "door open"
-	// case ES_Obstruction:
-	// 	return "obstruction"
-	case types.ES_EmergencyStop:
-		return "emergency stop"
-	default:
-		return "unknown"
-	}
-}
-
-// endregion

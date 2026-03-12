@@ -34,3 +34,41 @@ const (
 	MSG_T_LostComs     // A routine to check if you have lost communication
 	MSG_T_NewToChannel // Send the latest information
 )
+
+// Temp for printing ButtonStatus
+func (r ButtonStatus) String() string {
+	switch r {
+	case NotActive:
+		return "NotActive"
+	case Pending:
+		return "Pending"
+	case Running:
+		return "Running"
+	default:
+		return "Unknown"
+	}
+}
+
+// region printing
+func (s ElevatorState) String() string {
+	switch s {
+	// case Idle:
+	// 		return "idle"
+	case ES_Uninitialized:
+		return "uninitialized"
+	case ES_Idle:
+		return "idle"
+	case ES_Moving:
+		return "moving"
+	case ES_DoorOpen:
+		return "door open"
+	// case ES_Obstruction:
+	// 	return "obstruction"
+	case ES_EmergencyStop:
+		return "emergency stop"
+	default:
+		return "unknown"
+	}
+}
+
+// endregion

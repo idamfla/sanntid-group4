@@ -56,3 +56,21 @@ func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[st
 	newMessage.HallRequests = s.HallRequests
 	newMessage.Elevators = s.Elevators // TODO send newMessage back
 }
+
+// TODO Probably don't need only for testing
+func (s System) CopySystem() System {
+	// Create a new instance of System and copy the fields
+	newCopy := s
+
+	// Deep copy the map to ensure independence
+	newCopy.Elevators = make(map[int]types.ElevatorsStatus)
+	for id, elevator := range s.Elevators {
+		newCopy.Elevators[id] = elevator
+	}
+
+	// Deep copy the hallRequests slice
+	newCopy.HallRequests = make([][2]types.ButtonStatus, len(s.HallRequests))
+	copy(newCopy.HallRequests, s.HallRequests)
+
+	return newCopy
+}

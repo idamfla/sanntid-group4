@@ -7,6 +7,8 @@ import (
 	"fmt"
 )
 
+// TODO Ida thinks it could be a better way to structure it
+
 /*
 --------------------------------
 Trying to use new infrastructure
@@ -27,7 +29,7 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 		p.applyStatusReport(e, msg)
 
 	case types.MSG_T_TaskAssign:
-		e.nextTarget = msg.Task // TODO you should not be able to loose this requests unless you get a new TaskAssign
+		// e.nextTarget = msg.Task // TODO you should not be able to loose this requests unless you get a new TaskAssign
 		p.applyTaskUpdate_slave(e, msg)
 
 	case types.MSG_T_TaskUpdate:
@@ -62,11 +64,11 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
-		cabRequestsTemp := make([]types.ButtonStatus, len(msg.CabRequests))
-		for i, req := range msg.CabRequests {
-			cabRequestsTemp[i] = types.ButtonStatus(req) // Explicit conversion
-		}
-		task := e.computeNewTarget(msg.CurrentFloor, cabRequestsTemp, msg.Direction)
+		cabRequestsTemp := msg.Elevators[msg.Id].CabRequests
+		currentFloor := msg.Elevators[msg.Id].CurrentFloor
+		direction := msg.Elevators[msg.Id].Direction
+		task := e.ComputeNewTarget(currentFloor, cabRequestsTemp, direction)
+		fmt.Println("Need to send new task: ", task)
 		// Need to send assign to the elevator
 		// And send task uppdate to the other
 
@@ -78,25 +80,25 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	}
 }
 
-func (e *Protocol) MessageHandler(msg message.Message) {
+func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	// if msg.SenderId == e.id {
 	// 	return // Ignore own messages
 	// }
 
-	if e.isMaster {
-		e.protocol.masterMessageHandler(e, msg)
+	if e.IsMaster {
+		p.masterMessageHandler(e, msg)
 	} else {
-		e.protocol.slaveMessageHandler(e, msg)
+		p.slaveMessageHandler(e, msg)
 	}
 }
 
-func (e *Protocol) messageListener() {
+func (p *Protocol) messageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
-	for pktCtx := range e.msgRecieveCh {
-		msg := pktCtx.Packet.Payload
-		e.MessageHandler(msg)
-		close(pktCtx.Done)
-	}
+	// for pktCtx := range e.MsgRecieveCh { // TODO fix channels and server
+	// 	msg := pktCtx.Packet.Payload
+	// 	p.MessageHandler(e, msg)
+	// 	pktCtx.Done <- struct{}{}
+	// }
 }
 
 /*
@@ -110,7 +112,7 @@ func (p Protocol) applyStatusReport(e *elevator.Elevator, msg message.Message) {
 }
 
 func (p Protocol) applyTaskUpdate_slave(e *elevator.Elevator, msg message.Message) {
-	e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task)
+	e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 }
 

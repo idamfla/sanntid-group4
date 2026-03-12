@@ -1,6 +1,7 @@
 package system
 
 import (
+	"elevator_program/elevio"
 	"elevator_program/types"
 )
 
@@ -19,3 +20,24 @@ type System struct {
 // 		Id:          id,
 // 	}
 // }
+
+func (s *System) InitSystem(id int, ip string, numFloors int) {
+	if s.Elevators == nil {
+		s.Elevators = make(map[int]types.ElevatorsStatus)
+	}
+	if s.HallRequests == nil {
+		s.HallRequests = make([][2]types.ButtonStatus, numFloors)
+	}
+
+	s.Elevators[id] = types.ElevatorsStatus{
+		Id:           id,
+		Ip:           ip,
+		CurrentFloor: -1,
+		CabRequests:  make([]types.ButtonStatus, numFloors),
+		Target: elevio.ButtonEvent{
+			Floor:  -1,
+			Button: elevio.BT_HallUp,
+		},
+		State: types.ES_Uninitialized,
+	}
+}
