@@ -69,7 +69,7 @@ func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error 
 		msg)
 }
 
-func (ses *Session) SendLoop() {
+func (ses *Session) SendLoop(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
 	for {
@@ -79,6 +79,9 @@ func (ses *Session) SendLoop() {
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}
+
+			behavior.OnSend(outPkt.PktType)
+
 			if outPkt.Done != nil {
 				close(outPkt.Done) // signal sender
 
@@ -88,3 +91,6 @@ func (ses *Session) SendLoop() {
 		}
 	}
 }
+
+// for the SessionBehavior, does nothing
+func (ses *Session) OnSend(pktType packet.PacketType) {}

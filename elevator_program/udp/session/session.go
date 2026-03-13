@@ -81,20 +81,27 @@ func NewSession(id uint32,
 
 func (ses *Session) Start() {
 	ses.wg.Add(2)
-	go ses.Listen()
-	go ses.SendLoop()
+	go ses.Listen(ses)
+	go ses.SendLoop(ses)
 	fmt.Printf("Session %d started\n", ses.ID)
 }
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
+		// Stop normal session timers
 		ses.remoteCommitTimer.Stop()
 		ses.shutdownDelayTimer.Stop()
+
+		// Stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
+
+		// Close channels
 		close(ses.recvCh)
 		close(ses.sendCh)
 		close(ses.closeReq)
+
+		// Clear pending packet
 		ses.pendingPkt = nil
 
 		fmt.Printf("Session %d closed\n", ses.ID)

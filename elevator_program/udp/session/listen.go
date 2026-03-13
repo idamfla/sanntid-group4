@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (ses *Session) Listen() {
+func (ses *Session) Listen(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
 	ticker := time.NewTicker(udp.RETRY_FREQUENCY * time.Second)
@@ -23,7 +23,8 @@ func (ses *Session) Listen() {
 				return
 			}
 			retransmissions = 0
-			ses.handlePacket(incPkt)
+			behavior.HandlePacket(incPkt)
+			// ses.handlePacket(incPkt)
 		case <-ticker.C:
 			// ses.retransmitt()
 			retransmissions++

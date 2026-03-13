@@ -11,7 +11,7 @@ func (ses *Session) ReceivePacket(incPkt IncomingPacket) {
 	ses.recvCh <- incPkt
 }
 
-func (ses *Session) handlePacket(incPkt IncomingPacket) error {
+func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 	pkt := incPkt.Packet
 	h := pkt.Header
 
