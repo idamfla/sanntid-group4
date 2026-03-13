@@ -22,7 +22,7 @@ type Session struct {
 	ID         uint32
 	senderAddr *net.UDPAddr // addr of original sender
 
-	Seq uint32
+	seq uint32
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet
@@ -32,12 +32,12 @@ type Session struct {
 	// lastSeen time.Time
 
 	// --- internal communication ---
-	RecvCh chan IncomingPacket
+	recvCh chan IncomingPacket
 	sendCh chan OutgoingPacket
 
 	// --- timers/lifecycle ---
-	timeWaitTimer *timer.Timer
-	commitTimer   *timer.Timer
+	shutdownDelayTimer *timer.Timer
+	remoteCommitTimer  *timer.Timer
 
 	// --- external systems ---
 	elev chan<- ElevatorPacket
@@ -59,13 +59,13 @@ func NewSession(id uint32,
 	ses := &Session{
 		ID:         id,
 		senderAddr: addr,
-		Seq:        INIT_SEQ_NUMBER,
+		seq:        INIT_SEQ_NUMBER,
 		pendingPkt: &packet.Packet{},
 		// IsClosing:     false,
-		RecvCh:        make(chan IncomingPacket, 32),
-		sendCh:        make(chan OutgoingPacket, 32),
-		timeWaitTimer: timer.NewTimer(),
-		commitTimer:   timer.NewTimer(),
+		recvCh:             make(chan IncomingPacket, 32),
+		sendCh:             make(chan OutgoingPacket, 32),
+		remoteCommitTimer:  timer.NewTimer(),
+		shutdownDelayTimer: timer.NewTimer(),
 
 		elev: elevator,
 		tx:   transmitter,
@@ -88,11 +88,11 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		ses.commitTimer.Stop()
-		ses.timeWaitTimer.Stop()
+		ses.remoteCommitTimer.Stop()
+		ses.shutdownDelayTimer.Stop()
 		close(ses.stop)
 		ses.wg.Wait()
-		close(ses.RecvCh)
+		close(ses.recvCh)
 		close(ses.sendCh)
 		close(ses.closeReq)
 		ses.pendingPkt = nil

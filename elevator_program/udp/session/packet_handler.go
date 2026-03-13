@@ -7,17 +7,21 @@ import (
 	"time"
 )
 
+func (ses *Session) ReceivePacket(incPkt IncomingPacket) {
+	ses.recvCh <- incPkt
+}
+
 func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 	pkt := incPkt.Packet
 	h := pkt.Header
 
 	if !ses.checkSequence(h.Seq) {
-		fmt.Printf("order of packages is off ... got: %d, expected: %d\n", h.Seq, ses.Seq+1)
+		fmt.Printf("order of packages is off ... got: %d, expected: %d\n", h.Seq, ses.seq+1)
 		// return ses.sendRetry()
 
 	}
 
-	ses.Seq = pkt.Header.Seq
+	ses.seq = pkt.Header.Seq
 	fmt.Printf(
 		`	seq : %d	
 	pktType : %s
@@ -28,7 +32,7 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 		incPkt.Packet.Payload,
 	)
 
-	ses.timeWaitTimer.Stop()
+	ses.shutdownDelayTimer.Stop()
 
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
@@ -39,14 +43,11 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 
 	case packet.PKT_T_Ack:
 		ses.sendReply(packet.PKT_T_Commit)
-		ses.commitTimer.Restart(udp.REMOTE_COMMIT_TIMEOUT*time.Second, func() {
+		ses.remoteCommitTimer.Restart(udp.REMOTE_COMMIT_TIMEOUT*time.Second, func() {
 			fmt.Println("The receiving elevator did not commit the task ...")
 			// TODO what now??
 			// ses.closeReq <- ses.ID
 		})
-
-	case packet.PKT_T_BroadcastAck:
-		ses.sendReply(packet.PKT_T_BroadcastCommit)
 
 	case packet.PKT_T_MasterAck:
 		ses.scheduleSessionClose()
@@ -59,7 +60,7 @@ func (ses *Session) handlePacket(incPkt IncomingPacket) error {
 		// TODO fault tolerence? what to do now ...
 
 	case packet.PKT_T_Done:
-		ses.commitTimer.Stop()
+		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 
 	case packet.PKT_T_BroadcastDone:
@@ -117,12 +118,12 @@ func (ses *Session) commitToElevator(pkt *packet.Packet) error {
 }
 
 func (ses *Session) checkSequence(seq uint32) bool {
-	return seq == ses.Seq+1
+	return seq == ses.seq+1
 }
 
 // --- lifecycle / timers
 func (ses *Session) scheduleSessionClose() {
-	ses.timeWaitTimer.Restart(udp.LOCAL_COMMIT_TIMEOUT*time.Second, func() {
+	ses.shutdownDelayTimer.Restart(udp.SHUTDOWN_TIMEOUT*time.Second, func() {
 		ses.closeReq <- ses.ID
 	})
 }

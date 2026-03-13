@@ -10,10 +10,10 @@ var emtpyMsg message.Message
 
 // helper
 func (ses *Session) send(pktType packet.PacketType, msg message.Message) error {
-	ses.Seq++
+	ses.seq++
 	return ses.tx.Send(
 		ses.senderAddr,
-		ses.Seq,
+		ses.seq,
 		ses.ID,
 		pktType,
 		msg,
@@ -63,7 +63,7 @@ func (ses *Session) sendDoneAck(pktType packet.PacketType) {
 func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error {
 	return ses.tx.Send(
 		ses.senderAddr,
-		ses.Seq,
+		ses.seq,
 		ses.ID,
 		pktType,
 		msg)

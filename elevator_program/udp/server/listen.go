@@ -89,7 +89,7 @@ func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
 		incPkt.Packet.Header.PktType,
 	)
 
-	ses.RecvCh <- incPkt
+	ses.ReceivePacket(incPkt)
 }
 
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {

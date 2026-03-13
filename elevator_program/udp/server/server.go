@@ -15,13 +15,19 @@ const (
 	percentDivisor  = 100
 )
 
+type SessionHandler interface {
+	ReceivePacket(session.IncomingPacket)
+	Start()
+	Close()
+}
+
 type Server struct {
 	ID              string
 	incomingPackets chan session.IncomingPacket
 	recvConn        *net.UDPConn
 	sendConn        *net.UDPConn
 	broadcastConn   *net.UDPConn
-	sessions        map[uint32]*session.Session
+	sessions        map[uint32]SessionHandler
 	mu              sync.Mutex
 	closeReq        chan uint32
 
@@ -64,7 +70,7 @@ func NewServer(ip string, port int, id string, numberOfElevators int, toElevator
 		recvConn:        recvConn,
 		sendConn:        sendConn,
 		broadcastConn:   bcConn,
-		sessions:        make(map[uint32]*session.Session),
+		sessions:        make(map[uint32]SessionHandler),
 		closeReq:        make(chan uint32),
 		stopListening:   make(chan struct{}),
 		activePeers:     numberOfElevators - 1, // excluding oneself

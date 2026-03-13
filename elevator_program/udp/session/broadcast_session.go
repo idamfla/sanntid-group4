@@ -1,17 +1,22 @@
 package session
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 type BroadcastSession struct {
 	*Session // embed base Session
 
-	ResponsesReceived int        // how many elevators replied
-	ExpectedResponses int        // how many must reply before we commit
-	mu                sync.Mutex // protect counters
+	responsesReceived   int // how many elevators replied
+	expectedResponses   int // how many must reply before we commit
+	broacastAckTimer    time.Timer
+	broacastCommitTimer time.Timer
+	mu                  sync.Mutex // protect counters
 }
 
 func NewBroadcastSession(
@@ -24,37 +29,57 @@ func NewBroadcastSession(
 ) *BroadcastSession {
 	bs := &BroadcastSession{
 		Session:           NewSession(id, addr, closeReq, elev, tx),
-		ExpectedResponses: expected,
+		expectedResponses: expected,
 	}
 	return bs
+}
+
+func (bs *BroadcastSession) ReceivePacket(incPkt IncomingPacket) {
+	bs.recvCh <- incPkt
 }
 
 func (bs *BroadcastSession) handlePacket(incPkt IncomingPacket) error {
 	pkt := incPkt.Packet
 	h := pkt.Header
 
-	// call base session handler for common logic
-	if err := bs.Session.handlePacket(incPkt); err != nil {
-		return err
-	}
+	bs.mu.Lock()
+	bs.responsesReceived++
+	quorumReached := bs.responsesReceived >= bs.expectedResponses
+	bs.mu.Unlock()
 
-	// broadcast-specific logic
-	if h.PktType == packet.PKT_T_BroadcastAck {
-		bs.mu.Lock()
-		bs.ResponsesReceived++
-		// if threshold reached, trigger broadcast commit
-		if bs.ResponsesReceived >= bs.ExpectedResponses {
-			bs.mu.Unlock()
+	switch h.PktType {
+	case packet.PKT_T_BroadcastAck:
+		fmt.Println("BS handle packet triggerd :)!!!")
+
+		if quorumReached {
 			bs.sendReply(packet.PKT_T_BroadcastCommit)
-			bs.scheduleSessionClose()
-			return nil
+			bs.broadcastCommitTimer()
 		}
-		bs.mu.Unlock()
+		fmt.Printf("bcAck: %d/%d", bs.responsesReceived, bs.expectedResponses)
+	case packet.PKT_T_BroadcastDone:
+		if quorumReached {
+			bs.requestClose()
+		}
+
 	}
 
 	return nil
 }
 
-// TODO have broadcast wait until sufficient amount of acks
-// make a cooresponding check for broadcast_done_msg
-// have a broadcast timeout that is a bit longer ... maybe give a bit more time since more elevators are included in the communication
+func (bs *BroadcastSession) broadcastAckTimer() {
+	bs.remoteCommitTimer.Restart(udp.BROADCAST_ACK_TIMEOUT*time.Second, func() {
+		fmt.Println("Not enought elevators completed the task in time ...")
+		// TODO what now??
+		// ses.closeReq <- ses.ID
+	})
+}
+
+func (bs *BroadcastSession) broadcastCommitTimer() {
+	bs.remoteCommitTimer.Restart(udp.BROADCAST_COMMIT_TIMEOUT*time.Second, func() {
+		fmt.Println("Not enought elevators completed the task in time ...")
+		// TODO what now??
+		// ses.closeReq <- ses.ID
+	})
+}
+
+// TODO make broadcast start timeAck and timeCommit when sending broadcast data and broadcast commit respectively

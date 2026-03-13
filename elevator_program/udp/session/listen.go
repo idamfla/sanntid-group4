@@ -16,10 +16,10 @@ func (ses *Session) Listen() {
 
 	for {
 		select {
-		case incPkt, ok := <-ses.RecvCh:
+		case incPkt, ok := <-ses.recvCh:
 			if !ok {
 				// Channel closed, stop the session
-				fmt.Printf("Session %d RecvCh channel closed, stopping\n", ses.ID)
+				fmt.Printf("Session %d recvCh channel closed, stopping\n", ses.ID)
 				return
 			}
 			retransmissions = 0

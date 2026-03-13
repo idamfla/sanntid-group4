@@ -9,7 +9,7 @@ import (
 )
 
 // returns session from session map. if no hits, a new server is made
-func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) *session.Session {
+func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) SessionHandler {
 	srv.mu.Lock()
 	ses, exists := srv.sessions[sessionID]
 	srv.mu.Unlock()
@@ -107,8 +107,8 @@ func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedRespo
 	)
 
 	// store it in sessions map (so server tracks it)
-	srv.sessions[bs.Session.ID] = bs.Session
-	bs.Session.Start()
+	srv.sessions[bs.Session.ID] = bs
+	bs.Start()
 
 	return bs
 }

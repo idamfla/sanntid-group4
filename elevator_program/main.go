@@ -118,9 +118,9 @@ func main() {
 	chB := make(chan session.ElevatorPacket)
 	serverB := createServer(9001, "B", 2, chB)
 
-	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
-	// 	message.Message{Content: "Hello from A"})
-	serverA.StartBroadcast(message.Message{Content: "Hello from A"})
+	serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
+		message.Message{Content: "Hello from A"})
+	// serverA.StartBroadcast(message.Message{Content: "Hello from A"})
 
 	// go testServer(serverA, serverB)
 
