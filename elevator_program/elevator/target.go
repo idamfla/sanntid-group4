@@ -60,13 +60,13 @@ let them do the task. this to avoid the first elevator in the map to always take
 on the extra work if the new task is better for it but still another one is closer
 */
 
-func (e Elevator) ClosestToTarget(elevatorRegistry map[int]*types.ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
+func (e Elevator) ClosestToTarget(elevatorRegistry map[int]types.ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
 	minDistance := len(e.hallRequests) + 1
 	bestElevatorID := -1
 	isClosestIdle := false
 
 	for id, candidate := range elevatorRegistry {
-		canTake, _, distance := e.isNewTargetBetter(newTarget, *candidate)
+		canTake, _, distance := e.isNewTargetBetter(newTarget, candidate)
 
 		if isClosestIdle && candidate.State != types.ES_Idle {
 			continue

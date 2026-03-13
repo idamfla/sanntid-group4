@@ -13,10 +13,10 @@ import (
 func (p Protocol) InitMsg() []message.Message {
 	msg := []message.Message{
 		{
-			MsgType: types.MSG_T_TaskAssign,
+			MsgType: types.MSG_T_TaskUpdate,
 			Id:      1,
 			Task: &elevio.ButtonEvent{
-				Floor:  2,
+				Floor:  1,
 				Button: elevio.BT_HallUp,
 			},
 			BtnStatus: types.Pending,
@@ -40,7 +40,7 @@ func (p Protocol) InitMsg() []message.Message {
 			BtnStatus: types.Pending,
 		},
 		{
-			MsgType: types.MSG_T_TaskDelegate,
+			MsgType: types.MSG_T_TaskUpdate,
 			Id:      2,
 			Task: &elevio.ButtonEvent{
 				Floor:  1,
@@ -95,6 +95,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 		HallRequests: newCopy.HallRequests,
 	}
 
+	// TODO When the elevator has forgot everything, it will crash if a button is preesed
 	e.ClearElevator(numFloors)
 	fmt.Println("\nEmpty system:")
 	fmt.Println(e.System)
@@ -151,15 +152,16 @@ func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 		MsgType: types.MSG_T_TaskUpdate,
 		Id:      2,
 		Task: &elevio.ButtonEvent{
-			Floor:  0,
+			Floor:  1,
 			Button: elevio.BT_HallUp,
 		},
 		BtnStatus: types.Pending,
 	}
 
-	p.MessageHandler(e, taskMsg)
+	p.MessageHandler(&slave, taskMsg)
 
-	fmt.Println("Hall requests:", e.System.HallRequests)
+	fmt.Println("Hall requests:", slave.System.HallRequests)
+	fmt.Println("System elevator map:", slave.System.Elevators)
 
 	// fmt.Println("---- TEST: Slave receiving TaskAssign ----")
 

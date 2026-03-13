@@ -31,7 +31,7 @@ func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button 
 }
 
 func (e *Elevator) SetConnectionState(msg message.Message) {
-	e.id = msg.Id
+	e.Id = msg.Id
 	e.IsMaster = false
 	e.connectedToMaster = true
 	e.elevatorState = types.ES_Idle // TODO Do I need this one here?
@@ -53,9 +53,26 @@ func (e *Elevator) ClearElevator(numFloors int) {
 // TODO Don't need
 func (e Elevator) Create_slave(system system.System) Elevator {
 	slave := Elevator{
-		id:       2,
+		Id:       2,
 		IsMaster: false,
 		System:   system,
 	}
 	return slave
+}
+
+func (e *Elevator) SetRequestAsTarget(task elevio.ButtonEvent) {
+	// TODO I think it is wierd that I call system from here. The whole purpose of this was to seperate sytsem and elevator
+	if e.nextTarget.Floor != -1 {
+		e.System.SetRequestStatus(e.Id, types.Pending, e.nextTarget)
+	}
+
+	e.System.SetRequestStatus(e.Id, types.Running, task)
+
+	e.nextTarget = task
+
+	if task.Floor > e.currentFloor {
+		e.direction = elevio.MD_Up
+	} else if task.Floor < e.currentFloor {
+		e.direction = elevio.MD_Down
+	}
 }

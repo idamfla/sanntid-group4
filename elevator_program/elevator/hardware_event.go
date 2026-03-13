@@ -31,7 +31,7 @@ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
 
 	case HW_T_ButtonPress:
 		if hwEvent.Button == elevio.BT_Cab {
-			e.System.Elevators[e.id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
+			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
 		} else {
 			e.System.HallRequests[hwEvent.Floor][hwEvent.Button] = types.Pending // Changed to be compatible with system struct
 		}

@@ -22,9 +22,9 @@ func (s *System) SetRequestStatus(id int, status types.ButtonStatus, btnEvent el
 	}
 }
 
-func (s *System) UpdateRemoteCabBtn(id int, status types.ButtonStatus, floor int) {
-	s.Elevators[id].CabRequests[floor] = status
-}
+// func (s *System) UpdateRemoteCabBtn(id int, status types.ButtonStatus, floor int) {
+// 	s.Elevators[id].CabRequests[floor] = status
+// }
 
 func (s *System) InitializeFromSystemState(msg message.Message) {
 	s.HallRequests = msg.HallRequests
@@ -32,18 +32,15 @@ func (s *System) InitializeFromSystemState(msg message.Message) {
 }
 
 func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[string]int) {
-	// TODO Hmm this is wierd, do we even want Message to be in elevator package??
 	newMessage := message.Message{
 		Ip: msg.Ip,
 	}
 
-	// TODO Should we send a init pos?
 	senderId, ok := ipRegistery[msg.Ip]
 	if ok {
 		newMessage.Id = msg.Id
 
 	} else {
-		// TODO Do the master have itself in the elevatorRegistery?
 		senderId = len(s.Elevators) + 1
 		newElevator := types.ElevatorsStatus{
 			Id: senderId,

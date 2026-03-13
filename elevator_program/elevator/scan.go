@@ -27,7 +27,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
-			if e.System.Elevators[e.id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
 			} else if e.System.HallRequests[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
@@ -38,7 +38,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 		}
 	case elevio.MD_Down:
 		for f := from; f >= to; f-- {
-			if e.System.Elevators[e.id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
 			} else if e.System.HallRequests[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
@@ -60,7 +60,7 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - e.currentFloor)
 
-		if e.System.Elevators[e.id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
+		if e.System.Elevators[e.Id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab

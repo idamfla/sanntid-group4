@@ -6,13 +6,10 @@ import (
 )
 
 func (e *Elevator) clearCabRequest(floor int) {
-	e.System.Elevators[e.id].CabRequests[floor] = types.NotActive // Changed to be compatible with system struct
+	e.System.Elevators[e.Id].CabRequests[floor] = types.NotActive // Changed to be compatible with system struct
 }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
-	// println("the length here is: ", len(e.hallRequests[3]))
-	// println("floor: ", floor)
-	// println("Button: ", button)
 	e.System.HallRequests[floor][button] = types.NotActive // Changed to be compatible with system struct
 }
 

@@ -25,8 +25,8 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
-	// go p.TestMsgHandler(&e, numFloors)
-	go p.TestMsgHandler_Master(&e, numFloors)
+	go p.TestMsgHandler(&e, numFloors)
+	// go p.TestMsgHandler_Master(&e, numFloors)
 
 	// e.TestMasterLogic()
 

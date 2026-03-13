@@ -11,7 +11,7 @@ import (
 )
 
 type Elevator struct {
-	id int
+	Id int
 	// TODO temp need to know the ip using the id
 	IpRegistery map[string]int
 
@@ -46,7 +46,7 @@ type Elevator struct {
 }
 
 func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port string) { // TODO Changed port to string, hope everything works
-	e.id = id
+	e.Id = id
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
@@ -68,7 +68,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	// MsgRecieveCh = make(chan message.Message, 10)           // TODO Should have this in the code
+	e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
 	// server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
@@ -80,7 +80,7 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Temp for testing msgHandler
 	// go e.TestMsgHandler(4)
@@ -103,11 +103,11 @@ func (e Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		e.id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.elevatorState)
+		e.Id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.elevatorState)
 
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.System.HallRequests[f]
-		cab := e.System.Elevators[e.id].CabRequests[f]
+		cab := e.System.Elevators[e.Id].CabRequests[f]
 
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%s Down:%s Cab:%s]\n",

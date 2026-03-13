@@ -81,7 +81,8 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 	// TODO add doorstate switch, e.startTime = time.Now()
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
-	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+	// TODO this is for when the elevator searches for new requests on its own
+	// var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 
 	if e.elevatorState != types.ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
@@ -100,48 +101,66 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 		}
 
 	case types.ES_Idle:
-		nextTarget, dir = e.computeNextTargetAndDirection()
-		if nextTarget.Floor != -1 {
-			e.nextTarget = nextTarget
-			e.updateDirection(nextTarget, dir)
+		if e.nextTarget.Floor != -1 {
+			dir = e.getMotion(e.nextTarget.Floor)
+			if dir != elevio.MD_Stop {
+				e.elevatorState = types.ES_Moving
+			}
 		}
 
-		if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
-			// e.doorState = open
-			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
-		}
+		// TODO this is for when the elevator searches for new requests on its own
+		// nextTarget, dir = e.computeNextTargetAndDirection()
+		// if nextTarget.Floor != -1 {
+		// 	e.nextTarget = nextTarget
+		// 	e.updateDirection(nextTarget, dir)
+		// }
 
-		dir = e.getMotion(e.nextTarget.Floor)
-		if dir != elevio.MD_Stop {
-			e.elevatorState = types.ES_Moving
-		}
+		// if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
+		// 	// e.doorState = open
+		// 	e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
+		// }
+
+		// dir = e.getMotion(e.nextTarget.Floor)
+		// if dir != elevio.MD_Stop {
+		// 	e.elevatorState = types.ES_Moving
+		// }
 
 	case types.ES_Moving:
+		// Won't be able to change target
 		dir = e.getMotion(e.nextTarget.Floor)
 
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
 			e.elevatorState = types.ES_Idle
-		} else {
-			nextTarget, dir = e.computeNextTargetAndDirection()
-			if nextTarget.Floor != -1 {
-				// TODO I don't know if this is the best way to write it but now can use running
-				if e.nextTarget.Button == elevio.BT_Cab {
-					e.System.Elevators[e.id].CabRequests[e.nextTarget.Floor] = types.Pending // TODO Need to message that the buttons have changed
-				} else {
-					e.System.HallRequests[e.nextTarget.Floor][e.nextTarget.Button] = types.Pending // TODO Need to message that the buttons have changed
-				}
-
-				if nextTarget.Button == elevio.BT_Cab {
-					e.System.Elevators[e.id].CabRequests[nextTarget.Floor] = types.Running
-				} else {
-					e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
-				}
-				e.nextTarget = nextTarget
-				// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
-				e.updateDirection(nextTarget, dir)
-			}
+			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
 		}
+
+		// TODO this is for when the elevator searches for new requests on its own
+		// dir = e.getMotion(e.nextTarget.Floor)
+
+		// if dir == elevio.MD_Stop {
+		// 	e.doorState = DS_Opening
+		// 	e.elevatorState = types.ES_Idle
+		// } else {
+		// 	nextTarget, dir = e.computeNextTargetAndDirection()
+		// 	if nextTarget.Floor != -1 {
+		// 		// TODO I don't know if this is the best way to write it but now can use running
+		// 		if e.nextTarget.Button == elevio.BT_Cab {
+		// 			e.System.Elevators[e.id].CabRequests[e.nextTarget.Floor] = types.Pending // TODO Need to message that the buttons have changed
+		// 		} else {
+		// 			e.System.HallRequests[e.nextTarget.Floor][e.nextTarget.Button] = types.Pending // TODO Need to message that the buttons have changed
+		// 		}
+
+		// 		if nextTarget.Button == elevio.BT_Cab {
+		// 			e.System.Elevators[e.id].CabRequests[nextTarget.Floor] = types.Running
+		// 		} else {
+		// 			e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
+		// 		}
+		// 		e.nextTarget = nextTarget
+		// 		// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
+		// 		e.updateDirection(nextTarget, dir)
+		// 	}
+		// }
 	case types.ES_EmergencyStop:
 		return
 	}
