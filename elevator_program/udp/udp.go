@@ -16,8 +16,8 @@ const (
 
 	// Group4IP        = "10.100.23.15"
 	NtnuBroadcastIP = "10.100.23.255"
-	HomeBroadcastIP = "192.168.1.255" // TODO 1 is 50 when at home
-	BroadcastPort   = 3000
+	HomeBroadcastIP = "192.168.50.255"
+	BROADCAST_PORT  = 3000
 )
 
 func IPPortToUDPAddr(ip string, port int) (*net.UDPAddr, error) {

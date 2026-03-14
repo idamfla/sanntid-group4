@@ -112,7 +112,7 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 
 func main() {
 	chA := make(chan session.ElevatorPacket)
-	serverA := createServer(9000, "A", 2, chA)
+	serverA := createServer(9000, "A", 5, chA)
 
 	chB := make(chan session.ElevatorPacket)
 	serverB := createServer(9001, "B", 2, chB)

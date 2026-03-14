@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (ses *Session) Listen(behavior SessionBehavior) {
+func (ses *Session) listen(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
 	ticker := time.NewTicker(udp.RETRY_FREQUENCY * time.Second)

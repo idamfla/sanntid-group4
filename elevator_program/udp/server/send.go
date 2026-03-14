@@ -63,10 +63,10 @@ func (srv *Server) StartBroadcast(msg message.Message) {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(udp.HomeBroadcastIP),
-		Port: udp.BroadcastPort,
+		Port: udp.BROADCAST_PORT,
 	}
 
-	quorum := srv.activePeers * (quorumPercent / percentDivisor)
+	quorum := srv.getQuorum()
 	ses := srv.createBroadcastSession(addr, quorum)
 
 	ses.SendBroadcastData(msg)

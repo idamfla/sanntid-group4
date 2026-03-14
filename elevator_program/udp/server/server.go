@@ -7,11 +7,6 @@ import (
 	"sync"
 )
 
-const (
-	quorumPercent  = 50
-	percentDivisor = 100
-)
-
 type SessionHandler interface {
 	ReceivePacket(session.IncomingPacket)
 	Start()
@@ -35,7 +30,7 @@ type Server struct {
 	elevator    chan<- session.ElevatorPacket
 }
 
-func NewServer(ip string, port int, id string, numberOfElevators int, toElevator chan<- session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, totalNumOfElevators int, toElevator chan<- session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -54,7 +49,7 @@ func NewServer(ip string, port int, id string, numberOfElevators int, toElevator
 	}
 
 	// create broadcast-listening UDP socket
-	bcConn, err := newReusableListenUDPConn(udp.BroadcastPort)
+	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
@@ -70,7 +65,7 @@ func NewServer(ip string, port int, id string, numberOfElevators int, toElevator
 		sessions:        make(map[uint32]SessionHandler),
 		closeReq:        make(chan uint32),
 		stopListening:   make(chan struct{}),
-		activePeers:     numberOfElevators - 1, // excluding oneself
+		activePeers:     totalNumOfElevators - 1, // excluding oneself
 		elevator:        toElevator,
 	}
 
@@ -97,6 +92,16 @@ func (srv *Server) run() {
 		case incPkt := <-srv.incomingPackets:
 			srv.routeToSession(incPkt)
 		}
+	}
+}
+
+func (srv *Server) updateActivePeers(delta int) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	srv.activePeers += delta
+	if srv.activePeers < 0 {
+		srv.activePeers = 0
 	}
 }
 

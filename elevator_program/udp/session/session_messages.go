@@ -16,8 +16,8 @@ type ElevatorPacket struct {
 	Done   chan<- struct{}
 }
 
-type OutgoingPacket struct {
+type OutgoingPacket struct { // TODO rename OutgoingMessage
 	PktType packet.PacketType
 	Msg     message.Message
-	Done    chan struct{}
+	Done    chan struct{} // TODO rename, Commited, or something
 }

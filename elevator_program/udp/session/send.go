@@ -69,7 +69,7 @@ func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error 
 		msg)
 }
 
-func (ses *Session) SendLoop(behavior SessionBehavior) {
+func (ses *Session) sendLoop(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
 	for {

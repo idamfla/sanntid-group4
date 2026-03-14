@@ -81,8 +81,8 @@ func NewSession(id uint32,
 
 func (ses *Session) Start() {
 	ses.wg.Add(2)
-	go ses.Listen(ses)
-	go ses.SendLoop(ses)
+	go ses.listen(ses)
+	go ses.sendLoop(ses)
 	fmt.Printf("Session %d started\n", ses.ID)
 }
 

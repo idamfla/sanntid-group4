@@ -39,8 +39,8 @@ func NewBroadcastSession(
 
 func (bs *BroadcastSession) Start() {
 	bs.wg.Add(2)
-	go bs.Listen(bs)
-	go bs.SendLoop(bs)
+	go bs.listen(bs)
+	go bs.sendLoop(bs)
 	fmt.Printf("Broadcast session %d started\n", bs.ID)
 }
 
@@ -140,6 +140,3 @@ func (bs *BroadcastSession) startRemoteCommitTimer() {
 func (bs *BroadcastSession) stopRemoteCommitTimer() {
 	bs.broadcastCommitTimer.Stop()
 }
-
-// TODO expected responses is not configured ... it also dosent wait so much
-// NB!!!! ip does change based on your physical location
