@@ -19,7 +19,6 @@ import (
 
 const (
 	localIP  = "127.0.0.1"
-	myIP     = "192.168.50.97"
 	receiver = "10.100.23.15"
 )
 
@@ -118,14 +117,14 @@ func main() {
 	chB := make(chan session.ElevatorPacket)
 	serverB := createServer(9001, "B", 2, chB)
 
-	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
-	// 	message.Message{Content: "Hello from A"})
-	serverA.StartBroadcast(message.Message{Content: "Hello from A"})
-
-	// go testServer(serverA, serverB)
-
 	serverA.Start()
 	serverB.Start()
+
+	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
+	serverA.StartBroadcast(message.Message{Content: "Hello from A"})
+	// 	message.Message{Content: "Hello from A"})
+
+	// go testServer(serverA, serverB)
 
 	// bcMsg := "Hello, broadcast from " + "A"
 	// serverA.SendBroadcast(1, 1, message.Message{Content: bcMsg})

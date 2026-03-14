@@ -97,19 +97,21 @@ func (bs *BroadcastSession) HandlePacket(incPkt IncomingPacket) error {
 	quorumReached := bs.responsesReceived >= bs.expectedResponses
 	bs.mu.Unlock()
 
-	switch h.PktType {
-	case packet.PKT_T_BroadcastAck:
-		if quorumReached {
+	if h.PktType == packet.PKT_T_BroadcastAck {
+		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
+	}
+
+	if quorumReached {
+		bs.seq++
+
+		switch h.PktType {
+		case packet.PKT_T_BroadcastAck:
 			bs.stopAckTimer()
 			bs.sendReply(packet.PKT_T_BroadcastCommit)
-		}
-		fmt.Printf("bcAck: %d/%d", bs.responsesReceived, bs.expectedResponses)
-	case packet.PKT_T_BroadcastDone:
-		if quorumReached {
+		case packet.PKT_T_BroadcastDone:
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()
 		}
-
 	}
 
 	return nil
@@ -139,48 +141,5 @@ func (bs *BroadcastSession) stopRemoteCommitTimer() {
 	bs.broadcastCommitTimer.Stop()
 }
 
-// TODO seq is off ...
-/*
-Server A is running...
-Server B is running...
-New session created: 1516150186
-Broadcast session 1516150186 started
-A listening on 127.0.0.1:9000
-A listening on 0.0.0.0:3000
-B listening on 127.0.0.1:9001
-B listening on 0.0.0.0:3000
-New session created: 1516150186
-Session 1516150186 started
-B, Session 1516150186:
-        sent from : 192.168.50.97:56520
-        to        : 192.168.50.255:3000
-        reply sock: 127.0.0.1:9000
-        pktType   : Broadcast Data
-        seq : 1
-        pktType : Broadcast Data
-        payload : {Content:Hello from A}
-A, Session 1516150186:
-        sent from : 127.0.0.1:60660
-        to        : 127.0.0.1:9000
-        reply sock: 127.0.0.1:9001
-        pktType   : Broadcast Ack
-BS handle packet triggerd :)!!!
-bcAck: 1/0B, Session 1516150186:
-        sent from : 192.168.50.97:56520
-        to        : 192.168.50.255:3000
-        reply sock: 127.0.0.1:9000
-        pktType   : Broadcast Commit
-order of packages is off ... got: 2, expected: 3
-        seq : 2
-        pktType : Broadcast Commit
-        payload : {Content:}
-msgCh test: Hello from A
-Elevator done commiting
-A, Session 1516150186:
-        sent from : 127.0.0.1:60660
-        to        : 127.0.0.1:9000
-        reply sock: 127.0.0.1:9001
-        pktType   : Broadcast Done
-BroadcastSession 1516150186 closed
-Server A removed session: 1516150186
-*/
+// TODO expected responses is not configured ... it also dosent wait so much
+// NB!!!! ip does change based on your physical location

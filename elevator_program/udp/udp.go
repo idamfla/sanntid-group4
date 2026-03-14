@@ -13,6 +13,11 @@ const (
 	REMOTE_COMMIT_TIMEOUT    = 10
 	BROADCAST_ACK_TIMEOUT    = 15
 	BROADCAST_COMMIT_TIMEOUT = 15
+
+	// Group4IP        = "10.100.23.15"
+	NtnuBroadcastIP = "10.100.23.255"
+	HomeBroadcastIP = "192.168.1.255" // TODO 1 is 50 when at home
+	BroadcastPort   = 3000
 )
 
 func IPPortToUDPAddr(ip string, port int) (*net.UDPAddr, error) {

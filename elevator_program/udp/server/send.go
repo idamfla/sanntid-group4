@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
 	"fmt"
@@ -61,8 +62,8 @@ func (srv *Server) StartMasterSession(remoteAddr *net.UDPAddr, msg message.Messa
 func (srv *Server) StartBroadcast(msg message.Message) {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(HomeBroadcastIP),
-		Port: BroadcastPort,
+		IP:   net.ParseIP(udp.HomeBroadcastIP),
+		Port: udp.BroadcastPort,
 	}
 
 	quorum := srv.activePeers * (quorumPercent / percentDivisor)

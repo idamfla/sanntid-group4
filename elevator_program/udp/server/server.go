@@ -1,18 +1,15 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/session"
 	"net"
 	"sync"
 )
 
 const (
-	// Group4IP        = "10.100.23.15"
-	NtnuBroadcastIP = "10.100.23.255"
-	HomeBroadcastIP = "192.168.50.255"
-	BroadcastPort   = 3000
-	quorumPercent   = 50
-	percentDivisor  = 100
+	quorumPercent  = 50
+	percentDivisor = 100
 )
 
 type SessionHandler interface {
@@ -57,7 +54,7 @@ func NewServer(ip string, port int, id string, numberOfElevators int, toElevator
 	}
 
 	// create broadcast-listening UDP socket
-	bcConn, err := newReusableListenUDPConn(BroadcastPort)
+	bcConn, err := newReusableListenUDPConn(udp.BroadcastPort)
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
