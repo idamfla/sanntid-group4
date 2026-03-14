@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"elevator_program/elevio"
-	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
 )
@@ -32,14 +31,12 @@ type Elevator struct {
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	MsgRecieveCh chan message.Message
-	msgSendCh    chan message.Message
+	// MsgRecieveCh chan message.Message
+	// msgSendCh    chan message.Message
 
 	IsMaster          bool
 	connectedToMaster bool
-	// elevatorRegistry  map[int]types.ElevatorsStatus // TODO Was string, could also make it uint
 
-	// TODO Trying to split ut the code
 	System system.System
 
 	// server server.Server // TODO Something here makes everything yellow, complaining about locks
@@ -68,7 +65,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	// e.TaskChan = taskChan
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
+	// e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
 	// server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)

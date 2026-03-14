@@ -6,11 +6,13 @@ import (
 	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
+	"elevator_program/udp/packet"
+	"elevator_program/udp/session"
 	"fmt"
 	"time"
 )
 
-func (p Protocol) InitMsg() []message.Message {
+func (p *Protocol) InitMsg() []message.Message {
 	msg := []message.Message{
 		{
 			MsgType: types.MSG_T_TaskUpdate,
@@ -19,7 +21,7 @@ func (p Protocol) InitMsg() []message.Message {
 				Floor:  1,
 				Button: elevio.BT_HallUp,
 			},
-			BtnStatus: types.Pending,
+			BtnStatus: types.Running,
 		},
 		{
 			MsgType: types.MSG_T_TaskUpdate,
@@ -28,7 +30,7 @@ func (p Protocol) InitMsg() []message.Message {
 				Floor:  0,
 				Button: elevio.BT_Cab,
 			},
-			BtnStatus: types.Pending,
+			BtnStatus: types.Running,
 		},
 		{
 			MsgType: types.MSG_T_TaskUpdate,
@@ -78,12 +80,19 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	for id, currMsg := range msg {
 		fmt.Println("Msg Id: ", id)
 		fmt.Println("\nSending message:", currMsg.MsgType)
+		tempPacket := session.PacketContext{
+			Packet: packet.Packet{
+				Payload: currMsg,
+			},
+		}
 
-		p.MessageHandler(e, currMsg)
+		p.msgRecieveCh <- tempPacket
+		time.Sleep(2 * time.Second)
+		// p.MessageHandler(e, currMsg)
 
 		fmt.Println("\nSystem state after message:")
 		fmt.Println(e.System)
-		time.Sleep(2 * time.Second)
+		// time.Sleep(2 * time.Second)
 	}
 
 	// TODO Figure this out need Elevator map in message
@@ -95,12 +104,18 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 		HallRequests: newCopy.HallRequests,
 	}
 
+	tempPacket := session.PacketContext{
+		Packet: packet.Packet{
+			Payload: newMsg,
+		},
+	}
 	// TODO When the elevator has forgot everything, it will crash if a button is preesed
 	e.ClearElevator(numFloors)
 	fmt.Println("\nEmpty system:")
 	fmt.Println(e.System)
 	time.Sleep(2 * time.Second)
-	p.MessageHandler(e, newMsg)
+	// p.MessageHandler(e, newMsg)
+	p.msgRecieveCh <- tempPacket
 	fmt.Println("\nSystem state after message:")
 	fmt.Println(e.System)
 }

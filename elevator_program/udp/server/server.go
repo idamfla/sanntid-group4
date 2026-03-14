@@ -71,6 +71,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.PacketC
 
 // TODO freezes if you close when there are sessions that are half-closed? might be that it just takes time ...
 func (srv *Server) Close() {
+	// fmt.Println("Closing") // TODO It is not printing, how can I know it is closing
 	close(srv.stopListening) // signal shutdown
 	srv.recvConn.Close()     // unblock ReadFromUDP
 	srv.sendConn.Close()

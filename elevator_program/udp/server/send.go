@@ -1,8 +1,8 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/udp_message"
 	"net"
 )
 
@@ -12,7 +12,7 @@ func (srv *Server) send(
 	seq uint32,
 	sessionID uint32,
 	msgType packet.PacketType,
-	msg udp_message.Message,
+	msg message.Message,
 ) error {
 
 	pkt := packet.Packet{
@@ -33,7 +33,7 @@ func (srv *Server) SendMessage(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msg udp_message.Message,
+	msg message.Message,
 ) error {
 
 	return srv.send(
@@ -47,26 +47,26 @@ func (srv *Server) SendMessage(
 
 func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType) error {
 	// TODO maybe it's own function, what to when skipping commit messages and go straight to "done"
-	replyContent := ""
-	switch msgType {
-	case packet.PKT_T_Ack:
-		replyContent = srv.ID + " received: ACK"
-	case packet.PKT_T_Commit:
-		replyContent = srv.ID + " received: COMMIT"
-	case packet.PKT_T_Done:
-		replyContent = srv.ID + " received: DONE"
-	}
+	// replyContent := ""
+	// switch msgType {
+	// case packet.PKT_T_Ack:
+	// 	replyContent = srv.ID + " received: ACK"
+	// case packet.PKT_T_Commit:
+	// 	replyContent = srv.ID + " received: COMMIT"
+	// case packet.PKT_T_Done:
+	// 	replyContent = srv.ID + " received: DONE"
+	// }
 
 	return srv.send(
 		remoteAddr,
 		seq,
 		sessionID,
 		msgType,
-		udp_message.Message{Content: replyContent},
+		message.Message{},
 	)
 }
 
-func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg udp_message.Message) error {
+func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(HomeBroadcastIP),

@@ -25,7 +25,7 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
 			e.SetRequestAsTarget(*msg.Task)
 		} else { // Just update system
-			e.System.SetRequestStatus(e.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
+			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
@@ -44,8 +44,13 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
+		msg.MsgType = types.MSG_T_StatusReport // TODO probably don't need but nice to be safe
+		p.outgoingPacket.Packet.Payload = msg
+		p.msgSendCh <- p.outgoingPacket // TODO Is this right?
 
-	case types.MSG_T_TaskUpdate:
+		// TODO Should i create a place for the slave to send button updates, and master sending the update on another chanel
+		// Would create a better skille between those messages that just needs to be commited and those you need to find out if someone else is better
+	case types.MSG_T_ButtonPress:
 		// TODO Lets hope that we only get commit messages, or else we need to count ack
 		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, *msg.Task)
 		if taskElevatorId != -1 {
@@ -53,6 +58,9 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		} // If it is not the case we just need to broadcast the change
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO These shouldn't be uppdated before everyone is ready
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+
+	case types.MSG_T_TaskUpdate:
+		// TODO Should just send commit and the change light if necessary
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
@@ -62,6 +70,11 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		task := e.ComputeNewTarget(currentFloor, cabRequestsTemp, direction)
 		fmt.Println("Need to send new task: ", task)
 		// Broadcast new assignment if we found a new task
+		msg.Task = &task
+		msg.BtnStatus = types.Running
+		msg.MsgType = types.MSG_T_TaskUpdate
+		p.outgoingPacket.Packet.Payload = msg
+		p.msgSendCh <- p.outgoingPacket
 
 	case types.MSG_T_LostComs:
 		// I don't know what we should do here just try to say to the slave that master hears you
@@ -69,6 +82,12 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	case types.MSG_T_NewToChannel:
 		e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 		// Broadcast statusReport
+		id := e.IpRegistery[msg.Ip]
+		msg.MsgType = types.MSG_T_StatusReport
+		msg.Id = id
+		msg.Elevators[id] = e.System.Elevators[id] // TODO Could cause panic if msg.Elevators is not initialized
+		p.outgoingPacket.Packet.Payload = msg
+		p.msgSendCh <- p.outgoingPacket
 	}
 }
 
@@ -80,13 +99,14 @@ func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	}
 }
 
-func (p *Protocol) messageListener(e *elevator.Elevator) {
+func (p *Protocol) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
-	// for pktCtx := range e.MsgRecieveCh { // TODO fix channels and server
-	// 	msg := pktCtx.Packet.Payload
-	// 	p.MessageHandler(e, msg)
-	// 	pktCtx.Done <- struct{}{}
-	// }
+	for pktCtx := range p.msgRecieveCh {
+		fmt.Println("Wallah broren min")
+		msg := pktCtx.Packet.Payload
+		p.MessageHandler(e, msg)
+		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
+	}
 }
 
 /*

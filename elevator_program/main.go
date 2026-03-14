@@ -25,6 +25,11 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
+	p.InitProtocol(ip_address, 5000, "1")
+	// TODO MAybe the right spot to put it
+	defer p.Server.Close()
+
+	go p.MessageListener(&e)
 	go p.TestMsgHandler(&e, numFloors)
 	// go p.TestMsgHandler_Master(&e, numFloors)
 
