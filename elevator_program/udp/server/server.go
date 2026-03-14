@@ -1,35 +1,36 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/session"
-	"fmt"
 	"net"
 	"sync"
 )
 
-const (
-	// Group4IP        = "10.100.23.15"
-	NtnuBroadcastIP = "10.100.23.255"
-	HomeBroadcastIP = "192.168.50.255"
-	BroadcastPort   = 3000
-)
+type SessionHandler interface {
+	ReceivePacket(session.IncomingPacket)
+	Start()
+	Close()
+}
 
 type Server struct {
-	ID            string
-	recvConn      *net.UDPConn
-	sendConn      *net.UDPConn
-	broadcastConn *net.UDPConn
-	sessions      map[uint32]*session.Session
-	mu            sync.Mutex
-	closeReq      chan uint32
+	ID              string
+	incomingPackets chan session.IncomingPacket
+	recvConn        *net.UDPConn
+	sendConn        *net.UDPConn
+	broadcastConn   *net.UDPConn
+	sessions        map[uint32]SessionHandler
+	mu              sync.Mutex
+	closeReq        chan uint32
 
 	stopListening chan struct{}
 	wg            sync.WaitGroup
 
-	elevator chan<- session.PacketContext
+	activePeers int
+	elevator    chan<- session.ElevatorPacket
 }
 
-func NewServer(ip string, port int, id string, toElevator chan<- session.PacketContext) (*Server, error) {
+func NewServer(ip string, port int, id string, totalNumOfElevators int, toElevator chan<- session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -48,7 +49,7 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.PacketC
 	}
 
 	// create broadcast-listening UDP socket
-	bcConn, err := newReusableListenUDPConn(BroadcastPort)
+	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
@@ -56,17 +57,52 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.PacketC
 	}
 
 	srv := &Server{
-		ID:            id,
-		recvConn:      recvConn,
-		sendConn:      sendConn,
-		broadcastConn: bcConn,
-		sessions:      make(map[uint32]*session.Session),
-		closeReq:      make(chan uint32),
-		stopListening: make(chan struct{}),
-		elevator:      toElevator,
+		ID:              id,
+		incomingPackets: make(chan session.IncomingPacket),
+		recvConn:        recvConn,
+		sendConn:        sendConn,
+		broadcastConn:   bcConn,
+		sessions:        make(map[uint32]SessionHandler),
+		closeReq:        make(chan uint32),
+		stopListening:   make(chan struct{}),
+		activePeers:     totalNumOfElevators - 1, // excluding oneself
+		elevator:        toElevator,
 	}
 
 	return srv, nil
+}
+
+func (srv *Server) Start() {
+	srv.wg.Add(3)
+	go srv.readLoop(srv.recvConn)
+	go srv.readLoop(srv.broadcastConn)
+
+	go srv.run()
+}
+
+func (srv *Server) run() {
+	for {
+		select {
+		case <-srv.stopListening:
+			return
+
+		case id := <-srv.closeReq:
+			srv.closeSession(id)
+
+		case incPkt := <-srv.incomingPackets:
+			srv.routeToSession(incPkt)
+		}
+	}
+}
+
+func (srv *Server) updateActivePeers(delta int) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	srv.activePeers += delta
+	if srv.activePeers < 0 {
+		srv.activePeers = 0
+	}
 }
 
 // TODO freezes if you close when there are sessions that are half-closed? might be that it just takes time ...
@@ -84,34 +120,4 @@ func (srv *Server) Close() {
 	srv.mu.Unlock()
 
 	close(srv.closeReq)
-}
-
-// helper function, not called directly: *unsafe*
-func (srv *Server) closeSessionLocked(sesID uint32) {
-	ses, exists := srv.sessions[sesID]
-	if exists {
-		ses.Close()
-		delete(srv.sessions, sesID)
-
-		// TODO remove db
-		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
-
-	}
-}
-
-func (srv *Server) closeSession(sesID uint32) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.closeSessionLocked(sesID)
-}
-
-func (srv *Server) PrintSessions() {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
-	fmt.Printf("Active sessions (%d):\n", len(srv.sessions))
-	// for id := range srv.sessions {
-	// 	fmt.Println(" -", id)
-	// }
-	fmt.Printf("Server %s closed\n", srv.ID)
 }
