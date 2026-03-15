@@ -1,7 +1,6 @@
 package server
 
 import (
-	"elevator_program/udp"
 	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
 	"fmt"
@@ -30,54 +29,49 @@ func (srv *Server) Send(
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) {
-	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
-
-	// Compare IP and Port
-	if remoteAddr.IP.Equal(localAddr.IP) && remoteAddr.Port == localAddr.Port {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) error {
+	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDataMessage(msg)
+	return nil
 }
 
-func (srv *Server) startMasterSession(remoteAddr *net.UDPAddr, msg message.Message) {
-	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
-
-	// Compare IP and Port
-	if remoteAddr.IP.Equal(localAddr.IP) && remoteAddr.Port == localAddr.Port {
+func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.Message) error {
+	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueMasterMessage(msg)
+	return nil
 }
 
 // Initiate the broadcast message chain
 func (srv *Server) startBroadcast(msg message.Message) {
-	addr := &net.UDPAddr{
-		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(udp.HomeBroadcastIP),
-		Port: udp.BROADCAST_PORT,
-	}
-
 	quorum := srv.getQuorum()
-	ses := srv.createBroadcastSession(addr, quorum)
+	ses := srv.createBroadcastSession(srv.broadcastAddr, quorum)
 
-	ses.QueueBroadcastData(msg)
+	ses.QueueBroadcastUpdate(msg)
 }
 
-func (srv *Server) dispatchMessage(srvMsg outgoingMessage) {
-	switch srvMsg.PktType {
+func (srv *Server) startStateSync() {
+	ses := srv.createSession(srv.broadcastAddr, nil)
+	ses.QueueStateSync()
+}
+
+func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
+	switch outMsg.PktType {
 	case packet.PKT_T_Data:
-		srv.startSession(srvMsg.RemoteAddr, srvMsg.Msg)
-	case packet.PKT_T_BroadcastData:
-		srv.startBroadcast(srvMsg.Msg)
+		srv.startSession(outMsg.RemoteAddr, outMsg.Msg)
+	case packet.PKT_T_BroadcastUpdate:
+		srv.startBroadcast(outMsg.Msg)
 	case packet.PKT_T_SlaveReport:
 		// srv.startMasterSession(srvMsg.RemoteAddr, srvMsg.Msg)
 	}
@@ -90,4 +84,10 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 		PktType:    pktType,
 		Msg:        msg,
 	}
+}
+
+// --- helper ---
+func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
+	local := srv.recvConn.LocalAddr().(*net.UDPAddr)
+	return addr.IP.Equal(local.IP) && addr.Port == local.Port
 }

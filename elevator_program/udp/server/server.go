@@ -21,6 +21,7 @@ type Server struct {
 	recvConn      *net.UDPConn
 	sendConn      *net.UDPConn
 	broadcastConn *net.UDPConn
+	broadcastAddr *net.UDPAddr
 	sessions      map[uint32]SessionHandler
 	mu            sync.Mutex
 	closeReq      chan uint32
@@ -51,12 +52,18 @@ func NewServer(ip string, port int, id string, numberOfPeers int, toElevator cha
 		Port: 0,                      // 0 = let OS pick a free port
 	}
 
-	// create broadcast-listening UDP socket
-	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
-
 	sendConn, err := net.ListenUDP("udp", sendAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	// create broadcast-listening UDP socket
+	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
+
+	bcAddr := &net.UDPAddr{
+		// IP: net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP(udp.HomeBroadcastIP),
+		Port: udp.BROADCAST_PORT,
 	}
 
 	srv := &Server{
@@ -66,6 +73,7 @@ func NewServer(ip string, port int, id string, numberOfPeers int, toElevator cha
 		recvConn:      recvConn,
 		sendConn:      sendConn,
 		broadcastConn: bcConn,
+		broadcastAddr: bcAddr,
 		sessions:      make(map[uint32]SessionHandler),
 		closeReq:      make(chan uint32),
 		stop:          make(chan struct{}),
@@ -96,8 +104,8 @@ func (srv *Server) run() {
 
 		case incPkt := <-srv.incPktCh:
 			srv.routeToSession(incPkt)
-		case outPkt := <-srv.outgoingMsgCh:
-			go srv.dispatchMessage(outPkt)
+		case outMsg := <-srv.outgoingMsgCh:
+			go srv.dispatchMessage(outMsg)
 		}
 	}
 }

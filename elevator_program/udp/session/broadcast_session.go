@@ -76,7 +76,7 @@ func (bs *BroadcastSession) Close() {
 
 func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 	switch pktType {
-	case packet.PKT_T_BroadcastData:
+	case packet.PKT_T_BroadcastUpdate:
 		bs.startAckTimer()
 	case packet.PKT_T_BroadcastCommit:
 		bs.startRemoteCommitTimer()
@@ -97,12 +97,12 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	bs.mu.Unlock()
 
 	switch h.PktType {
-	case packet.PKT_T_BroadcastAck:
+	case packet.PKT_T_BroadcastUpdateAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
 		if quorumReached {
 			bs.seq++
 			bs.stopAckTimer()
-			bs.commitToElevator(bs.pendingPkt)
+			bs.sendToElevator(bs.pendingPkt)
 			bs.sendReply(packet.PKT_T_BroadcastCommit)
 			bs.responsesReceived = 0
 		}
