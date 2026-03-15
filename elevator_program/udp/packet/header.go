@@ -8,13 +8,13 @@ const (
 	PKT_T_Data
 	PKT_T_SlaveReport
 	PKT_T_RequestNewOrder
-	PKT_T_BroadcastData
-	PKT_T_NewNode
+	PKT_T_BroadcastUpdate
+	PKT_T_StateSync
 	PKT_T_Ack
-	PKT_T_BroadcastAck
+	PKT_T_BroadcastUpdateAck
 	PKT_T_ReportAck
 	PKT_T_Commit
-	PKT_T_CommitFailed
+	PKT_T_ElevatorFailed
 	PKT_T_BroadcastCommit
 	PKT_T_Done
 	PKT_T_BroadcastDone
@@ -28,8 +28,8 @@ const (
 	PROTO_PKT_T_Data            ProtocolPacketType = ProtocolPacketType(PKT_T_Data)            // master -> slave
 	PROTO_PKT_T_SlaveReport     ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveReport)     // slave -> master
 	PROTO_PKT_T_RequestNewOrder ProtocolPacketType = ProtocolPacketType(PKT_T_RequestNewOrder) // slave -> master
-	PROTO_PKT_T_BroadcastData   ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastData)   // master -> broadcast
-	PROTO_PKT_T_NewNode         ProtocolPacketType = ProtocolPacketType(PKT_T_NewNode)         // unknown -> broadcast
+	PROTO_PKT_T_BroadcastUpdate ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate) // master -> broadcast
+	PROTO_PKT_T_StateSync       ProtocolPacketType = ProtocolPacketType(PKT_T_StateSync)       // unknown -> broadcast
 )
 
 // TODO
@@ -63,20 +63,20 @@ func (p PacketType) String() string {
 		return "Slave Report"
 	case PKT_T_RequestNewOrder:
 		return "Slave requested new order"
-	case PKT_T_BroadcastData:
-		return "Broadcast Data"
-	case PKT_T_NewNode:
+	case PKT_T_BroadcastUpdate:
+		return "Broadcast Update"
+	case PKT_T_StateSync:
 		return "New Node"
 	case PKT_T_Ack:
 		return "Ack"
-	case PKT_T_BroadcastAck:
-		return "Broadcast Ack"
+	case PKT_T_BroadcastUpdateAck:
+		return "Broadcast Update Ack"
 	case PKT_T_ReportAck:
 		return "Master Ack"
 	case PKT_T_Commit:
 		return "Commit"
-	case PKT_T_CommitFailed:
-		return "Commit Failed"
+	case PKT_T_ElevatorFailed:
+		return "Elevator Failed"
 	case PKT_T_BroadcastCommit:
 		return "Broadcast Commit"
 	case PKT_T_Done:

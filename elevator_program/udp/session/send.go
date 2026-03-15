@@ -34,10 +34,17 @@ func (ses *Session) QueueMasterMessage(msg message.Message) {
 	}
 }
 
-func (ses *Session) QueueBroadcastData(msg message.Message) {
+func (ses *Session) QueueBroadcastUpdate(msg message.Message) {
 	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_BroadcastData,
+		PktType: packet.PKT_T_BroadcastUpdate,
 		Msg:     msg,
+	}
+}
+
+func (ses *Session) QueueStateSync() {
+	ses.outgoingMsgCh <- outgoingMessage{
+		PktType: packet.PKT_T_StateSync,
+		Msg:     emtpyMsg,
 	}
 }
 
