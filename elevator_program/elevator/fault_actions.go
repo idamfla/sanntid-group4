@@ -1,8 +1,9 @@
 package elevator
 
-import (	"elevator_program/elevio"
-            "fmt"
+import (	"fmt"
             "time"
+            "elevator_program/elevio"
+	        "elevator_program/fault"
 )
 
 // ------------------------- Utility helpers -------------------------- //
@@ -45,7 +46,7 @@ func (e *Elevator) checkOfflineRestart() {
 
     go func() {
         time.Sleep(500 * time.Millisecond)
-        restartSelf()
+        fault.RestartSelf()
     }()
 }
 
@@ -59,7 +60,7 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 	e.enterOfflineMode()
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		restartSelf()
+		fault.RestartSelf()
 	}()
 }
 

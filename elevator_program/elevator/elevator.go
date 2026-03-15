@@ -6,6 +6,7 @@ import (
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
+	"elevator_program/fault"
 )
 
 type ButtonStatus int
@@ -54,7 +55,7 @@ type Elevator struct {
 	isMaster         bool
 	elevatorRegistry map[string]ElevatorsStatus
 
-	faultTolerance            *FaultManager
+	faultTolerance            *fault.Manager
 	isMaster          bool
 	connectedToMaster bool
 	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
@@ -97,7 +98,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
 //Magicnumber big nono
-	e.faultTolerance = NewFaultManager(id, FaultConfig{
+	e.faultTolerance = NewManager(id, Config{
 	    StartupGrace:  2 * time.Second,
 	    MasterTimeout: 1 * time.Second,
 	    PeerTimeout:   1 * time.Second,
@@ -109,11 +110,13 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 func (e *Elevator) RunElevatorProgram() {
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
 
-	e.faultTolerance.onGoOffline = func() { e.enterOfflineMode() }
-	e.faultTolerance.onGoOnline = func() { e.exitOfflineMode()  }
-	e.faultTolerance.onMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
-	e.faultTolerance.onNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
-	e.faultTolerance.onPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
+	e.faultTolerance.OnGoOffline = func() { e.enterOfflineMode() }
+	e.faultTolerance.OnGoOnline = func() { e.exitOfflineMode()  }
+	e.faultTolerance.OnMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
+	e.faultTolerance.OnNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
+	e.faultTolerance.OnPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
+	e.faultTolerance.OnMasterSuspected = func(reason string) { e.handleMasterSuspected(reason) }
+
 
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
