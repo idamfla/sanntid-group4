@@ -9,7 +9,7 @@ import (
 
 func (p *Protocol) sendListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
-	for msg := range p.sendProtocolCh {
+	for msg := range p.msgSendCh {
 		fmt.Println("Wallah moren min")
 		p.MessageHandler(e, msg)
 		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
@@ -50,9 +50,9 @@ func (p *Protocol) sendMessageSlave(e *elevator.Elevator, msg message.Message) {
 		msg.MsgType = types.MSG_T_NewToChannel
 		msg.Ip = e.Ip
 	}
-	pkt := p.outgoingPacket
-	pkt.Msg = msg
-	p.msgSendCh <- pkt
+	// pkt := p.outgoingPacket
+	// pkt.Msg = msg
+	// p.msgSendCh <- pkt
 	// outgoingMsg := message.Message {
 	// id: e.ID,
 	// ...
@@ -73,7 +73,7 @@ func (p *Protocol) sendMessageMaster(e *elevator.Elevator, msg message.Message) 
 	case types.MSG_T_NewToChannel:
 		msg.MsgType = types.MSG_T_NewToChannel
 	}
-	pkt := p.outgoingPacket
-	pkt.Msg = msg
-	p.msgSendCh <- pkt
+	// pkt := p.outgoingPacket
+	// pkt.Msg = msg
+	// p.msgSendCh <- pkt
 }

@@ -26,14 +26,10 @@ type Session struct {
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet
-	// IsClosing bool // TODO make into enum
-
-	// retries  int
-	// lastSeen time.Time
 
 	// --- internal communication ---
-	recvCh chan IncomingPacket
-	sendCh chan OutgoingPacket
+	packetInCh    chan packet.Packet
+	outgoingMsgCh chan outgoingMessage
 
 	// --- timers/lifecycle ---
 	shutdownDelayTimer *timer.Timer
@@ -62,8 +58,8 @@ func NewSession(id uint32,
 		seq:        INIT_SEQ_NUMBER,
 		pendingPkt: &packet.Packet{},
 		// IsClosing:     false,
-		recvCh:             make(chan IncomingPacket, 32),
-		sendCh:             make(chan OutgoingPacket, 32),
+		packetInCh:         make(chan packet.Packet, 32),
+		outgoingMsgCh:      make(chan outgoingMessage, 32),
 		remoteCommitTimer:  timer.NewTimer(),
 		shutdownDelayTimer: timer.NewTimer(),
 
@@ -97,8 +93,8 @@ func (ses *Session) Close() {
 		ses.wg.Wait()
 
 		// Close channels
-		close(ses.recvCh)
-		close(ses.sendCh)
+		close(ses.packetInCh)
+		close(ses.outgoingMsgCh)
 		close(ses.closeReq)
 
 		// Clear pending packet

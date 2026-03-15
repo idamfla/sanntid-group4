@@ -40,8 +40,7 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 			msg.Id = e.Id
 		}
 		msg.MsgType = types.MSG_T_LostComs
-		p.outgoingPacket.Msg = msg
-		p.msgSendCh <- p.outgoingPacket
+		p.msgSendCh <- msg
 
 	case types.MSG_T_NewToChannel:
 		if e.Ip == msg.Ip {
@@ -60,7 +59,7 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
-		p.sendProtocolCh <- msg
+		p.msgSendCh <- msg
 
 	case types.MSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
@@ -76,7 +75,7 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 			msg.Id = -1
 			msg.BtnStatus = types.Pending
 		}
-		p.sendProtocolCh <- msg
+		p.msgSendCh <- msg
 
 	case types.MSG_T_TaskUpdate:
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)      // TODO These shouldn't be uppdated before everyone is ready
@@ -92,12 +91,12 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		// Broadcast new assignment if we found a new task
 		msg.Task = task
 		msg.BtnStatus = types.Running
-		p.sendProtocolCh <- msg
+		p.msgSendCh <- msg
 
 	case types.MSG_T_NewToChannel:
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 		e.IpRegistery[msg.Ip] = id
-		p.sendProtocolCh <- msg
+		p.msgSendCh <- msg
 	}
 }
 

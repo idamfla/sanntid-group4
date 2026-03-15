@@ -5,8 +5,9 @@ import (
 	"elevator_program/message"
 	"elevator_program/protocol"
 	"elevator_program/udp"
+	elevtest "elevator_program/udp/elev_test"
+	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
-	"elevator_program/udp/session"
 	"fmt"
 	"os"
 	"os/signal"
@@ -56,43 +57,6 @@ func testElevator() {
 	select {}
 }
 
-func createServer(port int, id string, numberOfElevators int, ch1 chan<- session.ElevatorPacket) *server.Server {
-	s1, err := server.NewServer(localIP, port, id, numberOfElevators, ch1)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create s1: %v", err))
-	}
-	if s1 == nil {
-		panic("s1 is nil")
-	}
-
-	// s2, err := server.NewServer(myIP, 9001, "B")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Failed to create s2: %v", err))
-	// }
-	// if s2 == nil {
-	// 	panic("s2 is nil")
-	// }
-
-	fmt.Println("Server", id, "is running...")
-
-	// Give them a moment to start
-	time.Sleep(time.Second)
-	return s1
-}
-
-func testServer(s1 *server.Server, s2 *server.Server) {
-	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
-
-	aMsg := message.Message{Ip: "Hello from A"}
-	bMsg := message.Message{Ip: "Hello from B"}
-
-	// Server A sends to B
-	go s1.StartSession(udp.MustUDPAddr("127.0.0.1", 9001), aMsg)
-
-	// Server B sends to A
-	go s2.StartSession(udp.MustUDPAddr("127.0.0.1", 9000), bMsg)
-}
-
 func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -100,12 +64,13 @@ func testBroadcast_send(srv *server.Server) {
 	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		srv.StartBroadcast(bcMsg)
+		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastData, bcMsg)
 		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
 
-func closeProgram(s1 *server.Server, s2 *server.Server) {
+// just to get some prints after i "shut down"
+func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -115,40 +80,39 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 
 	fmt.Println("\nCtrl+C pressed")
 
-	// Print session counts
-	s1.PrintSessions()
-	s2.PrintSessions()
-
 	// Graceful shutdown
-	s1.Close()
-	s2.Close()
+	e1.Close()
+	e2.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
 
 func main() {
-	chA := make(chan session.ElevatorPacket)
-	serverA := createServer(9000, "A", 5, chA)
+	eA := elevtest.NewElev("A", 2)
 
-	chB := make(chan session.ElevatorPacket)
-	serverB := createServer(9001, "B", 2, chB)
-
-	serverA.Start()
-	serverB.Start()
-
-	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
-	serverA.StartBroadcast(message.Message{Ip: "Hello from A"})
-	// 	message.Message{Content: "Hello from A"})
-
-	// go testElevator()
-	// go testServer(serverA, serverB)
-
-	for msg := range chB {
-		fmt.Println("msgCh test:", msg.Packet.Payload.Ip)
-		if msg.Done != nil {
-			msg.Done <- struct{}{}
-		}
+	err := eA.StartServer(localIP, 9000)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
-	closeProgram(serverA, serverB)
+	eB := elevtest.NewElev("B", 2)
+
+	err = eB.StartServer(localIP, 9001)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	eA.Start()
+	eB.Start()
+
+	eA.QueueMessage(
+		udp.MustUDPAddr(localIP, 9001),
+		packet.PROTO_PKT_T_BroadcastData,
+		message.Message{Ip: "Hello A!"},
+	)
+	closeProgram(eA, eB)
+
+	//TODO make sure the server dosent take in peers and not totalnumberofElevators
 }
