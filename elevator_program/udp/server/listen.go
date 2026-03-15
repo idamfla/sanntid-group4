@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/session"
 	"errors"
 	"fmt"
 	"net"
@@ -34,7 +33,7 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 			continue
 		}
 
-		srv.incomingPackets <- session.IncomingPacket{
+		srv.incPktCh <- incomingPacket{
 			Packet: pkt,
 			Addr:   addr,
 		}
@@ -59,7 +58,7 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	return pc.(*net.UDPConn), nil
 }
 
-func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
+func (srv *Server) routeToSession(incPkt incomingPacket) {
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
@@ -89,7 +88,7 @@ func (srv *Server) routeToSession(incPkt session.IncomingPacket) {
 		incPkt.Packet.Header.PktType,
 	)
 
-	ses.ReceivePacket(incPkt)
+	ses.ReceivePacket(incPkt.Packet)
 }
 
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
