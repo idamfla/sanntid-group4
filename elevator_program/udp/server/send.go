@@ -1,17 +1,18 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
+	"fmt"
 	"net"
 )
 
-// TODO dont send string but rather the Message-struct
-func (srv *Server) send(
+func (srv *Server) Send(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
-	msgType packet.PacketType,
+	pktType packet.PacketType,
 	msg message.Message,
 ) error {
 
@@ -19,7 +20,7 @@ func (srv *Server) send(
 		Header: packet.Header{
 			Seq:           seq,
 			SessionID:     sessionID,
-			PktType:       msgType,
+			PktType:       pktType,
 			RecipientAddr: remoteAddr.String(),
 			SenderAddr:    srv.recvConn.LocalAddr().String(),
 		},
@@ -29,55 +30,44 @@ func (srv *Server) send(
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) SendMessage(
-	remoteAddr *net.UDPAddr,
-	seq uint32,
-	sessionID uint32,
-	msg message.Message,
-) error {
+func (srv *Server) StartSession(remoteAddr *net.UDPAddr, msg message.Message) {
+	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
 
-	return srv.send(
-		remoteAddr,
-		seq,
-		sessionID,
-		packet.PKT_T_Data,
-		msg,
-	)
-}
-
-func (srv *Server) SendReply(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType) error {
-	// TODO maybe it's own function, what to when skipping commit messages and go straight to "done"
-	replyContent := ""
-	switch msgType {
-	case packet.PKT_T_Ack:
-		replyContent = srv.ID + " received: ACK"
-	case packet.PKT_T_Commit:
-		replyContent = srv.ID + " received: COMMIT"
-	case packet.PKT_T_Done:
-		replyContent = srv.ID + " received: DONE"
+	// Compare IP and Port
+	if remoteAddr.IP.Equal(localAddr.IP) && remoteAddr.Port == localAddr.Port {
+		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
+		fmt.Println(err)
+		return
 	}
 
-	return srv.send(
-		remoteAddr,
-		seq,
-		sessionID,
-		msgType,
-		message.Message{Content: replyContent},
-	)
+	ses := srv.createSession(remoteAddr, nil)
+	ses.SendDataMessage(msg)
 }
 
-func (srv *Server) SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error {
+func (srv *Server) StartMasterSession(remoteAddr *net.UDPAddr, msg message.Message) {
+	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
+
+	// Compare IP and Port
+	if remoteAddr.IP.Equal(localAddr.IP) && remoteAddr.Port == localAddr.Port {
+		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
+		fmt.Println(err)
+		return
+	}
+
+	ses := srv.createSession(remoteAddr, nil)
+	ses.SendMasterMessage(msg)
+}
+
+// Initiate the broadcast message chain
+func (srv *Server) StartBroadcast(msg message.Message) {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(HomeBroadcastIP),
-		Port: BroadcastPort,
+		IP:   net.ParseIP(udp.HomeBroadcastIP),
+		Port: udp.BROADCAST_PORT,
 	}
 
-	return srv.send(
-		addr,
-		seq,
-		sessionID,
-		packet.PKT_T_BroadcastData,
-		msg,
-	)
+	quorum := srv.getQuorum()
+	ses := srv.createBroadcastSession(addr, quorum)
+
+	ses.SendBroadcastData(msg)
 }
