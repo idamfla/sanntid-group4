@@ -17,7 +17,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		{
 			MsgType: types.MSG_T_TaskUpdate,
 			Id:      1,
-			Task: &elevio.ButtonEvent{
+			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_HallUp,
 			},
@@ -26,7 +26,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		{
 			MsgType: types.MSG_T_TaskUpdate,
 			Id:      1,
-			Task: &elevio.ButtonEvent{
+			Task: elevio.ButtonEvent{
 				Floor:  0,
 				Button: elevio.BT_Cab,
 			},
@@ -35,7 +35,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		{
 			MsgType: types.MSG_T_TaskUpdate,
 			Id:      3,
-			Task: &elevio.ButtonEvent{
+			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_HallUp,
 			},
@@ -44,7 +44,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		{
 			MsgType: types.MSG_T_TaskUpdate,
 			Id:      2,
-			Task: &elevio.ButtonEvent{
+			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_Cab,
 			},
@@ -166,7 +166,7 @@ func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 	taskMsg := message.Message{
 		MsgType: types.MSG_T_TaskUpdate,
 		Id:      2,
-		Task: &elevio.ButtonEvent{
+		Task: elevio.ButtonEvent{
 			Floor:  1,
 			Button: elevio.BT_HallUp,
 		},

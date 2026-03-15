@@ -9,7 +9,7 @@ import (
 // TODO Sending a pointer should maybe not do that since we don't change the variable
 
 // called by master, e is master, all parameters come from the elevator it checks
-func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) {
+func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) { // TODO can remove task return
 	/*
 		if dir == md_up && newTarget.Button == bt_down {return false, elevio.ButtonEvent{}}
 		else if dir == md_down && newTarget.Button == bt_up

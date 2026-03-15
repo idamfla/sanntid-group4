@@ -137,7 +137,7 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 	}
 	// endregion
 
-	if e.elevatorState == types.ES_Idle || e.direction == elevio.MD_Stop {
+	if e.System.Elevators[e.Id].State == types.ES_Idle || e.direction == elevio.MD_Stop {
 		return e.getClosestFloor()
 	} else if e.direction == elevio.MD_Up {
 		return upScan()

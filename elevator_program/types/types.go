@@ -33,6 +33,7 @@ const (
 	MSG_T_TaskComplete // task was completed
 	MSG_T_TaskRequest  // someone requests a new task
 	MSG_T_LostComs     // A routine to check if you have lost communication
+	MSG_T_ElevatorLost // An elevator has lost coms, you need to send your connection to master status
 	MSG_T_NewToChannel // Send the latest information
 )
 

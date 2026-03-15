@@ -39,8 +39,8 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
-	numElevators := 3 // TODO how can I know this before talking to the others?
-	p.InitProtocol(ip_address, 5000, "1", numElevators)
+	numElevators := 3                                   // TODO how can I know this before talking to the others?
+	p.InitProtocol(ip_address, 5000, "1", numElevators) // TODO fix the values here
 	// TODO MAybe the right spot to put it
 	defer p.Server.Close()
 

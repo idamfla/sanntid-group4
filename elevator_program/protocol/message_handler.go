@@ -23,18 +23,34 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 
 	case types.MSG_T_TaskUpdate:
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
-			e.SetRequestAsTarget(*msg.Task)
+			e.SetRequestAsTarget(msg.Task)
 		} else { // Just update system
-			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
+			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task) // TODO Should I use my own ID or msg Id??
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
 	case types.MSG_T_LostComs:
 		e.HandleLostConnection(msg.Id)
 
+	case types.MSG_T_ElevatorLost:
+		isConnectedToMaster := e.ConnectedToMaster()
+		if isConnectedToMaster {
+			msg.Id = -1 // Send -1 if connected, TODO kind of wierd to send the value on Id
+		} else {
+			msg.Id = e.Id
+		}
+		msg.MsgType = types.MSG_T_LostComs
+		p.outgoingPacket.Msg = msg
+		p.msgSendCh <- p.outgoingPacket
+
 	case types.MSG_T_NewToChannel:
-		e.System.InitializeFromSystemState(msg)
-		e.SetConnectionState(msg)
+		if e.Ip == msg.Ip {
+			e.System.InitializeFromSystemState(msg)
+			e.SetConnectionState(msg)
+		} else {
+			e.IpRegistery[msg.Ip] = msg.Id // TODO now we can update IpRegistery for the others as well, is it smart?
+			e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
+		}
 	}
 }
 
@@ -44,23 +60,27 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
-		msg.MsgType = types.MSG_T_StatusReport // TODO probably don't need but nice to be safe
-		p.outgoingPacket.Msg = msg
-		p.msgSendCh <- p.outgoingPacket // TODO Is this right?
+		p.sendProtocolCh <- msg
 
-		// TODO Should i create a place for the slave to send button updates, and master sending the update on another chanel
-		// Would create a better skille between those messages that just needs to be commited and those you need to find out if someone else is better
 	case types.MSG_T_ButtonPress:
-		// TODO Lets hope that we only get commit messages, or else we need to count ack
-		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, *msg.Task)
+		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
+
+		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task)
 		if taskElevatorId != -1 {
+			msg.MsgType = types.MSG_T_TaskUpdate
+			msg.Id = taskElevatorId
+			msg.BtnStatus = types.Running
 			// Someone has a better task to do, we need to broadcast task_Update
-		} // If it is not the case we just need to broadcast the change
-		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO These shouldn't be uppdated before everyone is ready
-		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+		} else { // If it is not the case we just need to broadcast the change
+			msg.MsgType = types.MSG_T_TaskUpdate
+			msg.Id = -1
+			msg.BtnStatus = types.Pending
+		}
+		p.sendProtocolCh <- msg
 
 	case types.MSG_T_TaskUpdate:
-		// TODO Should just send commit and the change light if necessary
+		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)      // TODO These shouldn't be uppdated before everyone is ready
+		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button) // TODO SetRequestStatus can be there but not the light
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
@@ -70,24 +90,14 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		task := e.ComputeNewTarget(currentFloor, cabRequestsTemp, direction)
 		fmt.Println("Need to send new task: ", task)
 		// Broadcast new assignment if we found a new task
-		msg.Task = &task
+		msg.Task = task
 		msg.BtnStatus = types.Running
-		msg.MsgType = types.MSG_T_TaskUpdate
-		p.outgoingPacket.Msg = msg
-		p.msgSendCh <- p.outgoingPacket
-
-	case types.MSG_T_LostComs:
-		// I don't know what we should do here just try to say to the slave that master hears you
+		p.sendProtocolCh <- msg
 
 	case types.MSG_T_NewToChannel:
-		e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-		// Broadcast statusReport
-		id := e.IpRegistery[msg.Ip]
-		msg.MsgType = types.MSG_T_StatusReport
-		msg.Id = id
-		msg.Elevators[id] = e.System.Elevators[id] // TODO Could cause panic if msg.Elevators is not initialized
-		p.outgoingPacket.Msg = msg
-		p.msgSendCh <- p.outgoingPacket
+		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
+		e.IpRegistery[msg.Ip] = id
+		p.sendProtocolCh <- msg
 	}
 }
 

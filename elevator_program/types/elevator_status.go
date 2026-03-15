@@ -13,6 +13,7 @@ type ElevatorsStatus struct {
 	Target       elevio.ButtonEvent
 	Direction    elevio.MotorDirection
 	State        ElevatorState
+	IsMaster     bool
 }
 
 // func (e *Elevator) TestMasterLogic() {

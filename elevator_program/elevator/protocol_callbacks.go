@@ -5,25 +5,29 @@ import (
 	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
+	"time"
 )
 
 // TODO This function is wierd, either we need to have it as e or something else if it is msg sending
 func (e *Elevator) HandleLostConnection(senderId int) {
-	// We need a way to know who initiatet the msg:
-	// if we initiated the msg{
-	if senderId == e.IpRegistery["Master"] {
-		e.connectedToMaster = true
-		// Make the msg resolved
+	if senderId == -1 || time.Since(e.lostComsTimer) > 4*time.Second {
+		// Need to schedule a restart
+		// TODO It is fault tolerance that should take the time maybe
 	} else {
-		// Need to count if any elevator har connection to master
-		// Need to count how many does not have connection
-		// if you are the problem, restart or complete cab then restart
-		// If you are not the problem, select a new master
+		e.ackCounterLostComs++
+		if e.ackCounterLostComs >= len(e.System.Elevators)-1 { // TODO something not right here, maybe master and a slave has died, then you are waiting for the dead slave to respond as well
+			// Need to reset the timer
+			// Need to start election
+		}
 	}
 }
 
+func (e *Elevator) ConnectedToMaster() bool {
+	return e.connectedToMaster
+}
+
 func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
-	if types.ButtonStatus(btnStatus) == types.NotActive {
+	if btnStatus == types.NotActive {
 		e.clearHallLamp(floor, button)
 	} else {
 		elevio.SetButtonLamp(button, floor, true)
@@ -34,8 +38,11 @@ func (e *Elevator) SetConnectionState(msg message.Message) {
 	e.Id = msg.Id
 	e.IsMaster = false
 	e.connectedToMaster = true
-	e.elevatorState = types.ES_Idle // TODO Do I need this one here?
-	// e.ipToId Need to know the ip/id to the others
+	e.isOnline = true
+	// e.elevatorState = types.ES_Idle // TODO Do I need this one here?
+	for id, elevator := range e.System.Elevators {
+		e.IpRegistery[elevator.Ip] = id
+	}
 }
 
 // TODO Probably don't need, just for testing
@@ -47,7 +54,8 @@ func (e *Elevator) ClearElevator(numFloors int) {
 		Button: elevio.BT_HallUp,
 	}
 	elevio.SetMotorDirection(0)
-	e.elevatorState = types.ES_EmergencyStop
+	// TODO if i want to test this one, have to change to systemstate
+	// e.elevatorState = types.ES_EmergencyStop
 }
 
 // TODO Don't need

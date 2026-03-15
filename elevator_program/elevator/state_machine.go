@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/message"
 	"elevator_program/types"
 	"fmt"
 	"time"
@@ -72,30 +73,108 @@ func (e Elevator) uninitializedAction() elevio.MotorDirection {
 // ------------------------
 // State Machine
 // ------------------------
-func (e *Elevator) updateElevatorState() { // TODO rename, this change state and controls the motor
+// Updates elevator state when connected to the network
+func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change state and controls the motor
 	if e.emergencyStop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
 
+	elevatorStatus := e.System.Elevators[e.Id]
+
 	// TODO add doorstate switch, e.startTime = time.Now()
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
-	// TODO this is for when the elevator searches for new requests on its own
-	// var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 
-	if e.elevatorState != types.ES_Uninitialized && e.doorState != DS_Closed {
+	if elevatorStatus.State != types.ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
 
-	switch e.elevatorState {
+	switch elevatorStatus.State {
 	case types.ES_Uninitialized:
 		dir = e.uninitializedAction()
 
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
-			e.elevatorState = types.ES_Idle
+			elevatorStatus.State = types.ES_Idle
+			e.doorState = DS_Opening
+			fmt.Println(e)
+
+			msg := message.Message{
+				MsgType: types.MSG_T_TaskRequest,
+			}
+			e.SendToProtocol <- msg
+		}
+
+	case types.ES_Idle:
+		if e.nextTarget.Floor != -1 {
+			dir = e.getMotion(e.nextTarget.Floor)
+			if dir != elevio.MD_Stop {
+				elevatorStatus.State = types.ES_Moving
+			}
+		}
+
+	case types.ES_Moving:
+		dir = e.getMotion(e.nextTarget.Floor)
+
+		if dir == elevio.MD_Stop {
+			e.doorState = DS_Opening
+			elevatorStatus.State = types.ES_Idle
+			msg := message.Message{
+				MsgType:   types.MSG_T_TaskUpdate,
+				Id:        e.Id,
+				Task:      e.nextTarget,
+				BtnStatus: types.NotActive,
+			}
+			e.SendToProtocol <- msg
+		}
+
+	case types.ES_EmergencyStop:
+		return
+	}
+
+	// If state has changed, notify
+	if elevatorStatus.State != e.System.Elevators[e.Id].State {
+		msg := message.Message{
+			MsgType: types.MSG_T_StatusReport,
+			Elevators: map[int]types.ElevatorsStatus{
+				e.Id: elevatorStatus,
+			},
+		}
+		e.SendToProtocol <- msg
+	}
+	e.System.Elevators[e.Id] = elevatorStatus
+
+	elevio.SetMotorDirection(dir)
+}
+
+// Updates the elevator state when not connected to the network
+func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change state and controls the motor
+	if e.emergencyStop {
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		return
+	}
+
+	elevatorStatus := e.System.Elevators[e.Id]
+
+	// TODO add doorstate switch, e.startTime = time.Now()
+
+	var dir elevio.MotorDirection = elevio.MD_Stop
+	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+
+	if elevatorStatus.State != types.ES_Uninitialized && e.doorState != DS_Closed {
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		return
+	}
+
+	switch elevatorStatus.State {
+	case types.ES_Uninitialized:
+		dir = e.uninitializedAction()
+
+		if dir == elevio.MD_Stop {
+			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
+			elevatorStatus.State = types.ES_Idle
 			e.doorState = DS_Opening
 			fmt.Println(e)
 		}
@@ -104,63 +183,59 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 		if e.nextTarget.Floor != -1 {
 			dir = e.getMotion(e.nextTarget.Floor)
 			if dir != elevio.MD_Stop {
-				e.elevatorState = types.ES_Moving
+				elevatorStatus.State = types.ES_Moving
 			}
 		}
 
-		// TODO this is for when the elevator searches for new requests on its own
-		// nextTarget, dir = e.computeNextTargetAndDirection()
-		// if nextTarget.Floor != -1 {
-		// 	e.nextTarget = nextTarget
-		// 	e.updateDirection(nextTarget, dir)
-		// }
+		nextTarget, dir = e.computeNextTargetAndDirection()
+		if nextTarget.Floor != -1 {
+			e.nextTarget = nextTarget
+			e.updateDirection(nextTarget, dir)
+		}
 
-		// if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
-		// 	// e.doorState = open
-		// 	e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
-		// }
+		if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
+			// e.doorState = open
+			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
+		}
 
-		// dir = e.getMotion(e.nextTarget.Floor)
-		// if dir != elevio.MD_Stop {
-		// 	e.elevatorState = types.ES_Moving
-		// }
+		dir = e.getMotion(e.nextTarget.Floor)
+		if dir != elevio.MD_Stop {
+			elevatorStatus.State = types.ES_Moving
+		}
 
 	case types.ES_Moving:
-		// Won't be able to change target
 		dir = e.getMotion(e.nextTarget.Floor)
 
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
-			e.elevatorState = types.ES_Idle
+			elevatorStatus.State = types.ES_Idle
 			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
 		}
 
-		// TODO this is for when the elevator searches for new requests on its own
-		// dir = e.getMotion(e.nextTarget.Floor)
+		dir = e.getMotion(e.nextTarget.Floor)
 
-		// if dir == elevio.MD_Stop {
-		// 	e.doorState = DS_Opening
-		// 	e.elevatorState = types.ES_Idle
-		// } else {
-		// 	nextTarget, dir = e.computeNextTargetAndDirection()
-		// 	if nextTarget.Floor != -1 {
-		// 		// TODO I don't know if this is the best way to write it but now can use running
-		// 		if e.nextTarget.Button == elevio.BT_Cab {
-		// 			e.System.Elevators[e.id].CabRequests[e.nextTarget.Floor] = types.Pending // TODO Need to message that the buttons have changed
-		// 		} else {
-		// 			e.System.HallRequests[e.nextTarget.Floor][e.nextTarget.Button] = types.Pending // TODO Need to message that the buttons have changed
-		// 		}
+		if dir == elevio.MD_Stop {
+			e.doorState = DS_Opening
+			elevatorStatus.State = types.ES_Idle
+		} else {
+			nextTarget, dir = e.computeNextTargetAndDirection()
+			if nextTarget.Floor != -1 { // tODO Maybe test that this version still works
+				// TODO I don't know if this is the best way to write it but now can use running
+				if e.nextTarget.Button == elevio.BT_Cab {
+					e.System.Elevators[e.Id].CabRequests[e.nextTarget.Floor] = types.Pending // TODO Need to message that the buttons have changed
+				} else {
+					e.System.HallRequests[e.nextTarget.Floor][e.nextTarget.Button] = types.Pending // TODO Need to message that the buttons have changed
+				}
 
-		// 		if nextTarget.Button == elevio.BT_Cab {
-		// 			e.System.Elevators[e.id].CabRequests[nextTarget.Floor] = types.Running
-		// 		} else {
-		// 			e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
-		// 		}
-		// 		e.nextTarget = nextTarget
-		// 		// e.hallRequests[nextTarget.Floor][nextTarget.Button] = Running
-		// 		e.updateDirection(nextTarget, dir)
-		// 	}
-		// }
+				if nextTarget.Button == elevio.BT_Cab {
+					e.System.Elevators[e.Id].CabRequests[nextTarget.Floor] = types.Running
+				} else {
+					e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
+				}
+				e.nextTarget = nextTarget
+				e.updateDirection(nextTarget, dir)
+			}
+		}
 	case types.ES_EmergencyStop:
 		return
 	}
@@ -174,6 +249,10 @@ func (e *Elevator) RunElevatorStateMachine() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		e.updateElevatorState()
+		if e.isOnline {
+			e.updateElevatorStateOnline()
+		} else {
+			e.updateElevatorStateOffline()
+		}
 	}
 }

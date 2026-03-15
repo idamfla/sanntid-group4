@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"elevator_program/elevio"
+	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
 )
 
 type Elevator struct {
 	Id int
+	Ip string // TODO Think we should have this one here
 	// TODO temp need to know the ip using the id
 	IpRegistery map[string]int
 
@@ -26,7 +28,14 @@ type Elevator struct {
 	doorState DoorState
 	doorTimer time.Time
 
-	elevatorState    types.ElevatorState
+	//temp Need to time how long you have lost communiction
+	lostComsTimer      time.Time
+	ackCounterLostComs int
+
+	// TODO Maybe temp need to notify protocol to send something
+	SendToProtocol chan message.Message
+
+	// elevatorState    types.ElevatorState
 	obstruction      bool
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
@@ -36,6 +45,7 @@ type Elevator struct {
 
 	IsMaster          bool
 	connectedToMaster bool
+	isOnline          bool
 
 	System system.System
 
@@ -55,12 +65,18 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 
 	e.System.InitSystem(1, "192.168.0.1", 4)
 
-	e.elevatorState = types.ES_Uninitialized
+	// e.elevatorState = types.ES_Uninitialized
 
-	// TODO Need to initialize system
+	//Temp init door timer
+	e.lostComsTimer = time.Time{}
+	e.ackCounterLostComs = 0
+
+	// TODO temp
+	e.SendToProtocol = make(chan message.Message, 10)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
+	e.isOnline = false
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
 
@@ -100,7 +116,7 @@ func (e Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		e.Id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.elevatorState)
+		e.Id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.System.Elevators[e.Id].State)
 
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.System.HallRequests[f]

@@ -18,7 +18,7 @@ type Message struct {
 	// Status *types.ElevatorsStatus // TODO Don't think we need this one, only need to use Elevator map
 
 	// Task / button updates
-	Task      *elevio.ButtonEvent // TODO do we want it as a pointer? Gives us the option to not send Task on every message
+	Task      elevio.ButtonEvent // TODO do we want it as a pointer? Gives us the option to not send Task on every message
 	BtnStatus types.ButtonStatus
 
 	// System synchronization
