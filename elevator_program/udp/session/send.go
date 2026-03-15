@@ -29,7 +29,7 @@ func (ses *Session) QueueDataMessage(msg message.Message) {
 
 func (ses *Session) QueueMasterMessage(msg message.Message) {
 	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_MasterData,
+		PktType: packet.PKT_T_SlaveReport,
 		Msg:     msg,
 	}
 }

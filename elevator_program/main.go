@@ -48,7 +48,7 @@ func testBroadcast_send(srv *server.Server) {
 	bcMsg := message.Message{Content: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		srv.QueueMessage(nil, packet.DATA_T_BroadcastData, bcMsg)
+		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastData, bcMsg)
 		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
@@ -93,7 +93,7 @@ func main() {
 
 	eA.QueueMessage(
 		udp.MustUDPAddr(localIP, 9001),
-		packet.DATA_T_BroadcastData,
+		packet.PROTO_PKT_T_BroadcastData,
 		message.Message{Content: "Hello A!"},
 	)
 	closeProgram(eA, eB)

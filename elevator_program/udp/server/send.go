@@ -78,13 +78,13 @@ func (srv *Server) dispatchMessage(srvMsg outgoingMessage) {
 		srv.startSession(srvMsg.RemoteAddr, srvMsg.Msg)
 	case packet.PKT_T_BroadcastData:
 		srv.startBroadcast(srvMsg.Msg)
-	case packet.PKT_T_MasterData:
+	case packet.PKT_T_SlaveReport:
 		// srv.startMasterSession(srvMsg.RemoteAddr, srvMsg.Msg)
 	}
 }
 
-func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, dataPktType packet.DataPacketType, msg message.Message) {
-	pktType := packet.PacketType(dataPktType)
+func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
+	pktType := packet.PacketType(protoPktType)
 	srv.outgoingMsgCh <- outgoingMessage{
 		RemoteAddr: remoteAddr,
 		PktType:    pktType,
