@@ -30,7 +30,7 @@ func (srv *Server) Send(
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) StartSession(remoteAddr *net.UDPAddr, msg message.Message) {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) {
 	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
 
 	// Compare IP and Port
@@ -41,10 +41,10 @@ func (srv *Server) StartSession(remoteAddr *net.UDPAddr, msg message.Message) {
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.SendDataMessage(msg)
+	ses.QueueDataMessage(msg)
 }
 
-func (srv *Server) StartMasterSession(remoteAddr *net.UDPAddr, msg message.Message) {
+func (srv *Server) startMasterSession(remoteAddr *net.UDPAddr, msg message.Message) {
 	localAddr := srv.recvConn.LocalAddr().(*net.UDPAddr)
 
 	// Compare IP and Port
@@ -55,11 +55,11 @@ func (srv *Server) StartMasterSession(remoteAddr *net.UDPAddr, msg message.Messa
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.SendMasterMessage(msg)
+	ses.QueueMasterMessage(msg)
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) StartBroadcast(msg message.Message) {
+func (srv *Server) startBroadcast(msg message.Message) {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(udp.HomeBroadcastIP),
@@ -69,5 +69,25 @@ func (srv *Server) StartBroadcast(msg message.Message) {
 	quorum := srv.getQuorum()
 	ses := srv.createBroadcastSession(addr, quorum)
 
-	ses.SendBroadcastData(msg)
+	ses.QueueBroadcastData(msg)
+}
+
+func (srv *Server) dispatchMessage(srvMsg outgoingMessage) {
+	switch srvMsg.PktType {
+	case packet.PKT_T_Data:
+		srv.startSession(srvMsg.RemoteAddr, srvMsg.Msg)
+	case packet.PKT_T_BroadcastData:
+		srv.startBroadcast(srvMsg.Msg)
+	case packet.PKT_T_MasterData:
+		// srv.startMasterSession(srvMsg.RemoteAddr, srvMsg.Msg)
+	}
+}
+
+func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, dataPktType packet.DataPacketType, msg message.Message) {
+	pktType := packet.PacketType(dataPktType)
+	srv.outgoingMsgCh <- outgoingMessage{
+		RemoteAddr: remoteAddr,
+		PktType:    pktType,
+		Msg:        msg,
+	}
 }

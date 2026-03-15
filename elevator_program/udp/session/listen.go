@@ -16,7 +16,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 
 	for {
 		select {
-		case incPkt, ok := <-ses.recvCh:
+		case incPkt, ok := <-ses.packetInCh:
 			if !ok {
 				// Channel closed, stop the session
 				fmt.Printf("Session %d recvCh channel closed, stopping\n", ses.ID)

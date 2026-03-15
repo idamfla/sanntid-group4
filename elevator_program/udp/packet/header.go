@@ -17,6 +17,14 @@ const (
 	PKT_T_BroadcastDone
 )
 
+type DataPacketType PacketType
+
+const (
+	DATA_T_Data          DataPacketType = DataPacketType(PKT_T_Data)
+	DATA_T_MasterData    DataPacketType = DataPacketType(PKT_T_MasterData)
+	DATA_T_BroadcastData DataPacketType = DataPacketType(PKT_T_BroadcastData)
+)
+
 type Header struct {
 	Seq           uint32
 	SessionID     uint32

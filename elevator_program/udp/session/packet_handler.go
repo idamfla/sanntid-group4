@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-func (ses *Session) ReceivePacket(incPkt IncomingPacket) {
-	ses.recvCh <- incPkt
+func (ses *Session) ReceivePacket(pkt packet.Packet) {
+	ses.packetInCh <- pkt
 }
 
-func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
-	pkt := incPkt.Packet
+func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
 	if !ses.checkSequence(h.Seq) {
@@ -29,7 +28,7 @@ func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 `,
 		pkt.Header.Seq,
 		pkt.Header.PktType,
-		incPkt.Packet.Payload,
+		pkt.Payload,
 	)
 
 	ses.shutdownDelayTimer.Stop()
@@ -99,6 +98,7 @@ func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) 
 }
 
 // --- elevator interaction
+// This function blocks if the channel in ElevatorPacket is not closed by the elevator
 func (ses *Session) commitToElevator(pkt *packet.Packet) error {
 	doneCh := make(chan struct{})
 
