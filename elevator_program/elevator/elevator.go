@@ -42,6 +42,7 @@ type Elevator struct {
 
 	// MsgRecieveCh chan message.Message
 	// msgSendCh    chan message.Message
+	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
 
 	IsMaster          bool
 	connectedToMaster bool
@@ -49,10 +50,10 @@ type Elevator struct {
 
 	System system.System
 
-	// server server.Server // TODO Something here makes everything yellow, complaining about locks
+	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
 
-func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port string) { // TODO Changed port to string, hope everything works
+func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
 	e.Id = id
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
@@ -80,9 +81,10 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
 
+	// e.MsgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
+
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
 	// e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
-	// server = server.NewServer(ip, port, e.id, msgRecieveCh) // TODO should have this in the qode
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }

@@ -114,7 +114,9 @@ func (p *Protocol) MessageListener(e *elevator.Elevator) {
 		fmt.Println("Wallah broren min")
 		msg := pktCtx.Packet.Payload
 		p.MessageHandler(e, msg)
-		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
+		if pktCtx.Done != nil {
+			pktCtx.Done <- struct{}{} // TODO this may not work
+		}
 	}
 }
 

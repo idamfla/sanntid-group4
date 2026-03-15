@@ -150,6 +150,6 @@ func RunOneElevator(cfg Config) {
 	elevio.Init(addr, cfg.Floors)
 
 	var e elevator.Elevator
-	e.InitElevator(cfg.ID, cfg.Floors, cfg.InitFloor, "127.0.0.10", "9000") // TODO Probably need to change ip and port
+	e.InitElevator(cfg.ID, cfg.Floors, cfg.InitFloor, "127.0.0.10", 9000) // TODO Probably need to change ip and port
 	e.RunElevatorProgram()
 }

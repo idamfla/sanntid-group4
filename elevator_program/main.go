@@ -36,7 +36,7 @@ func testElevator() {
 	// "localhost:15657"
 	elevio.Init(ip_address+":"+port, numFloors)
 
-	e.InitElevator(id, numFloors, initFloor, ip_address, port)
+	e.InitElevator(id, numFloors, initFloor, ip_address, 5000) // TODO WHAT TO DO HERE, prot is int??
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
