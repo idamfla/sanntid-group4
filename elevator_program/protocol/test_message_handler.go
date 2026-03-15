@@ -80,7 +80,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	for id, currMsg := range msg {
 		fmt.Println("Msg Id: ", id)
 		fmt.Println("\nSending message:", currMsg.MsgType)
-		tempPacket := session.PacketContext{
+		tempPacket := session.ElevatorPacket{
 			Packet: packet.Packet{
 				Payload: currMsg,
 			},
@@ -104,7 +104,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 		HallRequests: newCopy.HallRequests,
 	}
 
-	tempPacket := session.PacketContext{
+	tempPacket := session.ElevatorPacket{
 		Packet: packet.Packet{
 			Payload: newMsg,
 		},

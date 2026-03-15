@@ -2,10 +2,24 @@ package main
 
 import (
 	"elevator_program/elevator"
+	"elevator_program/message"
 	"elevator_program/protocol"
+	"elevator_program/udp"
+	"elevator_program/udp/server"
+	"elevator_program/udp/session"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	// "elevator_program/utilities"
 	"elevator_program/elevio"
+)
+
+const (
+	localIP  = "127.0.0.1"
+	receiver = "10.100.23.15"
 )
 
 func testElevator() {
@@ -25,7 +39,8 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
-	p.InitProtocol(ip_address, 5000, "1")
+	numElevators := 3 // TODO how can I know this before talking to the others?
+	p.InitProtocol(ip_address, 5000, "1", numElevators)
 	// TODO MAybe the right spot to put it
 	defer p.Server.Close()
 
@@ -41,28 +56,99 @@ func testElevator() {
 	select {}
 }
 
-func main() {
-	// cfg := config.ParseFlags()
+func createServer(port int, id string, numberOfElevators int, ch1 chan<- session.ElevatorPacket) *server.Server {
+	s1, err := server.NewServer(localIP, port, id, numberOfElevators, ch1)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create s1: %v", err))
+	}
+	if s1 == nil {
+		panic("s1 is nil")
+	}
 
-	// // Launcher mode (no ID given)
-	// if cfg.ID == 0 {
-	// 	config.SpawnElevators(cfg)
-	// 	select {}
-	// }
-
-	// // Single elevator mode
-	// config.RunOneElevator(cfg)
-
-	go testElevator()
-
-	// msgCh := make(chan message.Message) // TODO Changed to message: Was udp.ElevatorMessage
-
-	// server, err := server.NewServer("1.127.0.0", 9000, "A", msgCh)
+	// s2, err := server.NewServer(myIP, 9001, "B")
 	// if err != nil {
-	// 	fmt.Println("Failed to make server:", err)
+	// 	panic(fmt.Sprintf("Failed to create s2: %v", err))
+	// }
+	// if s2 == nil {
+	// 	panic("s2 is nil")
 	// }
 
-	// go server.Listen()
+	fmt.Println("Server", id, "is running...")
 
-	select {}
+	// Give them a moment to start
+	time.Sleep(time.Second)
+	return s1
+}
+
+func testServer(s1 *server.Server, s2 *server.Server) {
+	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
+
+	aMsg := message.Message{Ip: "Hello from A"}
+	bMsg := message.Message{Ip: "Hello from B"}
+
+	// Server A sends to B
+	go s1.StartSession(udp.MustUDPAddr("127.0.0.1", 9001), aMsg)
+
+	// Server B sends to A
+	go s2.StartSession(udp.MustUDPAddr("127.0.0.1", 9000), bMsg)
+}
+
+func testBroadcast_send(srv *server.Server) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
+
+	for range ticker.C {
+		srv.StartBroadcast(bcMsg)
+		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
+	}
+}
+
+func closeProgram(s1 *server.Server, s2 *server.Server) {
+	// Create signal channel
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Wait for Ctrl+C
+	<-sigChan
+
+	fmt.Println("\nCtrl+C pressed")
+
+	// Print session counts
+	s1.PrintSessions()
+	s2.PrintSessions()
+
+	// Graceful shutdown
+	s1.Close()
+	s2.Close()
+
+	fmt.Println("Servers shut down cleanly")
+}
+
+func main() {
+	chA := make(chan session.ElevatorPacket)
+	serverA := createServer(9000, "A", 5, chA)
+
+	chB := make(chan session.ElevatorPacket)
+	serverB := createServer(9001, "B", 2, chB)
+
+	serverA.Start()
+	serverB.Start()
+
+	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
+	serverA.StartBroadcast(message.Message{Ip: "Hello from A"})
+	// 	message.Message{Content: "Hello from A"})
+
+	// go testElevator()
+	// go testServer(serverA, serverB)
+
+	for msg := range chB {
+		fmt.Println("msgCh test:", msg.Packet.Payload.Ip)
+		if msg.Done != nil {
+			msg.Done <- struct{}{}
+		}
+	}
+
+	closeProgram(serverA, serverB)
 }

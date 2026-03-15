@@ -45,7 +45,7 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
 		msg.MsgType = types.MSG_T_StatusReport // TODO probably don't need but nice to be safe
-		p.outgoingPacket.Packet.Payload = msg
+		p.outgoingPacket.Msg = msg
 		p.msgSendCh <- p.outgoingPacket // TODO Is this right?
 
 		// TODO Should i create a place for the slave to send button updates, and master sending the update on another chanel
@@ -73,7 +73,7 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		msg.Task = &task
 		msg.BtnStatus = types.Running
 		msg.MsgType = types.MSG_T_TaskUpdate
-		p.outgoingPacket.Packet.Payload = msg
+		p.outgoingPacket.Msg = msg
 		p.msgSendCh <- p.outgoingPacket
 
 	case types.MSG_T_LostComs:
@@ -86,7 +86,7 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		msg.MsgType = types.MSG_T_StatusReport
 		msg.Id = id
 		msg.Elevators[id] = e.System.Elevators[id] // TODO Could cause panic if msg.Elevators is not initialized
-		p.outgoingPacket.Packet.Payload = msg
+		p.outgoingPacket.Msg = msg
 		p.msgSendCh <- p.outgoingPacket
 	}
 }
