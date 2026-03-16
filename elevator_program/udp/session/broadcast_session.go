@@ -93,7 +93,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 
 	bs.mu.Lock()
 	bs.responsesReceived++
-	quorumReached := bs.responsesReceived >= bs.expectedResponses
+	quorumReached := bs.responsesReceived >= bs.expectedResponses // TODO is it okay that the quorum is not the same amount as active elevators??
 	bs.mu.Unlock()
 
 	switch h.PktType {

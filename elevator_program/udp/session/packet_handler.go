@@ -16,7 +16,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 
 	if !ses.checkSequence(h.Seq) {
 		fmt.Printf("order of packages is off ... got: %d, expected: %d\n", h.Seq, ses.seq+1)
-		// return ses.sendRetry()
+		return ses.sendRetry(ses.lastOutPkt)
 
 	}
 
@@ -68,6 +68,10 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		go ses.handleRequestNewOrder(ses.pendingPkt)
 	case packet.PKT_T_StateSync:
 		// TODO master must give it an id, send it all important updates
+		/*
+			maybe send to elevator, elevator send done when it receive. the master elevator handle the request and use its server to start
+			communication witht the wondering elevator on a private session another session
+		*/
 	}
 	return nil
 }
@@ -101,7 +105,8 @@ func (ses *Session) handleRequestNewOrder(pkt *packet.Packet) {
 	if err := ses.sendToElevatorWithReply(pkt); err != nil {
 		return
 	}
-	// TODO have server be able to reuse an open channel?
+	ses.scheduleSessionClose()
+	ses.sendReply(packet.PKT_T_Done)
 }
 
 // --- elevator interaction
