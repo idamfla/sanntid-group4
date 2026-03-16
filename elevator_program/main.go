@@ -71,15 +71,15 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	eA := elevtest.NewElev("A", 2)
+	eA := elevtest.NewElev("A")
 
-	err := eA.StartServer(localIP, 9000)
+	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	eB := elevtest.NewElev("B", 2)
+	eB := elevtest.NewElev("B")
 
 	err = eB.StartServer(localIP, 9001)
 	if err != nil {
@@ -95,7 +95,13 @@ func main() {
 		packet.PROTO_PKT_T_BroadcastUpdate,
 		message.Message{Content: "Hello A!"},
 	)
+
 	closeProgram(eA, eB)
 
-	//TODO make sure the server dosent take in peers and not totalnumberofElevators
+	//TODO
+	/*
+		make sure elevator_task sendElevatorTaskLoop works correctly ...
+		there is an issue after the quorum is reached in the broadcast_session, it stops there
+		fix, the one that broadcasts has no content inside the task ...
+	*/
 }

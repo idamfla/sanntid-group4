@@ -34,7 +34,6 @@ func (ses *Session) listen(behavior SessionBehavior) {
 			}
 		case <-ses.stop:
 			return
-
 		}
 	}
 }

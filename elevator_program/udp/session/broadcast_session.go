@@ -24,12 +24,11 @@ func NewBroadcastSession(
 	id uint32,
 	addr *net.UDPAddr,
 	closeReq chan<- uint32,
-	elev chan<- ElevatorPacket,
 	tx PacketSender,
 	expected int,
 ) *BroadcastSession {
 	bs := &BroadcastSession{
-		Session:              NewSession(id, addr, closeReq, elev, tx),
+		Session:              NewSession(id, addr, closeReq, tx),
 		expectedResponses:    expected,
 		broadcastAckTimer:    timer.NewTimer(),
 		broadcastCommitTimer: timer.NewTimer(),
@@ -65,7 +64,6 @@ func (bs *BroadcastSession) Close() {
 		// Close channels
 		close(bs.Session.packetInCh)
 		close(bs.Session.outgoingMsgCh)
-		close(bs.Session.closeReq)
 
 		// Clear pending packet
 		bs.Session.pendingPkt = nil
@@ -77,6 +75,7 @@ func (bs *BroadcastSession) Close() {
 func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastUpdate:
+		bs.QueueElevatorTask()
 		bs.startAckTimer()
 	case packet.PKT_T_BroadcastCommit:
 		bs.startRemoteCommitTimer()
@@ -93,7 +92,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 
 	bs.mu.Lock()
 	bs.responsesReceived++
-	quorumReached := bs.responsesReceived >= bs.expectedResponses
+	quorumReached := bs.responsesReceived >= bs.expectedResponses // TODO is it okay that the quorum is not the same amount as active elevators??
 	bs.mu.Unlock()
 
 	switch h.PktType {
@@ -102,7 +101,10 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		if quorumReached {
 			bs.seq++
 			bs.stopAckTimer()
-			bs.sendToElevator(bs.pendingPkt)
+
+			// TODO elevator should receive and then start a broadcast session where it send the packet to everyone
+			bs.signalTaskReady()
+
 			bs.sendReply(packet.PKT_T_BroadcastCommit)
 			bs.responsesReceived = 0
 		}
