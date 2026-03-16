@@ -72,15 +72,15 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	eA := elevtest.NewElev("A", 2)
+	eA := elevtest.NewElev("A")
 
-	err := eA.StartServer(localIP, 9000)
+	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	eB := elevtest.NewElev("B", 2)
+	eB := elevtest.NewElev("B")
 
 	err = eB.StartServer(localIP, 9001)
 	if err != nil {

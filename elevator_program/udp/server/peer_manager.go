@@ -1,7 +1,7 @@
 package server
 
 import (
-	"elevator_program/udp/peer"
+	"elevator_program/udp/peer_info"
 	"net"
 	"time"
 )
@@ -11,7 +11,7 @@ func (srv *Server) activePeerCount() int {
 	defer srv.mu.Unlock()
 
 	count := 0
-	for _, p := range srv.netPeers {
+	for _, p := range srv.peers {
 		if p.Active {
 			count++
 		}
@@ -24,19 +24,19 @@ func (srv *Server) nextSeq(addr *net.UDPAddr) uint32 {
 	defer srv.mu.Unlock()
 
 	key := addr.String()
-	netPeer, ok := srv.netPeers[key]
+	peer, ok := srv.peers[key]
 	if !ok {
-		netPeer = &peer.NetworkPeer{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
-		srv.netPeers[key] = netPeer
+		peer = &peer_info.PeerInfo{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
+		srv.peers[key] = peer
 	}
 
 	// Assign current seq to the outgoing message
-	seq := netPeer.Seq
+	seq := peer.Seq
 
 	// Increment for next message
-	netPeer.Seq++
-	if netPeer.Seq >= seq { // optional wrap-around
-		netPeer.Seq = 0
+	peer.Seq++
+	if peer.Seq >= seq { // optional wrap-around
+		peer.Seq = 0
 	}
 
 	return seq

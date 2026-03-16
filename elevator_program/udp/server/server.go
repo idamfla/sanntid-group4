@@ -3,6 +3,7 @@ package server
 import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/peer_info"
 	"elevator_program/udp/session"
 	"net"
 	"sync"
@@ -23,6 +24,8 @@ type Server struct {
 	broadcastConn *net.UDPConn
 	broadcastAddr *net.UDPAddr
 	sessions      map[uint32]SessionHandler
+	peers         map[string]*peer_info.PeerInfo
+	bcSeq         uint32
 	mu            sync.Mutex
 	closeReq      chan uint32
 
@@ -30,11 +33,10 @@ type Server struct {
 	wg        sync.WaitGroup
 	closeOnce sync.Once
 
-	activePeers int
-	elevator    chan<- session.ElevatorPacket
+	elevator chan<- session.ElevatorPacket
 }
 
-func NewServer(ip string, port int, id string, numberOfPeers int, toElevator chan<- session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, toElevator chan<- session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -62,7 +64,7 @@ func NewServer(ip string, port int, id string, numberOfPeers int, toElevator cha
 
 	bcAddr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(udp.HomeBroadcastIP),
+		IP:   net.ParseIP(udp.BroadcastIP),
 		Port: udp.BROADCAST_PORT,
 	}
 
@@ -75,11 +77,19 @@ func NewServer(ip string, port int, id string, numberOfPeers int, toElevator cha
 		broadcastConn: bcConn,
 		broadcastAddr: bcAddr,
 		sessions:      make(map[uint32]SessionHandler),
-		closeReq:      make(chan uint32),
-		stop:          make(chan struct{}),
-		activePeers:   numberOfPeers, // excluding oneself
-		elevator:      toElevator,
+		peers:         make(map[string]*peer_info.PeerInfo),
+		// bcSeq: 0,
+		closeReq: make(chan uint32),
+		stop:     make(chan struct{}),
+		elevator: toElevator,
 	}
+
+	// TODO add initial msg
+	// srv.QueueMessage(
+	// 	nil,
+	// 	packet.PROTO_PKT_T_StateSync,
+	// 	message.Message{Content: "I am new"},
+	// )
 
 	return srv, nil
 }
@@ -105,18 +115,9 @@ func (srv *Server) run() {
 		case incPkt := <-srv.incPktCh:
 			srv.routeToSession(incPkt)
 		case outMsg := <-srv.outgoingMsgCh:
+			srv.wg.Add(1)
 			go srv.dispatchMessage(outMsg)
 		}
-	}
-}
-
-func (srv *Server) UpdateActivePeers(delta int) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
-	srv.activePeers += delta
-	if srv.activePeers < 0 {
-		srv.activePeers = 0
 	}
 }
 
@@ -134,4 +135,10 @@ func (srv *Server) Close() {
 		}
 		srv.mu.Unlock()
 	})
+}
+
+func (srv *Server) getBroadcastSeq() uint32 {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.bcSeq
 }

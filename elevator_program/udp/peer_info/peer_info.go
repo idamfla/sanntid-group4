@@ -1,11 +1,11 @@
-package peer
+package peer_info
 
 import (
 	"net"
 	"time"
 )
 
-type NetworkPeer struct {
+type PeerInfo struct {
 	Addr       *net.UDPAddr
 	Seq        uint32
 	Active     bool
