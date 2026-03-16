@@ -39,3 +39,6 @@ yarn.lock
 
 # Other files to ignore
 *:Zone.Identifier*
+Simulator-v2/src/sim_server
+Simulator-v2/src/*.exe
+Simulator-v2/src/*.out
