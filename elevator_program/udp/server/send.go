@@ -38,6 +38,7 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) er
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDataMessage(msg)
+	// srv.elevatorTaskQueue()
 	return nil
 }
 

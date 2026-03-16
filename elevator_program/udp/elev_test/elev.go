@@ -62,5 +62,5 @@ func (e *Elev) Close() {
 	e.srv.PrintSessions()
 	e.srv.Close()
 
-	fmt.Println("Elevator and server have shut down cleanly")
+	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
 }

@@ -43,6 +43,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 
 	case packet.PKT_T_Data, packet.PKT_T_BroadcastUpdate, packet.PKT_T_SlaveReport:
 		ses.handleData(&pkt, h.PktType)
+		ses.QueueElevatorTask()
 
 	case packet.PKT_T_Ack:
 		ses.sendReply(packet.PKT_T_Commit)
@@ -53,8 +54,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		})
 
 	case packet.PKT_T_Commit, packet.PKT_T_BroadcastCommit:
-		commitPacket := ses.pendingPkt
-		go ses.handleCommit(commitPacket, h.PktType)
+		go ses.handleCommit(h.PktType)
 
 	case packet.PKT_T_ElevatorFailed:
 		// TODO fault tolerence? what to do now ...
@@ -83,15 +83,26 @@ func (ses *Session) handleData(pkt *packet.Packet, pktType packet.PacketType) {
 		ses.sendReply(packet.PKT_T_BroadcastUpdateAck)
 	case packet.PKT_T_SlaveReport:
 		ses.sendReply(packet.PKT_T_ReportAck)
-		ses.sendToElevator(ses.pendingPkt) // TODO elevator should receive and then start a broadcast session where it send the packet to everyone
+
+		// select {
+		// case ses.taskReady <- struct{}{}:
+		// case <-ses.stop:
+		// } // TODO elevator should receive and then start a broadcast session where it send the packet to everyone
+		// ses.waitForElevatorDone()
+
 		ses.scheduleSessionClose()
 	default:
 		ses.sendReply(packet.PKT_T_Ack)
 	}
 }
 
-func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) {
-	if err := ses.sendToElevatorWithReply(pkt); err != nil {
+func (ses *Session) QueueElevatorTask() {
+	ses.tx.QueueElevatorTask(*ses.pendingPkt, ses.elevDone, ses.taskReady)
+}
+
+func (ses *Session) handleCommit(pktType packet.PacketType) {
+	ses.signalTaskReady()
+	if err := ses.waitForElevatorDoneWithReply(); err != nil {
 		return
 	}
 
@@ -101,17 +112,24 @@ func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) 
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleRequestNewOrder(pkt *packet.Packet) {
-	if err := ses.sendToElevatorWithReply(pkt); err != nil {
-		return
+func (ses *Session) signalTaskReady() {
+	select {
+	case ses.taskReady <- struct{}{}:
+	case <-ses.stop:
 	}
-	ses.scheduleSessionClose()
-	ses.sendReply(packet.PKT_T_Done)
+}
+
+func (ses *Session) handleRequestNewOrder(pkt *packet.Packet) { // TODO
+	// if err := ses.waitForElevatorDoneWithReply(); err != nil {
+	// 	return
+	// }
+	// ses.scheduleSessionClose()
+	// ses.sendReply(packet.PKT_T_Done)
 }
 
 // --- elevator interaction
-func (ses *Session) sendToElevatorWithReply(pkt *packet.Packet) error {
-	if err := ses.sendToElevator(pkt); err != nil {
+func (ses *Session) waitForElevatorDoneWithReply() error {
+	if err := ses.waitForElevatorDone(); err != nil {
 		ses.sendReply(packet.PKT_T_ElevatorFailed)
 		fmt.Println(err)
 		return err
@@ -120,21 +138,15 @@ func (ses *Session) sendToElevatorWithReply(pkt *packet.Packet) error {
 }
 
 // Send packet to elevator, block until timeout or elevator complete its task
-func (ses *Session) sendToElevator(pkt *packet.Packet) error {
-	doneCh := make(chan struct{})
-
-	// send to elevator
-	ses.elev <- ElevatorPacket{
-		Packet: *pkt,
-		Done:   doneCh,
-	}
-
+func (ses *Session) waitForElevatorDone() error {
 	select { // wait for completion
-	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT * time.Second):
-		return fmt.Errorf("Elevator failed to commit …")
-	case <-doneCh:
+	case <-ses.elevDone:
 		fmt.Println("Elevator done commiting")
 		return nil
+	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT * time.Second):
+		return fmt.Errorf("Elevator failed to commit …")
+	case <-ses.stop:
+		return fmt.Errorf("Session stopped")
 	}
 }
 

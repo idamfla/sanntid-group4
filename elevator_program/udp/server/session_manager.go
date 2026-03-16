@@ -1,9 +1,7 @@
 package server
 
 import (
-	"crypto/rand"
 	"elevator_program/udp/session"
-	"encoding/binary"
 	"fmt"
 	"net"
 )
@@ -44,39 +42,14 @@ func (srv *Server) PrintSessions() {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
-	fmt.Printf("Active sessions (%d):\n", len(srv.sessions))
+	fmt.Printf("%s, Active sessions (%d):\n", srv.ID, len(srv.sessions))
 
 	for id := range srv.sessions {
 		fmt.Println(" -", id)
 	}
 }
 
-func generateSessionID() uint32 {
-	var b [4]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(err) // TODO i dont want panic, just something that makes it try again
-	}
-	return binary.LittleEndian.Uint32(b[:])
-}
-
-// generates a unique session id,the called must mutex lock srv
-func (srv *Server) generateSessionIDLocked() uint32 {
-	var id uint32
-	for {
-		id = generateSessionID()
-
-		if _, exists := srv.sessions[id]; !exists {
-			break
-		}
-	}
-
-	return id
-}
-
 func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *session.Session {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
 	var id uint32
 	if sessionID != nil {
 		id = *sessionID
@@ -84,16 +57,15 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 		id = srv.generateSessionIDLocked()
 	}
 
-	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv.elevator, srv)
+	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
+	srv.mu.Lock()
 	srv.sessions[ses.ID] = ses
+	srv.mu.Unlock()
 	ses.Start()
 	return ses
 }
 
 func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedResponses int) *session.BroadcastSession {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
 	// generate unique id
 	id := srv.generateSessionIDLocked()
 
@@ -101,13 +73,14 @@ func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedRespo
 		id,
 		remoteAddr,
 		srv.closeReq,
-		srv.elevator,
 		srv,
 		expectedResponses,
 	)
 
 	// store it in sessions map (so server tracks it)
+	srv.mu.Lock()
 	srv.sessions[bs.Session.ID] = bs
+	srv.mu.Unlock()
 	bs.Start()
 
 	return bs

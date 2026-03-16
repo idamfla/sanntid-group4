@@ -1,7 +1,6 @@
 package server
 
 import (
-	"elevator_program/udp/peer_info"
 	"net"
 	"time"
 )
@@ -26,7 +25,7 @@ func (srv *Server) nextSeq(addr *net.UDPAddr) uint32 {
 	key := addr.String()
 	peer, ok := srv.peers[key]
 	if !ok {
-		peer = &peer_info.PeerInfo{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
+		peer = &PeerInfo{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
 		srv.peers[key] = peer
 	}
 

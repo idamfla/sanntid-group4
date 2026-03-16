@@ -3,7 +3,6 @@ package server
 import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/peer_info"
 	"elevator_program/udp/session"
 	"net"
 	"sync"
@@ -24,7 +23,7 @@ type Server struct {
 	broadcastConn *net.UDPConn
 	broadcastAddr *net.UDPAddr
 	sessions      map[uint32]SessionHandler
-	peers         map[string]*peer_info.PeerInfo
+	peers         map[string]*PeerInfo
 	bcSeq         uint32
 	mu            sync.Mutex
 	closeReq      chan uint32
@@ -33,10 +32,11 @@ type Server struct {
 	wg        sync.WaitGroup
 	closeOnce sync.Once
 
-	elevator chan<- session.ElevatorPacket
+	elevator          chan session.ElevatorPacket
+	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, toElevator chan<- session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -69,19 +69,19 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.Elevato
 	}
 
 	srv := &Server{
-		ID:            id,
-		incPktCh:      make(chan incomingPacket),
-		outgoingMsgCh: make(chan outgoingMessage),
-		recvConn:      recvConn,
-		sendConn:      sendConn,
-		broadcastConn: bcConn,
-		broadcastAddr: bcAddr,
-		sessions:      make(map[uint32]SessionHandler),
-		peers:         make(map[string]*peer_info.PeerInfo),
-		// bcSeq: 0,
-		closeReq: make(chan uint32),
-		stop:     make(chan struct{}),
-		elevator: toElevator,
+		ID:                id,
+		incPktCh:          make(chan incomingPacket),
+		outgoingMsgCh:     make(chan outgoingMessage),
+		recvConn:          recvConn,
+		sendConn:          sendConn,
+		broadcastConn:     bcConn,
+		broadcastAddr:     bcAddr,
+		sessions:          make(map[uint32]SessionHandler),
+		peers:             make(map[string]*PeerInfo),
+		closeReq:          make(chan uint32),
+		stop:              make(chan struct{}),
+		elevator:          toElevator,
+		elevatorTaskQueue: make(chan ElevatorTask),
 	}
 
 	// TODO add initial msg
@@ -95,38 +95,42 @@ func NewServer(ip string, port int, id string, toElevator chan<- session.Elevato
 }
 
 func (srv *Server) Start() {
-	srv.wg.Add(3)
+	srv.wg.Add(4)
 	go srv.readLoop(srv.recvConn)
 	go srv.readLoop(srv.broadcastConn)
 
 	go srv.run()
+	go srv.sendTaskLoop()
 }
 
 func (srv *Server) run() {
 	defer srv.wg.Done()
 	for {
 		select {
-		case <-srv.stop:
-			return
-
 		case id := <-srv.closeReq:
 			srv.closeSession(id)
 
 		case incPkt := <-srv.incPktCh:
 			srv.routeToSession(incPkt)
+
 		case outMsg := <-srv.outgoingMsgCh:
 			srv.wg.Add(1)
 			go srv.dispatchMessage(outMsg)
+
+		case <-srv.stop:
+			return
 		}
 	}
 }
 
 func (srv *Server) Close() {
 	srv.closeOnce.Do(func() {
-		close(srv.stop)      // signal shutdown
+		close(srv.stop) // signal shutdown
+		close(srv.elevatorTaskQueue)
 		srv.recvConn.Close() // unblock ReadFromUDP
 		srv.sendConn.Close()
 		srv.broadcastConn.Close()
+
 		srv.wg.Wait() // wait for goroutines
 
 		srv.mu.Lock()
@@ -135,10 +139,4 @@ func (srv *Server) Close() {
 		}
 		srv.mu.Unlock()
 	})
-}
-
-func (srv *Server) getBroadcastSeq() uint32 {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	return srv.bcSeq
 }

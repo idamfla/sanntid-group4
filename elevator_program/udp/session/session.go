@@ -11,7 +11,7 @@ import (
 
 type PacketSender interface {
 	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, msg message.Message) error
-	// SendBroadcast(seq uint32, sessionID uint32, msg message.Message) error
+	QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{})
 }
 
 type Session struct {
@@ -21,7 +21,7 @@ type Session struct {
 	seq uint32 // TODO remove
 
 	// --- protocol state ---
-	pendingPkt *packet.Packet
+	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
 	lastOutPkt outgoingMessage
 
 	// --- internal communication ---
@@ -33,8 +33,10 @@ type Session struct {
 	remoteCommitTimer  *timer.Timer
 
 	// --- external systems ---
-	elev chan<- ElevatorPacket
-	tx   PacketSender // <-- session uses this to reply
+	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
+	elevDone  chan struct{}
+	taskReady chan struct{}
+	tx        PacketSender // <-- session uses this to reply
 
 	// --- session control ---
 	closeReq  chan<- uint32 // make the server/owner close this session
@@ -46,7 +48,6 @@ type Session struct {
 func NewSession(id uint32,
 	addr *net.UDPAddr,
 	closeReq chan<- uint32,
-	elevator chan<- ElevatorPacket,
 	transmitter PacketSender,
 ) *Session {
 	ses := &Session{
@@ -60,8 +61,9 @@ func NewSession(id uint32,
 		remoteCommitTimer:  timer.NewTimer(),
 		shutdownDelayTimer: timer.NewTimer(),
 
-		elev: elevator,
-		tx:   transmitter,
+		elevDone:  make(chan struct{}),
+		taskReady: make(chan struct{}),
+		tx:        transmitter,
 
 		stop:     make(chan struct{}),
 		closeReq: closeReq,
@@ -92,7 +94,8 @@ func (ses *Session) Close() {
 		// Close channels
 		close(ses.packetInCh)
 		close(ses.outgoingMsgCh)
-		close(ses.closeReq)
+		close(ses.elevDone)
+		close(ses.taskReady)
 
 		// Clear pending packet
 		ses.pendingPkt = nil

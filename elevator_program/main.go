@@ -96,7 +96,12 @@ func main() {
 		packet.PROTO_PKT_T_BroadcastUpdate,
 		message.Message{Content: "Hello A!"},
 	)
+
 	closeProgram(eA, eB)
 
-	//TODO make sure the server dosent take in peers and not totalnumberofElevators
+	//TODO
+	/*
+		make sure elevator_task sendElevatorTaskLoop works correctly ...
+		there is an issue after the quorum is reached in the broadcast_session, it stops there
+	*/
 }

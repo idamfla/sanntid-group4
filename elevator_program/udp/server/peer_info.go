@@ -1,4 +1,4 @@
-package peer_info
+package server
 
 import (
 	"net"
