@@ -6,6 +6,7 @@ import (
 	"elevator_program/udp/message"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
+	"elevator_program/config"
 	"fmt"
 	"os"
 	"os/signal"
@@ -109,7 +110,45 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 	fmt.Println("Servers shut down cleanly")
 }
 
+
 func main() {
+	cfg := config.ParseFlags()
+
+	if cfg.ID == 0 {
+		config.SpawnElevators(cfg)
+		return
+	}
+
+	go config.RunOneElevator(cfg)
+
+	ch := make(chan session.ElevatorPacket, 32)
+	udpPort := 9000 + (cfg.ID - 1)
+
+	srv := createServer(udpPort, fmt.Sprintf("%d", cfg.ID), cfg.N, ch)
+	srv.Start()
+
+	go testBroadcast_send(srv)
+
+	for msg := range ch {
+		fmt.Println("msgCh test:", msg.Packet.Payload.Content)
+		if msg.Done != nil {
+			msg.Done <- struct{}{}
+		}
+	}
+}
+
+/*
+func main() {
+
+    cfg := config.ParseFlags()
+
+	if cfg.ID == 0 {
+		config.SpawnElevators(cfg)
+		return
+	}
+
+	config.RunOneElevator(cfg)
+
 	chA := make(chan session.ElevatorPacket)
 	serverA := createServer(9000, "A", 5, chA)
 
@@ -135,3 +174,4 @@ func main() {
 
 	closeProgram(serverA, serverB)
 }
+*/

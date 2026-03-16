@@ -160,7 +160,8 @@ func (e *Elevator) updateElevatorState() { // TODO rename, this change state and
 
         if e.faultTolerance != nil {
             e.faultTolerance.SetMotorRunning(false)
-        }		return
+        }
+        return
 	}
 
 

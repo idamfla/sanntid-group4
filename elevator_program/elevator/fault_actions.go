@@ -66,6 +66,8 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 
 func (e *Elevator) handleMasterSuspected(reason string) {
     fmt.Printf("Elevator %d suspects master failure: %s\n", e.id, reason)
+    e.connectedToMaster = false
+	e.runElection(reason)
 }
 
 
@@ -77,11 +79,16 @@ func (e *Elevator) handleNetworkFault(reason string) {
 
 func (e *Elevator) handlePeerDead(peerID int) {
     fmt.Println("Peer dead:", peerID)
-    if !e.isMaster {
-        return
-    }
+    if e.faultTolerance != nil {
+		e.faultTolerance.RemovePeer(peerID)
+	}
 
-    delete(e.system.Elevators, peerID)
+	delete(e.system.Elevators, peerID)
+	delete(e.elevatorRegistry, peerID)
+
+	if peerID == e.currentMasterID || peerID < e.id || e.isMaster {
+		e.runElection("peer dead")
+	}
 
     // TODO senere: reassign hall calls
     // Midlertidig: marker peer dead i elevatorRegistry / fjern den
@@ -159,16 +166,4 @@ func (e *Elevator) FT_SetRoleSlave() {
     }
 }
 
-func (e *Elevator) BecameMaster() {
-    e.isMaster = true
-    if e.faultTolerance != nil {
-    e.faultTolerance.SetRoleMaster()
-    }
-}
 
-func (e *Elevator) BecameSlave() {
-    e.isMaster = false
-    if e.faultTolerance != nil {
-        e.faultTolerance.SetRoleSlave()
-    }
-}

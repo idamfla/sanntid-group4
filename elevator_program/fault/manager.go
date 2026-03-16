@@ -2,163 +2,243 @@ package fault
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
-type Manager struct{
+type Manager struct {
+	mu sync.Mutex
 
+	cfg  Config
+	role Role
+	id   int
 
-    cfg Config
-    role Role //TODO: do we need this?
-    id int
+	startedAt time.Time
 
-    startedAt time.Time
+	lastSeenMaster time.Time
+	lastSeenPeer   map[int]time.Time
 
-    lastSeenMaster time.Time
-    lastSeenPeer map[int]time.Time
+	lastFloorEvent time.Time
+	motorRunning   bool
 
-    lastFloorEvent time.Time
-    motorRunning bool
+	online bool
+	faulty bool
 
-    online bool
-    faulty bool
-
-    OnBecomeMaster    func()
-    OnMasterSuspected func(reason string)
-    OnPeerDead        func(peerID int)
-    OnGoOnline        func()
-    OnGoOffline       func()
-    OnMotorFault      func(reason string)
-    OnNetworkFault    func(reason string)
-
-
+	OnBecomeMaster    func()
+	OnMasterSuspected func(reason string)
+	OnPeerDead        func(peerID int)
+	OnGoOnline        func()
+	OnGoOffline       func()
+	OnMotorFault      func(reason string)
+	OnNetworkFault    func(reason string)
 }
 
-func NewFaultManager(id int, cfg Config)*Manager{
-    return&Manager{
-        cfg:            cfg,
-        id:             id,
-        role:           RoleSlave,
-        online:         true,
-
-        startedAt:      time.Now(),
-        lastSeenPeer:   make(map[int]time.Time),
-        lastFloorEvent: time.Now(),
-        lastSeenMaster: time.Now(),
-
- }
+func NewFaultManager(id int, cfg Config) *Manager {
+	return &Manager{
+		cfg:            cfg,
+		id:             id,
+		role:           RoleSlave,
+		online:         true,
+		startedAt:      time.Now(),
+		lastSeenPeer:   make(map[int]time.Time),
+		lastFloorEvent: time.Now(),
+		lastSeenMaster: time.Now(),
+	}
 }
 
+func (fm *Manager) SeenMaster() {
+	fm.mu.Lock()
 
-func(fm*Manager) SeenMaster(){
-    fm.lastSeenMaster= time.Now()
-    if !fm.online{
-        fm.online= true
-        if fm.onGoOnline!= nil{
-            fm.onGoOnline()
-         }
+	fm.lastSeenMaster = time.Now()
 
- }
+	var goOnline func()
+	if !fm.online {
+		fm.online = true
+		goOnline = fm.OnGoOnline
+	}
+
+	fm.mu.Unlock()
+
+	if goOnline != nil {
+		goOnline()
+	}
 }
 
-func(fm*Manager) SeenPeer(peerID int){
-    fm.lastSeenPeer[peerID]= time.Now()
+func (fm *Manager) SeenPeer(peerID int) {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	fm.lastSeenPeer[peerID] = time.Now()
 }
 
-//TODO: FIX place
-func(fm*Manager) FloorEvent(){
-    fm.lastFloorEvent= time.Now()
+func (fm *Manager) RemovePeer(peerID int) {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
 
+	delete(fm.lastSeenPeer, peerID)
 }
 
-func(fm*Manager) SetMotorRunning(running bool){
-	fm.motorRunning= running
+func (fm *Manager) FloorEvent() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	fm.lastFloorEvent = time.Now()
+}
+
+func (fm *Manager) SetMotorRunning(running bool) {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	fm.motorRunning = running
 	if running {
 		fm.lastFloorEvent = time.Now()
 		fm.faulty = false
 	}
 }
 
-func(fm*Manager) SetRoleMaster(){
-    fm.role= RoleMaster
+func (fm *Manager) SetRoleMaster() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	fm.role = RoleMaster
+	fm.lastSeenMaster = time.Now()
+	fm.online = true
 }
 
-func(fm*Manager) SetRoleSlave(){
-    fm.role= RoleSlave
- }
+func (fm *Manager) SetRoleSlave() {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
 
+	fm.role = RoleSlave
+}
+
+func (fm *Manager) Role() Role {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	return fm.role
+}
+
+func (fm *Manager) AlivePeers() []int {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	now := time.Now()
+	alive := make([]int, 0, len(fm.lastSeenPeer))
+
+	for peerID, ts := range fm.lastSeenPeer {
+		if now.Sub(ts) <= fm.cfg.PeerTimeout {
+			alive = append(alive, peerID)
+		}
+	}
+
+	return alive
+}
 
 func (fm *Manager) checkMasterTimeout() {
+	fm.mu.Lock()
 
-    if time.Since(fm.startedAt) < fm.cfg.StartupGrace {
-            return
-        }
+	if time.Since(fm.startedAt) < fm.cfg.StartupGrace {
+		fm.mu.Unlock()
+		return
+	}
 
-    if fm.role != RoleSlave {
-        return
-    }
+	if fm.role != RoleSlave {
+		fm.mu.Unlock()
+		return
+	}
 
-    if fm.lastSeenMaster.IsZero(){
-        return
-    }
+	if fm.lastSeenMaster.IsZero() {
+		fm.mu.Unlock()
+		return
+	}
 
-    if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout{
-        fmt.Println("Master timeout detected")
+	var onMasterSuspected func(string)
+	var onGoOffline func()
+	var onNetworkFault func(string)
+	shouldNotify := false
 
-        if fm.online {
-            if fm.onMasterSuspected != nil {
-                fm.onMasterSuspected("master timeout")
-            }
+	if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout {
+	fmt.Println("Master timeout detected")
 
-            fm.online = false
-
-           if fm.onGoOffline != nil {
-                fm.onGoOffline()
-            }
-
-            if fm.onNetworkFault != nil {
-                fm.onNetworkFault("master timeout")
-            }
-        }
-    }
+	if fm.online {
+		fm.online = false
+		shouldNotify = true
+		onMasterSuspected = fm.OnMasterSuspected
+	}
 }
 
+	fm.mu.Unlock()
 
-
-
- func (fm *Manager) checkPeerTimeout() {
-    if fm.role != RoleMaster{
-        return
-    }
-
-    for peerID, ts:= range fm.lastSeenPeer{
-        if (time.Since(ts) > fm.cfg.PeerTimeout){
-
-            fmt.Println("Peer timeout:", peerID)
-            delete(fm.lastSeenPeer, peerID)
-
-            if fm.onPeerDead!= nil{
-                fm.onPeerDead(peerID)
-            }
+	if shouldNotify {
+        if onMasterSuspected != nil {
+            onMasterSuspected("master timeout")
         }
-    }
+}
+
+		if onGoOffline != nil {
+			onGoOffline()
+		}
+		if onNetworkFault != nil {
+			onNetworkFault("master timeout")
+		}
+	}
+
+
+func (fm *Manager) checkPeerTimeout() {
+	fm.mu.Lock()
+
+	if fm.role != RoleMaster {
+		fm.mu.Unlock()
+		return
+	}
+
+	now := time.Now()
+	deadPeers := make([]int, 0)
+
+	for peerID, ts := range fm.lastSeenPeer {
+		if now.Sub(ts) > fm.cfg.PeerTimeout {
+			fmt.Println("Peer timeout:", peerID)
+			delete(fm.lastSeenPeer, peerID)
+			deadPeers = append(deadPeers, peerID)
+		}
+	}
+
+	onPeerDead := fm.OnPeerDead
+
+	fm.mu.Unlock()
+
+	if onPeerDead != nil {
+		for _, peerID := range deadPeers {
+			onPeerDead(peerID)
+		}
+	}
 }
 
 func (fm *Manager) checkMotorTimeout() {
+	fm.mu.Lock()
 
-    if !fm.motorRunning {
-        return
-    }
-     if time.Since(fm.lastFloorEvent)> fm.cfg.MotorTimeout{
+	if !fm.motorRunning {
+		fm.mu.Unlock()
+		return
+	}
 
-        if!fm.faulty{
-            fm.faulty= true
+	var onMotorFault func(string)
+	shouldNotify := false
 
-            if fm.onMotorFault != nil{
-                fm.onMotorFault("motor watchdog timeout")
-            }
-        }
-    }
+	if time.Since(fm.lastFloorEvent) > fm.cfg.MotorTimeout {
+		if !fm.faulty {
+			fm.faulty = true
+			shouldNotify = true
+			onMotorFault = fm.OnMotorFault
+		}
+	}
+
+	fm.mu.Unlock()
+
+	if shouldNotify && onMotorFault != nil {
+		onMotorFault("motor watchdog timeout")
+	}
 }
 
 func (fm *Manager) Run() {

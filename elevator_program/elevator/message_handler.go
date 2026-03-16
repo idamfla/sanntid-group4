@@ -127,6 +127,9 @@ func (e *Elevator) MessageHandler(msg Message) {
 		return // Ignore own messages
 	}
 
+    // midlertidig kobling
+    e.ObservePeer(msg.senderId)
+
 	if e.isMaster {
 		e.protocol.messageHandler_master(e, msg)
 	} else {

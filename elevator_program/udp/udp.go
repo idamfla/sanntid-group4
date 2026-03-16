@@ -16,7 +16,9 @@ const (
 
 	// Group4IP        = "10.100.23.15"
 	NtnuBroadcastIP = "10.100.23.255"
-	HomeBroadcastIP = "192.168.50.255"
+	//HomeBroadcastIP = "192.168.50.255"
+    HomeBroadcastIP = "255.255.255.255"
+
 	BROADCAST_PORT  = 3000
 )
 
