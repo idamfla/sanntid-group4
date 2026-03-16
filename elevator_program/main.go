@@ -103,5 +103,6 @@ func main() {
 	/*
 		make sure elevator_task sendElevatorTaskLoop works correctly ...
 		there is an issue after the quorum is reached in the broadcast_session, it stops there
+		fix, the one that broadcasts has no content inside the task ...
 	*/
 }
