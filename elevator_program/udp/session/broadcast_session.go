@@ -63,8 +63,8 @@ func (bs *BroadcastSession) Close() {
 		bs.Session.wg.Wait()
 
 		// Close channels
-		close(bs.Session.recvCh)
-		close(bs.Session.sendCh)
+		close(bs.Session.packetInCh)
+		close(bs.Session.outgoingMsgCh)
 		close(bs.Session.closeReq)
 
 		// Clear pending packet
@@ -76,7 +76,7 @@ func (bs *BroadcastSession) Close() {
 
 func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 	switch pktType {
-	case packet.PKT_T_BroadcastData:
+	case packet.PKT_T_BroadcastUpdate:
 		bs.startAckTimer()
 	case packet.PKT_T_BroadcastCommit:
 		bs.startRemoteCommitTimer()
@@ -84,12 +84,11 @@ func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 
 }
 
-func (bs *BroadcastSession) ReceivePacket(incPkt IncomingPacket) {
-	bs.recvCh <- incPkt
+func (bs *BroadcastSession) ReceivePacket(pkt packet.Packet) {
+	bs.packetInCh <- pkt
 }
 
-func (bs *BroadcastSession) HandlePacket(incPkt IncomingPacket) error {
-	pkt := incPkt.Packet
+func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
 	bs.mu.Lock()
@@ -97,18 +96,21 @@ func (bs *BroadcastSession) HandlePacket(incPkt IncomingPacket) error {
 	quorumReached := bs.responsesReceived >= bs.expectedResponses
 	bs.mu.Unlock()
 
-	if h.PktType == packet.PKT_T_BroadcastAck {
+	switch h.PktType {
+	case packet.PKT_T_BroadcastUpdateAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
-	}
-
-	if quorumReached {
-		bs.seq++
-
-		switch h.PktType {
-		case packet.PKT_T_BroadcastAck:
+		if quorumReached {
+			bs.seq++
 			bs.stopAckTimer()
+			bs.sendToElevator(bs.pendingPkt)
 			bs.sendReply(packet.PKT_T_BroadcastCommit)
-		case packet.PKT_T_BroadcastDone:
+			bs.responsesReceived = 0
+		}
+	case packet.PKT_T_BroadcastDone:
+		fmt.Printf("bcDone: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
+		if quorumReached {
+			bs.seq++
+			bs.pendingPkt = nil
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()
 		}

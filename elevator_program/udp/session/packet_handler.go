@@ -7,12 +7,11 @@ import (
 	"time"
 )
 
-func (ses *Session) ReceivePacket(incPkt IncomingPacket) {
-	ses.recvCh <- incPkt
+func (ses *Session) ReceivePacket(pkt packet.Packet) {
+	ses.packetInCh <- pkt
 }
 
-func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
-	pkt := incPkt.Packet
+func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
 	if !ses.checkSequence(h.Seq) {
@@ -29,7 +28,7 @@ func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 `,
 		pkt.Header.Seq,
 		pkt.Header.PktType,
-		incPkt.Packet.Payload,
+		pkt.Payload,
 	)
 
 	ses.shutdownDelayTimer.Stop()
@@ -38,7 +37,11 @@ func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 	case packet.PKT_T_Heartbeat:
 		fmt.Printf("%s sent %s\n", h.SenderAddr, h.PktType) // TODO remove db, although ... heatbeat should not end up here
 
-	case packet.PKT_T_Data, packet.PKT_T_BroadcastData, packet.PKT_T_MasterData:
+	case packet.PKT_T_LostConn:
+		fmt.Printf("%s lost connection ...", h.SenderAddr)
+		// TODO what to do now?
+
+	case packet.PKT_T_Data, packet.PKT_T_BroadcastUpdate, packet.PKT_T_SlaveReport:
 		ses.handleData(&pkt, h.PktType)
 
 	case packet.PKT_T_Ack:
@@ -49,25 +52,22 @@ func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 			// ses.closeReq <- ses.ID
 		})
 
-	case packet.PKT_T_MasterAck:
-		ses.scheduleSessionClose()
-
 	case packet.PKT_T_Commit, packet.PKT_T_BroadcastCommit:
 		commitPacket := ses.pendingPkt
 		go ses.handleCommit(commitPacket, h.PktType)
 
-	case packet.PKT_T_CommitFailed:
+	case packet.PKT_T_ElevatorFailed:
 		// TODO fault tolerence? what to do now ...
 
-	case packet.PKT_T_Done:
+	case packet.PKT_T_Done, packet.PKT_T_ReportAck:
 		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 
-	case packet.PKT_T_BroadcastDone:
-		// bcDone++
-		// if bcDone >= 60% of active elevators {
-		// 	ses.closeReq <- ses.ID
-		// }
+	case packet.PKT_T_RequestNewOrder:
+		ses.pendingPkt = &pkt
+		go ses.handleRequestNewOrder(ses.pendingPkt)
+	case packet.PKT_T_StateSync:
+		// TODO master must give it an id, send it all important updates
 	}
 	return nil
 }
@@ -75,21 +75,20 @@ func (ses *Session) HandlePacket(incPkt IncomingPacket) error {
 func (ses *Session) handleData(pkt *packet.Packet, pktType packet.PacketType) {
 	ses.pendingPkt = pkt
 	switch pktType {
-	case packet.PKT_T_BroadcastData:
-		ses.sendReply(packet.PKT_T_BroadcastAck)
-
-	case packet.PKT_T_MasterData:
-		ses.sendReply(packet.PKT_T_MasterAck)
-		// start broadcast
+	case packet.PKT_T_BroadcastUpdate:
+		ses.sendReply(packet.PKT_T_BroadcastUpdateAck)
+	case packet.PKT_T_SlaveReport:
+		ses.sendReply(packet.PKT_T_ReportAck)
+		ses.sendToElevator(ses.pendingPkt) // TODO elevator should receive and then start a broadcast session where it send the packet to everyone
+		ses.scheduleSessionClose()
 	default:
 		ses.sendReply(packet.PKT_T_Ack)
 	}
 }
 
 func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) {
-	if err := ses.commitToElevator(pkt); err != nil {
-		ses.sendReply(packet.PKT_T_CommitFailed)
-		fmt.Println(err)
+	if err := ses.sendToElevatorWithReply(pkt); err != nil {
+		return
 	}
 
 	ses.sendDoneAck(pktType)
@@ -98,8 +97,25 @@ func (ses *Session) handleCommit(pkt *packet.Packet, pktType packet.PacketType) 
 	ses.scheduleSessionClose()
 }
 
+func (ses *Session) handleRequestNewOrder(pkt *packet.Packet) {
+	if err := ses.sendToElevatorWithReply(pkt); err != nil {
+		return
+	}
+	// TODO have server be able to reuse an open channel?
+}
+
 // --- elevator interaction
-func (ses *Session) commitToElevator(pkt *packet.Packet) error {
+func (ses *Session) sendToElevatorWithReply(pkt *packet.Packet) error {
+	if err := ses.sendToElevator(pkt); err != nil {
+		ses.sendReply(packet.PKT_T_ElevatorFailed)
+		fmt.Println(err)
+		return err
+	}
+	return nil
+}
+
+// Send packet to elevator, block until timeout or elevator complete its task
+func (ses *Session) sendToElevator(pkt *packet.Packet) error {
 	doneCh := make(chan struct{})
 
 	// send to elevator
