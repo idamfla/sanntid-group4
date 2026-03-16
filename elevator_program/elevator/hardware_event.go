@@ -2,6 +2,8 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/message"
+	"elevator_program/types"
 	"fmt"
 )
 
@@ -23,6 +25,67 @@ type HardwareEvent struct {
 }
 
 func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
+	if e.IsOnline {
+		// TODO Temp for debugging
+		e.connectedToMaster = true
+		e.handleHardwareEventOnline(hwEvent)
+	} else {
+		e.handleHardwareEventOffline(hwEvent)
+	}
+}
+
+func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
+	switch hwEvent.Type {
+	case HW_T_EmergencyStop:
+		elevio.SetStopLamp(hwEvent.EmergencyStop)
+		e.emergencyStop = hwEvent.EmergencyStop
+		msg := message.Message{
+			Id:        e.Id,
+			Elevators: e.System.Elevators,
+		}
+		fmt.Println("Number 1")
+		e.SendToProtocol <- msg
+
+	case HW_T_ButtonPress:
+		if !e.connectedToMaster {
+			println("Not connected to master, cannot accept buttonpress")
+			return
+		}
+		msg := message.Message{
+			MsgType: types.MSG_T_ButtonPress,
+			Task: elevio.ButtonEvent{
+				Floor:  hwEvent.Floor,
+				Button: hwEvent.Button,
+			},
+			BtnStatus: types.Pending,
+		}
+		fmt.Println("Number 2")
+		e.SendToProtocol <- msg
+
+	case HW_T_FloorSensor:
+		if hwEvent.Floor == -1 {
+			e.inBetweenFloors = true // TODO maybe set inBetweenFloors true when the elevator moves, not when we arrive at correct floor
+		} else {
+			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.currentFloor = hwEvent.Floor
+			e.inBetweenFloors = false
+			msg := message.Message{
+				Id:        e.Id,
+				Elevators: e.System.Elevators,
+			}
+			fmt.Println("Number 3")
+			e.SendToProtocol <- msg
+		}
+
+	case HW_T_Obstruction:
+		if e.doorState == DS_Closed {
+			return
+		}
+		e.obstruction = hwEvent.Obstruction // TODO should i notify master, probably not right?
+	}
+}
+
+func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 	switch hwEvent.Type {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
@@ -35,9 +98,10 @@ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
             }
 
 		if hwEvent.Button == elevio.BT_Cab {
-			e.system.Elevators[e.id].CabRequests[hwEvent.Floor] = Pending // Changed to be compatible with system struct
+			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
 		} else {
-			e.system.hallRequests[hwEvent.Floor][hwEvent.Button] = Pending // Changed to be compatible with system struct
+			fmt.Println("Elevator is offline, can not accept order")
+			return
 		}
 		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true) // TODO don't turn on lamp before master says to do so
 

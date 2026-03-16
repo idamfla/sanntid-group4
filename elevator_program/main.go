@@ -2,10 +2,11 @@ package main
 
 import (
 	"elevator_program/elevator"
-	"elevator_program/udp"
-	"elevator_program/udp/message"
+	"elevator_program/message"
+	"elevator_program/protocol"
+	elevtest "elevator_program/udp/elev_test"
+	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
-	"elevator_program/udp/session"
 	"elevator_program/config"
 	"fmt"
 	"os"
@@ -26,7 +27,7 @@ func testElevator() {
 	var e elevator.Elevator
 	// fmt.Println(e)
 
-	id := 1
+	id := "A"
 	numFloors := 4
 	initFloor := 3 // NB! in the code the elevator floors are 0-index, on the controller it is not
 	ip_address := "localhost"
@@ -35,61 +36,41 @@ func testElevator() {
 	// "localhost:15657"
 	elevio.Init(ip_address+":"+port, numFloors)
 
-	e.InitElevator(id, numFloors, initFloor)
+	e.InitElevator(id, numFloors, initFloor, ip_address, 5000) // TODO WHAT TO DO HERE, prot is int??
 	e.RunElevatorProgram()
+
+	p := protocol.Protocol{}
+	p.InitProtocol()
+	// p.StartServer(ip_address, 5000, id)
+	p.Start(&e)
+	// TODO MAybe the right spot to put it
+	defer p.Close()
+
+	// go p.TestMsgHandler(&e, numFloors)
+	// go p.TestMsgHandler_Master(&e, numFloors)
+
+	// e.TestMasterLogic()
+
+	/*
+		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
+	*/
 	select {}
-}
-
-func createServer(port int, id string, numberOfElevators int, ch1 chan<- session.ElevatorPacket) *server.Server {
-	s1, err := server.NewServer(localIP, port, id, numberOfElevators, ch1)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create s1: %v", err))
-	}
-	if s1 == nil {
-		panic("s1 is nil")
-	}
-
-	// s2, err := server.NewServer(myIP, 9001, "B")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Failed to create s2: %v", err))
-	// }
-	// if s2 == nil {
-	// 	panic("s2 is nil")
-	// }
-
-	fmt.Println("Server", id, "is running...")
-
-	// Give them a moment to start
-	time.Sleep(time.Second)
-	return s1
-}
-
-func testServer(s1 *server.Server, s2 *server.Server) {
-	// var GlobalServers = make(map[string]*server.Server) // key = "name" or "ip:port"
-
-	aMsg := message.Message{Content: "Hello from A"}
-	bMsg := message.Message{Content: "Hello from B"}
-
-	// Server A sends to B
-	go s1.StartSession(udp.MustUDPAddr("127.0.0.1", 9001), aMsg)
-
-	// Server B sends to A
-	go s2.StartSession(udp.MustUDPAddr("127.0.0.1", 9000), bMsg)
 }
 
 func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	bcMsg := message.Message{Content: "Hello, broadcast from " + srv.ID}
+	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		srv.StartBroadcast(bcMsg)
+		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastData, bcMsg)
 		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
 
-func closeProgram(s1 *server.Server, s2 *server.Server) {
+// just to get some prints after i "shut down"
+func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -99,13 +80,9 @@ func closeProgram(s1 *server.Server, s2 *server.Server) {
 
 	fmt.Println("\nCtrl+C pressed")
 
-	// Print session counts
-	s1.PrintSessions()
-	s2.PrintSessions()
-
 	// Graceful shutdown
-	s1.Close()
-	s2.Close()
+	e1.Close()
+	e2.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
@@ -149,39 +126,123 @@ func main() {
 
 
 func main() {
+	// eA := elevtest.NewElev("A", 2)
 
-    cfg := config.ParseFlags()
+	// err := eA.StartServer(localIP, 9000)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
-	if cfg.ID == 0 {
-		config.SpawnElevators(cfg)
+	// eB := elevtest.NewElev("B", 2)
+
+	// err = eB.StartServer(localIP, 9001)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// eA.Start()
+	// eB.Start()
+
+	// eA.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_BroadcastData,
+	// 	message.Message{Ip: "Hello A!"},
+	// )
+
+	// eA.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_BroadcastData,
+	// 	message.Message{Ip: "Hello Ax2!"},
+	// )
+	// closeProgram(eA, eB)
+
+	ip_address := "localhost"
+	port := "15657"
+
+	elevio.Init(ip_address+":"+port, 4)
+
+	e1 := elevator.Elevator{}
+	e1.InitElevator("1", 4, 3, localIP, 9000)
+	p1 := protocol.Protocol{}
+	p1.InitProtocol()
+	err := p1.StartServer(localIP, 9000, "1")
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
+	p1.Start(&e1)
 
-	config.RunOneElevator(cfg)
+	// fmt.Println("eeeee: ", e1)
 
-	chA := make(chan session.ElevatorPacket)
-	serverA := createServer(9000, "A", 5, chA)
+	fmt.Println("Created e1 and p1")
 
-	chB := make(chan session.ElevatorPacket)
-	serverB := createServer(9001, "B", 2, chB)
-
-	serverA.Start()
-	serverB.Start()
-
-	// serverA.StartSession(udp.MustUDPAddr("127.0.0.1", 9001),
-	serverA.StartBroadcast(message.Message{Content: "Hello from A"})
-	// 	message.Message{Content: "Hello from A"})
-
-	// go testElevator()
-	// go testServer(serverA, serverB)
-
-	for msg := range chB {
-		fmt.Println("msgCh test:", msg.Packet.Payload.Content)
-		if msg.Done != nil {
-			msg.Done <- struct{}{}
-		}
+	e2 := elevator.Elevator{}
+	e2.InitElevator("2", 4, 3, localIP, 9001)
+	p2 := protocol.Protocol{}
+	p2.InitProtocol()
+	err = p2.StartServer(localIP, 9001, "2")
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+	fmt.Println("Created e2 and p2")
 
-	closeProgram(serverA, serverB)
+	p2.Start(&e2)
+
+	defer p1.Close()
+	defer p2.Close()
+
+	fmt.Println("finished init")
+	// e1.IsOnline = true
+	e2.RunElevatorProgram()
+
+	// vierdElev := types.ElevatorsStatus{
+	// 	Ip:          "Halla balla",
+	// 	CabRequests: make([]types.ButtonStatus, 4),
+	// }
+
+	// msg := message.Message{
+	// 	MsgType: types.MSG_T_NewToChannel,
+	// 	Id:      "2",
+	// 	Elevators: map[string]types.ElevatorsStatus{
+	// 		"2": vierdElev,
+	// 	},
+	// }
+
+	// msg := message.Message{
+	// 	MsgType: types.MSG_T_NewToChannel,
+	// 	Id:      "2",
+	// 	Ip:      e2.Ip,
+	// 	Elevators: map[string]types.ElevatorsStatus{
+	// 		e2.Id: e2.System.Elevators[e2.Id],
+	// 	},
+	// }
+
+	// time.Sleep(2 * time.Second)
+	// fmt.Println("Sending now")
+	// p2.SendMessageSlave(&e2, msg)
+
+	// msg = message.Message{
+	// 	MsgType:   types.MSG_T_TaskUpdate,
+	// 	Id:        "1",
+	// 	BtnStatus: types.Pending,
+	// 	Task: elevio.ButtonEvent{
+	// 		Floor:  1,
+	// 		Button: elevio.BT_HallUp,
+	// 	},
+	// }
+	time.Sleep(2 * time.Second)
+
+	fmt.Println("Is it now connected to system? ", e1.Id, e1.IsMaster, e1.IsOnline)
+	// fmt.Println("Sending now")
+	// p2.SendMessageMaster(msg)
+
+	select {}
+
+	//TODO make sure the server dosent take in peers and not totalnumberofElevators
 }
-*/
+
+// 127.0.0.1 er lokal <- du kan bruke denne for en til en
+// 10.22.67.255 broadcast, broadcast har 255 som siste verdi

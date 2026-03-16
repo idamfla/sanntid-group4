@@ -2,11 +2,12 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/types"
 	"elevator_program/utilities"
 )
 
 func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
-	numFloors := len(e.system.hallRequests) // Changed to be compatible with system struct
+	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 
 	// saturate bounds
 	if from >= numFloors {
@@ -26,12 +27,10 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
-			if e.system.Elevators[e.id].CabRequests[f] != NotActive { // Changed to be compatible with system struct
+			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if !e.offline && e.system.hallRequests[f][elevio.BT_HallUp] == Pending {
-				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
-			} else if e.system.hallRequests[f][elevio.BT_HallUp] != NotActive { // Changed to be compatible with system struct
+			} else if !e.offline && e.System.HallRequests[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
 				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallUp { // To not steal anyone elses task
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 				}
@@ -39,12 +38,12 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 		}
 	case elevio.MD_Down:
 		for f := from; f >= to; f-- {
-			if e.system.Elevators[e.id].CabRequests[f] != NotActive { // Changed to be compatible with system struct
+			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 			} else if !e.offline && e.system.hallRequests[f][elevio.BT_HallDown] == Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 
-			} else if e.system.hallRequests[f][elevio.BT_HallDown] != NotActive { // Changed to be compatible with system struct
+			} else if e.System.HallRequests[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
 				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallDown { // To not steal anyone elses task
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 				}
@@ -56,14 +55,14 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 }
 
 func (e Elevator) getClosestFloor() elevio.ButtonEvent {
-	numFloors := len(e.system.hallRequests) // Changed to be compatible with system struct
+	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 	minDist := numFloors + 1 // initialize with something bigger than max possible distance
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - e.currentFloor)
 
-		if e.system.Elevators[e.id].CabRequests[f] == Pending { // Changed to be compatible with system struct, be carefull these might cause error later if emergency stop changes
+		if e.System.Elevators[e.Id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab
@@ -71,18 +70,18 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 				continue
 			}
 		}
-    if !e.offline{
-		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
-			if e.system.hallRequests[f][b] == Pending { // Changed to be compatible with system struct, be carefull these might cause error later if emergency stop changes
-				if closest.Floor == -1 || dist < minDist {
-					closest.Floor = f
-					closest.Button = b
-					minDist = dist
-				    }
-			    }
-		    }
-        }
-    }
+		if !e.offline {
+			for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
+				if e.System.HallRequests[f][b] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
+					if closest.Floor == -1 || dist < minDist {
+						closest.Floor = f
+						closest.Button = b
+						minDist = dist
+					}
+				}
+			}
+		}
+	}
 	return closest
 }
 
@@ -94,7 +93,7 @@ func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 }
 
 func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
-	numFloors := len(e.system.hallRequests) // Changed to be compatible with system struct
+	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 	bottomFloor := 0
 	topFloor := numFloors - 1
 
@@ -141,7 +140,7 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 	}
 	// endregion
 
-	if e.elevatorState == ES_Idle || e.direction == elevio.MD_Stop {
+	if e.System.Elevators[e.Id].State == types.ES_Idle || e.direction == elevio.MD_Stop {
 		return e.getClosestFloor()
 	} else if e.direction == elevio.MD_Up {
 		return upScan()

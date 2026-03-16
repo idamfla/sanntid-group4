@@ -2,13 +2,14 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/types"
 	"elevator_program/utilities"
 )
 
 // TODO Sending a pointer should maybe not do that since we don't change the variable
 
 // called by master, e is master, all parameters come from the elevator it checks
-func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev ElevatorsStatus) (bool, elevio.ButtonEvent, int) {
+func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) { // TODO can remove task return
 	/*
 		if dir == md_up && newTarget.Button == bt_down {return false, elevio.ButtonEvent{}}
 		else if dir == md_down && newTarget.Button == bt_up
@@ -20,7 +21,7 @@ func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev Elevators
 		}
 	*/
 
-	if elev.State == ES_Idle {
+	if elev.State == types.ES_Idle {
 		return true, newTarget, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
 
@@ -59,22 +60,22 @@ let them do the task. this to avoid the first elevator in the map to always take
 on the extra work if the new task is better for it but still another one is closer
 */
 
-func (e Elevator) ClosestToTarget(elevatorRegistry map[int]*ElevatorsStatus, newTarget elevio.ButtonEvent) (int, int, elevio.ButtonEvent) {
+func (e Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) (string, int, elevio.ButtonEvent) {
 	minDistance := len(e.hallRequests) + 1
-	bestElevatorID := -1
+	bestElevatorID := ""
 	isClosestIdle := false
 
 	for id, candidate := range elevatorRegistry {
-		canTake, _, distance := e.isNewTargetBetter(newTarget, *candidate)
+		canTake, _, distance := e.isNewTargetBetter(newTarget, candidate)
 
-		if isClosestIdle && candidate.State != ES_Idle {
+		if isClosestIdle && candidate.State != types.ES_Idle {
 			continue
 		}
 
 		if canTake && distance < minDistance {
 			minDistance = distance
 			bestElevatorID = id
-			isClosestIdle = candidate.State == ES_Idle
+			isClosestIdle = candidate.State == types.ES_Idle
 		}
 	}
 	return bestElevatorID, minDistance, newTarget
@@ -82,7 +83,7 @@ func (e Elevator) ClosestToTarget(elevatorRegistry map[int]*ElevatorsStatus, new
 
 // when an elevator asks for a new target
 // Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
-func (e Elevator) computeNewTarget(currFloor int, cabRequests []ButtonStatus, dir elevio.MotorDirection) elevio.ButtonEvent {
+func (e Elevator) ComputeNewTarget(currFloor int, cabRequests []types.ButtonStatus, dir elevio.MotorDirection) elevio.ButtonEvent {
 	// ruffly same as the basic scan_logic
 
 	// Hallrequests need to change its logic, pending, active, ...

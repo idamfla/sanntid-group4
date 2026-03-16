@@ -1,7 +1,7 @@
 package session
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
@@ -20,22 +20,22 @@ func (ses *Session) send(pktType packet.PacketType, msg message.Message) error {
 	)
 }
 
-func (ses *Session) SendDataMessage(msg message.Message) {
-	ses.sendCh <- OutgoingPacket{
+func (ses *Session) QueueDataMessage(msg message.Message) {
+	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_Data,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) SendMasterMessage(msg message.Message) {
-	ses.sendCh <- OutgoingPacket{
-		PktType: packet.PKT_T_MasterData,
+func (ses *Session) QueueMasterMessage(msg message.Message) {
+	ses.outgoingMsgCh <- outgoingMessage{
+		PktType: packet.PKT_T_SlaveReport,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) SendBroadcastData(msg message.Message) {
-	ses.sendCh <- OutgoingPacket{
+func (ses *Session) QueueBroadcastData(msg message.Message) {
+	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_BroadcastData,
 		Msg:     msg,
 	}
@@ -43,7 +43,7 @@ func (ses *Session) SendBroadcastData(msg message.Message) {
 
 func (ses *Session) sendReply(pktType packet.PacketType) {
 	done := make(chan struct{})
-	ses.sendCh <- OutgoingPacket{
+	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
 		Msg:     emtpyMsg,
 		Done:    done, // new field in Outgoing
@@ -74,7 +74,7 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 
 	for {
 		select {
-		case outPkt := <-ses.sendCh:
+		case outPkt := <-ses.outgoingMsgCh:
 			err := ses.send(outPkt.PktType, outPkt.Msg)
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
