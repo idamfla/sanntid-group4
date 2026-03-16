@@ -29,8 +29,8 @@ type Elevator struct {
 	// TODO temp need to know the ip using the id
 	ipToId map[string]int
 
-    offline         bool
-    restartScheduled bool
+	offline          bool
+	restartScheduled bool
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -52,14 +52,13 @@ type Elevator struct {
 	msgRecieveCh chan Message
 	msgSendCh    chan Message
 
-
-	faultTolerance            *fault.Manager
+	faultTolerance *fault.Manager
 
 	isMaster          bool
 	connectedToMaster bool
 	currentMasterID   int
 
-	elevatorRegistry  map[int]ElevatorsStatus // TODO Was string, could also make it uint
+	elevatorRegistry map[int]ElevatorsStatus // TODO Was string, could also make it uint
 
 	// TODO Trying to split ut the code
 	protocol *Protocol // TODO should we remove this one from elevator struct and put in a different package
@@ -96,7 +95,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
 	e.msgRecieveCh = make(chan Message, 20)
-    e.msgSendCh = make(chan Message, 20)
+	e.msgSendCh = make(chan Message, 20)
 
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -105,26 +104,25 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int) {
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
-//Magicnumber big nono
+	//Magicnumber big nono
 	e.faultTolerance = fault.NewFaultManager(id, fault.Config{
-	    StartupGrace:  2 * time.Second,
-	    MasterTimeout: 1 * time.Second,
-	    PeerTimeout:   1 * time.Second,
-	    MotorTimeout:  4 * time.Second,
-	    Tick:          50 * time.Millisecond,
-	    })
-    }
+		StartupGrace:  2 * time.Second,
+		MasterTimeout: 1 * time.Second,
+		PeerTimeout:   1 * time.Second,
+		MotorTimeout:  4 * time.Second,
+		Tick:          50 * time.Millisecond,
+	})
+}
 
 func (e *Elevator) RunElevatorProgram() {
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
 
 	e.faultTolerance.OnGoOffline = func() { e.enterOfflineMode() }
-	e.faultTolerance.OnGoOnline = func() { e.exitOfflineMode()  }
+	e.faultTolerance.OnGoOnline = func() { e.exitOfflineMode() }
 	e.faultTolerance.OnMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
 	e.faultTolerance.OnNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
 	e.faultTolerance.OnPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
 	e.faultTolerance.OnMasterSuspected = func(reason string) { e.handleMasterSuspected(reason) }
-
 
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
@@ -133,16 +131,16 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.messageListener()
 
 	e.StartHardwareEventsListeners()
-	time.Sleep(10 * time.Second)
 
 	// Temp for testing msgHandler
 	// go e.TestMsgHandler(4)
 	//go e.TestMsgHandler_Master(4)
 
-	go func(){
-        time.Sleep(200 * time.Millisecond)
-        e.runElection("startup")
-   }()
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		e.runElection("startup")
+	}()
+
 
 	done := make(chan struct{})
 	<-done

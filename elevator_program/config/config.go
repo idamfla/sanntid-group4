@@ -147,7 +147,10 @@ func SpawnElevators(cfg Config) {
 // Runs a single elevator instance
 func RunOneElevator(cfg Config) {
 	addr := fmt.Sprintf("%s:%s", cfg.IP, cfg.Port)
+	fmt.Println("Connecting to elevator at", addr)
+
 	elevio.Init(addr, cfg.Floors)
+	fmt.Println("elevio.Init finished")
 
 	var e elevator.Elevator
 	e.InitElevator(cfg.ID, cfg.Floors, cfg.InitFloor)

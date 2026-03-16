@@ -159,31 +159,30 @@ func (fm *Manager) checkMasterTimeout() {
 	shouldNotify := false
 
 	if time.Since(fm.lastSeenMaster) > fm.cfg.MasterTimeout {
-	fmt.Println("Master timeout detected")
+		fmt.Println("Master timeout detected")
 
-	if fm.online {
-		fm.online = false
-		shouldNotify = true
-		onMasterSuspected = fm.OnMasterSuspected
+		if fm.online {
+			fm.online = false
+			shouldNotify = true
+			onMasterSuspected = fm.OnMasterSuspected
+		}
 	}
-}
 
 	fm.mu.Unlock()
 
 	if shouldNotify {
-        if onMasterSuspected != nil {
-            onMasterSuspected("master timeout")
-        }
-}
-
-		if onGoOffline != nil {
-			onGoOffline()
-		}
-		if onNetworkFault != nil {
-			onNetworkFault("master timeout")
+		if onMasterSuspected != nil {
+			onMasterSuspected("master timeout")
 		}
 	}
 
+	if onGoOffline != nil {
+		onGoOffline()
+	}
+	if onNetworkFault != nil {
+		onNetworkFault("master timeout")
+	}
+}
 
 func (fm *Manager) checkPeerTimeout() {
 	fm.mu.Lock()
@@ -251,3 +250,4 @@ func (fm *Manager) Run() {
 		fm.checkMotorTimeout()
 	}
 }
+

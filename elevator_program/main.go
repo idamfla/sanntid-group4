@@ -115,12 +115,21 @@ func main() {
 	cfg := config.ParseFlags()
 
 	if cfg.ID == 0 {
+		fmt.Println("STARTING ELEVATOR LAUNCHER")
 		config.SpawnElevators(cfg)
-		return
+		select {}
 	}
 
-	go config.RunOneElevator(cfg)
+	fmt.Printf(
+		"STARTING ONE ELEVATOR: id=%d addr=%s:%s floors=%d initfloor=%d\n",
+		cfg.ID, cfg.IP, cfg.Port, cfg.Floors, cfg.InitFloor,
+	)
 
+	config.RunOneElevator(cfg)
+}
+
+
+/*
 	ch := make(chan session.ElevatorPacket, 32)
 	udpPort := 9000 + (cfg.ID - 1)
 
@@ -137,7 +146,8 @@ func main() {
 	}
 }
 
-/*
+
+
 func main() {
 
     cfg := config.ParseFlags()
