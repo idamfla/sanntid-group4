@@ -65,7 +65,6 @@ func (bs *BroadcastSession) Close() {
 		// Close channels
 		close(bs.Session.packetInCh)
 		close(bs.Session.outgoingMsgCh)
-		close(bs.Session.closeReq)
 
 		// Clear pending packet
 		bs.Session.pendingPkt = nil

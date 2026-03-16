@@ -62,7 +62,7 @@ func (srv *Server) startMasterSession(remoteAddr *net.UDPAddr, msg message.Messa
 func (srv *Server) startBroadcast(msg message.Message) {
 	addr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(udp.HomeBroadcastIP),
+		IP:   net.ParseIP(udp.BroadcastIP),
 		Port: udp.BROADCAST_PORT,
 	}
 

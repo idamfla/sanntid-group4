@@ -11,8 +11,8 @@ import (
 
 // TODO change name from protocol
 
-func (p *Protocol) StartServer(ip string, port int, id string, numElevators int) error {
-	srv, err := server.NewServer(ip, port, id, numElevators, p.msgRecieveCh)
+func (p *Protocol) StartServer(ip string, port int, id string) error {
+	srv, err := server.NewServer(ip, port, id, p.activePeers, p.msgRecieveCh)
 	if err != nil {
 		return err
 	}
@@ -25,6 +25,7 @@ func (p *Protocol) StartServer(ip string, port int, id string, numElevators int)
 func (p *Protocol) Start(e *elevator.Elevator) {
 	p.wg.Add(1)
 	go p.MessageListener(e)
+	go p.sendListener(e)
 	go p.Server.Start()
 }
 

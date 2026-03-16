@@ -99,10 +99,13 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorStatus.State = types.ES_Idle
 			e.doorState = DS_Opening
-			fmt.Println(e)
+			// fmt.Println(e)
 
 			msg := message.Message{
 				MsgType: types.MSG_T_TaskRequest,
+				Elevators: map[string]types.ElevatorsStatus{
+					e.Id: e.System.Elevators[e.Id],
+				},
 			}
 			e.SendToProtocol <- msg
 		}
@@ -138,7 +141,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	if elevatorStatus.State != e.System.Elevators[e.Id].State {
 		msg := message.Message{
 			MsgType: types.MSG_T_StatusReport,
-			Elevators: map[int]types.ElevatorsStatus{
+			Elevators: map[string]types.ElevatorsStatus{
 				e.Id: elevatorStatus,
 			},
 		}
@@ -176,7 +179,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorStatus.State = types.ES_Idle
 			e.doorState = DS_Opening
-			fmt.Println(e)
+			// fmt.Println(e)
 		}
 
 	case types.ES_Idle:
@@ -241,6 +244,24 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	}
 
 	elevio.SetMotorDirection(dir)
+
+	e.System.Elevators[e.Id] = elevatorStatus
+
+	msg := message.Message{
+		MsgType: types.MSG_T_NewToChannel,
+		Id:      e.Id,
+		Ip:      e.Ip,
+		Elevators: map[string]types.ElevatorsStatus{
+			e.Id: e.System.Elevators[e.Id],
+		},
+	}
+	fmt.Println("Trying to send to network, ", e.Id)
+	var lastSend time.Time
+
+	if time.Since(lastSend) > 200*time.Millisecond {
+		e.SendToProtocol <- msg
+		lastSend = time.Now()
+	}
 }
 
 func (e *Elevator) RunElevatorStateMachine() {
@@ -249,7 +270,7 @@ func (e *Elevator) RunElevatorStateMachine() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if e.isOnline {
+		if e.IsOnline {
 			e.updateElevatorStateOnline()
 		} else {
 			e.updateElevatorStateOffline()

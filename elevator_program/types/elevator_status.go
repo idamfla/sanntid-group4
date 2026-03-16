@@ -6,7 +6,7 @@ import (
 
 // TODO rename
 type ElevatorsStatus struct {
-	Id           int
+	Id           string
 	Ip           string
 	CurrentFloor int
 	CabRequests  []ButtonStatus

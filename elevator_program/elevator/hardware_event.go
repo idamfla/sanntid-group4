@@ -25,7 +25,9 @@ type HardwareEvent struct {
 }
 
 func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
-	if e.isOnline {
+	if e.IsOnline {
+		// TODO Temp for debugging
+		e.connectedToMaster = true
 		e.handleHardwareEventOnline(hwEvent)
 	} else {
 		e.handleHardwareEventOffline(hwEvent)
@@ -41,6 +43,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Id:        e.Id,
 			Elevators: e.System.Elevators,
 		}
+		fmt.Println("Number 1")
 		e.SendToProtocol <- msg
 
 	case HW_T_ButtonPress:
@@ -49,12 +52,14 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			return
 		}
 		msg := message.Message{
+			MsgType: types.MSG_T_ButtonPress,
 			Task: elevio.ButtonEvent{
 				Floor:  hwEvent.Floor,
 				Button: hwEvent.Button,
 			},
 			BtnStatus: types.Pending,
 		}
+		fmt.Println("Number 2")
 		e.SendToProtocol <- msg
 
 	case HW_T_FloorSensor:
@@ -68,6 +73,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				Id:        e.Id,
 				Elevators: e.System.Elevators,
 			}
+			fmt.Println("Number 3")
 			e.SendToProtocol <- msg
 		}
 
@@ -89,7 +95,8 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 		if hwEvent.Button == elevio.BT_Cab {
 			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
 		} else {
-			e.System.HallRequests[hwEvent.Floor][hwEvent.Button] = types.Pending // Changed to be compatible with system struct
+			fmt.Println("Elevator is offline, can not accept order")
+			return
 		}
 		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true) // TODO don't turn on lamp before master says to do so
 

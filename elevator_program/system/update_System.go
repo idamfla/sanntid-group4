@@ -8,11 +8,11 @@ import (
 
 // TODO Probably a bad name for the file
 
-func (s *System) SetStatusReport(id int, elevator types.ElevatorsStatus) {
+func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
 	s.Elevators[id] = elevator
 }
 
-func (s *System) SetRequestStatus(id int, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
+func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
 	f := btnEvent.Floor // TODO Is it wierd that i define b and f?
 	b := btnEvent.Button
 	if b == elevio.BT_Cab {
@@ -33,34 +33,50 @@ func (s *System) InitializeFromSystemState(msg message.Message) {
 	s.HallRequests = make([][2]types.ButtonStatus, len(msg.HallRequests))
 	copy(s.HallRequests, msg.HallRequests)
 
-	s.Elevators = make(map[int]types.ElevatorsStatus)
+	s.Elevators = make(map[string]types.ElevatorsStatus)
 	for id, e := range msg.Elevators {
+		if id == e.Id {
+
+		}
 		s.Elevators[id] = e
 	}
 }
 
-func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[string]int) (message.Message, int) {
+func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[string]string) (message.Message, string) {
 	newMessage := message.Message{
-		Ip: msg.Ip,
+		MsgType: types.MSG_T_NewToChannel,
+		Id:      msg.Id,
+		Ip:      msg.Ip,
+	}
+	newElevator := types.ElevatorsStatus{
+		Id:       msg.Id,
+		Ip:       msg.Ip,
+		IsMaster: false,
+		Target: elevio.ButtonEvent{
+			Floor:  -1,
+			Button: elevio.BT_HallUp,
+		},
+		CabRequests: make([]types.ButtonStatus, len(msg.Elevators[msg.Id].CabRequests)),
 	}
 
-	senderId, ok := ipRegistery[msg.Ip]
+	_, ok := ipRegistery[msg.Ip]
 	if ok {
-		newMessage.Id = msg.Id
-
-	} else {
-		senderId = findFreeID(s.Elevators)
-		newElevator := types.ElevatorsStatus{
-			Id: senderId,
-			// Hope everything else is already configured
+		for f, btnStatus := range s.Elevators[msg.Id].CabRequests {
+			if btnStatus != types.NotActive || msg.Elevators[msg.Id].CabRequests[f] != types.NotActive {
+				newElevator.CabRequests[f] = types.Pending
+			}
 		}
-		// TODO we also need to update IpRegistery
-		s.Elevators[senderId] = newElevator
-		newMessage.Id = newElevator.Id
+	} else {
+		for f, btnStatus := range msg.Elevators[msg.Id].CabRequests {
+			if btnStatus != types.NotActive {
+				newElevator.CabRequests[f] = types.Pending
+			}
+		}
+		s.Elevators[msg.Id] = newElevator
 	}
 	newMessage.HallRequests = s.HallRequests
-	newMessage.Elevators = s.Elevators // TODO send newMessage back
-	return newMessage, senderId
+	newMessage.Elevators = s.Elevators
+	return newMessage, msg.Id
 }
 
 // TODO Probably don't need only for testing
@@ -69,7 +85,7 @@ func (s System) CopySystem() System {
 	newCopy := s
 
 	// Deep copy the map to ensure independence
-	newCopy.Elevators = make(map[int]types.ElevatorsStatus)
+	newCopy.Elevators = make(map[string]types.ElevatorsStatus)
 	for id, elevator := range s.Elevators {
 		newCopy.Elevators[id] = elevator
 	}
@@ -79,15 +95,4 @@ func (s System) CopySystem() System {
 	copy(newCopy.HallRequests, s.HallRequests)
 
 	return newCopy
-}
-
-// TODO should I put this one in types?
-func findFreeID(elevators map[int]types.ElevatorsStatus) int {
-	id := 1
-	for {
-		if _, exists := elevators[id]; !exists {
-			return id
-		}
-		id++
-	}
 }

@@ -10,27 +10,33 @@ import (
 )
 
 func (p *Protocol) sendListener(e *elevator.Elevator) {
-	fmt.Println("MESSAGE LISTENER STARTED")
-	for msg := range p.msgSendCh {
+	fmt.Println("MESSAGE SENDER STARTED")
+	for msg := range e.SendToProtocol {
 		fmt.Println("Wallah moren min")
-		p.MessageHandler(e, msg)
+		p.sendProtocol(e, msg)
 		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
 	}
 }
 
 func (p *Protocol) sendProtocol(e *elevator.Elevator, msg message.Message) {
 	if e.IsMaster {
-		p.masterMessageHandler(e, msg)
+		p.SendMessageMaster(msg)
 	} else {
-		p.sendMessageSlave(e, msg)
+		p.SendMessageSlave(e, msg)
 	}
 }
 
 // slave starting the session with master or someone ...
-func (p *Protocol) sendMessageSlave(e *elevator.Elevator, msg message.Message) {
+func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 	// var pktType packet.PacketType
-	ip := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
-	port := udp.BROADCAST_PORT
+	// ip := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
+	// port := udp.BROADCAST_PORT
+	localIP := "127.0.0.1"
+	port := 9000
+
+	if e.Id == "1" {
+		port = 9001
+	}
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
@@ -54,13 +60,15 @@ func (p *Protocol) sendMessageSlave(e *elevator.Elevator, msg message.Message) {
 		msg.MsgType = types.MSG_T_NewToChannel
 		msg.Ip = e.Ip
 	}
-	p.QueueMessage(udp.MustUDPAddr(ip, port), packet.PROTO_PKT_T_BroadcastData, msg)
+	p.QueueMessage(udp.MustUDPAddr(localIP, port), packet.PROTO_PKT_T_Data, msg)
 }
 
 // TODO Is this a smart way to do it, seams kind of unneccesary
-func (p *Protocol) sendMessageMaster(e *elevator.Elevator, msg message.Message) {
-	ip := udp.NtnuBroadcastIP
-	port := udp.BROADCAST_PORT
+func (p *Protocol) SendMessageMaster(msg message.Message) {
+	// ip := udp.NtnuBroadcastIP
+	// port := udp.BROADCAST_PORT
+	localIP := "127.0.0.1"
+	port := 9001
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
@@ -72,5 +80,5 @@ func (p *Protocol) sendMessageMaster(e *elevator.Elevator, msg message.Message) 
 	case types.MSG_T_NewToChannel:
 		msg.MsgType = types.MSG_T_NewToChannel
 	}
-	p.QueueMessage(udp.MustUDPAddr(ip, port), packet.PROTO_PKT_T_BroadcastData, msg)
+	p.QueueMessage(udp.MustUDPAddr(localIP, port), packet.PROTO_PKT_T_Data, msg)
 }

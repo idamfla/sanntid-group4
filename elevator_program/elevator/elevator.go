@@ -11,10 +11,10 @@ import (
 )
 
 type Elevator struct {
-	Id int
+	Id string
 	Ip string // TODO Think we should have this one here
 	// TODO temp need to know the ip using the id
-	IpRegistery map[string]int
+	IpRegistery map[string]string
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -46,14 +46,14 @@ type Elevator struct {
 
 	IsMaster          bool
 	connectedToMaster bool
-	isOnline          bool
+	IsOnline          bool
 
 	System system.System
 
 	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
 
-func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
+func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
 	e.Id = id
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
@@ -64,7 +64,7 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 
 	e.IsMaster = false
 
-	e.System.InitSystem(1, "192.168.0.1", 4)
+	e.System.InitSystem(id, "192.168.0.1", 4)
 
 	// e.elevatorState = types.ES_Uninitialized
 
@@ -72,12 +72,14 @@ func (e *Elevator) InitElevator(id int, numFloors int, initFloor int, ip string,
 	e.lostComsTimer = time.Time{}
 	e.ackCounterLostComs = 0
 
+	e.IpRegistery = make(map[string]string)
+
 	// TODO temp
 	e.SendToProtocol = make(chan message.Message, 10)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-	e.isOnline = false
+	e.IsOnline = false
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
 
@@ -95,7 +97,7 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
-	time.Sleep(10 * time.Second)
+	// time.Sleep(10 * time.Second)
 
 	// Temp for testing msgHandler
 	// go e.TestMsgHandler(4)
@@ -109,7 +111,7 @@ func (e *Elevator) RunElevatorProgram() {
 func (e Elevator) String() string {
 	s := fmt.Sprintf(
 		`Elevator
-	id: %d
+	id: %s
 	in between floors: %t
 	current floor: %d
 	target: %d, %s

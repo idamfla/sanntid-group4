@@ -9,8 +9,8 @@ import (
 )
 
 // TODO This function is wierd, either we need to have it as e or something else if it is msg sending
-func (e *Elevator) HandleLostConnection(senderId int) {
-	if senderId == -1 || time.Since(e.lostComsTimer) > 4*time.Second {
+func (e *Elevator) HandleLostConnection(senderId string) {
+	if senderId == "" || time.Since(e.lostComsTimer) > 4*time.Second {
 		// Need to schedule a restart
 		// TODO It is fault tolerance that should take the time maybe
 	} else {
@@ -38,7 +38,7 @@ func (e *Elevator) SetConnectionState(msg message.Message) {
 	e.Id = msg.Id
 	e.IsMaster = false
 	e.connectedToMaster = true
-	e.isOnline = true
+	e.IsOnline = true
 	// e.elevatorState = types.ES_Idle // TODO Do I need this one here?
 	for id, elevator := range e.System.Elevators {
 		e.IpRegistery[elevator.Ip] = id
@@ -48,7 +48,7 @@ func (e *Elevator) SetConnectionState(msg message.Message) {
 // TODO Probably don't need, just for testing
 func (e *Elevator) ClearElevator(numFloors int) {
 	e.System.HallRequests = make([][2]types.ButtonStatus, numFloors)
-	e.System.Elevators = make(map[int]types.ElevatorsStatus)
+	e.System.Elevators = make(map[string]types.ElevatorsStatus)
 	e.nextTarget = elevio.ButtonEvent{
 		Floor:  -1,
 		Button: elevio.BT_HallUp,
@@ -61,7 +61,7 @@ func (e *Elevator) ClearElevator(numFloors int) {
 // TODO Don't need
 func (e Elevator) Create_slave(system system.System) Elevator {
 	slave := Elevator{
-		Id:       2,
+		Id:       "2",
 		IsMaster: false,
 		System:   system,
 	}
@@ -83,4 +83,9 @@ func (e *Elevator) SetRequestAsTarget(task elevio.ButtonEvent) {
 	} else if task.Floor < e.currentFloor {
 		e.direction = elevio.MD_Down
 	}
+}
+
+func (e *Elevator) TurnToMaster() {
+	e.IsOnline = true
+	e.IsMaster = true
 }

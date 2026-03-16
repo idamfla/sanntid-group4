@@ -16,7 +16,7 @@ func (p *Protocol) InitMsg() []message.Message {
 	msg := []message.Message{
 		{
 			MsgType: types.MSG_T_TaskUpdate,
-			Id:      1,
+			Id:      "1",
 			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_HallUp,
@@ -25,7 +25,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		},
 		{
 			MsgType: types.MSG_T_TaskUpdate,
-			Id:      1,
+			Id:      "1",
 			Task: elevio.ButtonEvent{
 				Floor:  0,
 				Button: elevio.BT_Cab,
@@ -34,7 +34,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		},
 		{
 			MsgType: types.MSG_T_TaskUpdate,
-			Id:      3,
+			Id:      "3",
 			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_HallUp,
@@ -43,7 +43,7 @@ func (p *Protocol) InitMsg() []message.Message {
 		},
 		{
 			MsgType: types.MSG_T_TaskUpdate,
-			Id:      2,
+			Id:      "2",
 			Task: elevio.ButtonEvent{
 				Floor:  1,
 				Button: elevio.BT_Cab,
@@ -52,10 +52,10 @@ func (p *Protocol) InitMsg() []message.Message {
 		},
 		{
 			MsgType: types.MSG_T_StatusReport,
-			Id:      2,
-			Elevators: map[int]types.ElevatorsStatus{
-				2: types.ElevatorsStatus{
-					Id:          20,
+			Id:      "2",
+			Elevators: map[string]types.ElevatorsStatus{
+				"2": types.ElevatorsStatus{
+					Id:          "20",
 					CabRequests: []types.ButtonStatus{types.Pending, types.NotActive, types.NotActive, types.Running},
 				},
 			},
@@ -66,8 +66,8 @@ func (p *Protocol) InitMsg() []message.Message {
 }
 
 func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
-	e.System.Elevators[2] = types.ElevatorsStatus{
-		Id:          2,
+	e.System.Elevators["2"] = types.ElevatorsStatus{
+		Id:          "2",
 		CabRequests: make([]types.ButtonStatus, numFloors),
 	}
 
@@ -99,7 +99,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	newCopy := e.System.CopySystem()
 	newMsg := message.Message{
 		MsgType:      types.MSG_T_NewToChannel,
-		Id:           1,
+		Id:           "1",
 		Elevators:    newCopy.Elevators,
 		HallRequests: newCopy.HallRequests,
 	}
@@ -122,38 +122,33 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 
 func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 
-	// Create protocol
-	// protocol := Protocol{
-	// 	ackArray: make(map[int]int),
-	// }
-
 	// Create system
 	system := system.System{
 		HallRequests: make([][2]types.ButtonStatus, numFloors),
-		Elevators:    make(map[int]types.ElevatorsStatus),
+		Elevators:    make(map[string]types.ElevatorsStatus),
 	}
-	system.Elevators[1] = e.System.Elevators[1]
+	system.Elevators["1"] = e.System.Elevators["1"]
 
 	// Create master elevator
 	e.IsMaster = true
 
 	// Create slave elevator
 	slave := e.Create_slave(system)
-	slave.System.Elevators[2] = types.ElevatorsStatus{
+	slave.System.Elevators["2"] = types.ElevatorsStatus{
 		CabRequests: make([]types.ButtonStatus, numFloors),
-		Id:          2,
+		Id:          "2",
 	}
 
-	slave.System.Elevators[2].CabRequests[2] = types.Pending
+	slave.System.Elevators["2"].CabRequests[2] = types.Pending
 
 	fmt.Println("---- TEST: Status Report ----")
 	fmt.Println("System before msg: ", e.System.Elevators)
 
 	msg := message.Message{
 		MsgType: types.MSG_T_StatusReport,
-		Id:      2,
-		Elevators: map[int]types.ElevatorsStatus{
-			2: slave.System.Elevators[2],
+		Id:      "2",
+		Elevators: map[string]types.ElevatorsStatus{
+			"2": slave.System.Elevators["2"],
 		},
 	}
 
@@ -165,7 +160,7 @@ func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 
 	taskMsg := message.Message{
 		MsgType: types.MSG_T_TaskUpdate,
-		Id:      2,
+		Id:      "2",
 		Task: elevio.ButtonEvent{
 			Floor:  1,
 			Button: elevio.BT_HallUp,

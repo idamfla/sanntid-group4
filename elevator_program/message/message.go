@@ -11,17 +11,17 @@ import (
 type Message struct {
 	MsgType types.MessageType
 
-	Id int
+	Id string
 	Ip string
 
 	// Elevator state reporting
 	// Status *types.ElevatorsStatus // TODO Don't think we need this one, only need to use Elevator map
-
+	ActivePeers int
 	// Task / button updates
 	Task      elevio.ButtonEvent // TODO do we want it as a pointer? Gives us the option to not send Task on every message
 	BtnStatus types.ButtonStatus
 
 	// System synchronization
 	HallRequests [][2]types.ButtonStatus
-	Elevators    map[int]types.ElevatorsStatus
+	Elevators    map[string]types.ElevatorsStatus
 }

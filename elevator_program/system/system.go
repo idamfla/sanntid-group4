@@ -8,7 +8,7 @@ import (
 // Uses to add a new elevator to our system
 type System struct {
 	HallRequests [][2]types.ButtonStatus
-	Elevators    map[int]types.ElevatorsStatus
+	Elevators    map[string]types.ElevatorsStatus
 	// mutex        sync.Mutex // Add a mutex to protect shared data
 }
 
@@ -21,9 +21,9 @@ type System struct {
 // 	}
 // }
 
-func (s *System) InitSystem(id int, ip string, numFloors int) {
+func (s *System) InitSystem(id string, ip string, numFloors int) {
 	if s.Elevators == nil {
-		s.Elevators = make(map[int]types.ElevatorsStatus)
+		s.Elevators = make(map[string]types.ElevatorsStatus)
 	}
 	if s.HallRequests == nil {
 		s.HallRequests = make([][2]types.ButtonStatus, numFloors)
