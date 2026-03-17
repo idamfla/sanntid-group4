@@ -1,7 +1,7 @@
 package server
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"net"
 )

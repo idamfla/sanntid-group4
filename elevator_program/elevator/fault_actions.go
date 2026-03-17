@@ -4,13 +4,14 @@ import (	"fmt"
             "time"
             "elevator_program/elevio"
 	        "elevator_program/fault"
+            "elevator_program/types"
 )
 
 // ------------------------- Utility helpers -------------------------- //
 
 func (e *Elevator) hasActiveCabRequests() bool {
-	for _, status := range e.system.Elevators[e.id].CabRequests {
-		if status != NotActive {
+	for _, status := range e.System.Elevators[e.Id].CabRequests {
+		if status != types.NotActive {
 			return true
 		}
 	}
@@ -26,7 +27,7 @@ func (e *Elevator) shouldRestartAfterOffline() bool {
         return false
     }
 
-    if e.elevatorState == ES_Moving {
+    if e.System.Elevators[e.Id].State == types.ES_Moving {
         return false
     }
 
@@ -41,7 +42,7 @@ func (e *Elevator) checkOfflineRestart() {
     if !e.shouldRestartAfterOffline() {
         return
     }
-    fmt.Printf("Elevator %d: cab queue finished while offline, restarting\n", e.id)
+    fmt.Printf("Elevator %d: cab queue finished while offline, restarting\n", e.Id)
         e.restartScheduled = false
 
     go func() {
@@ -54,7 +55,7 @@ func (e *Elevator) checkOfflineRestart() {
 // ------------------------- Fault handlers -------------------------- //
 
 func (e *Elevator) handleMotorStopFault(reason string) {
-	fmt.Printf("Motor stop fault in elevator %d: %s\n", e.id, reason)
+	fmt.Printf("Motor stop fault in elevator %d: %s\n", e.Id, reason)
 
 	e.stopLocally()
 	e.enterOfflineMode()
@@ -65,28 +66,27 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 }
 
 func (e *Elevator) handleMasterSuspected(reason string) {
-    fmt.Printf("Elevator %d suspects master failure: %s\n", e.id, reason)
+    fmt.Printf("Elevator %d suspects master failure: %s\n", e.Id, reason)
     e.connectedToMaster = false
 	e.runElection(reason)
 }
 
 
 func (e *Elevator) handleNetworkFault(reason string) {
-	fmt.Printf("Network fault in elevator %d: %s\n", e.id, reason)
+	fmt.Printf("Network fault in elevator %d: %s\n", e.Id, reason)
 
     e.restartScheduled = true
 }
 
-func (e *Elevator) handlePeerDead(peerID int) {
+func (e *Elevator) handlePeerDead(peerID string) {
     fmt.Println("Peer dead:", peerID)
     if e.faultTolerance != nil {
 		e.faultTolerance.RemovePeer(peerID)
 	}
 
-	delete(e.system.Elevators, peerID)
-	delete(e.elevatorRegistry, peerID)
+	delete(e.System.Elevators, peerID)
 
-	if peerID == e.currentMasterID || peerID < e.id || e.isMaster {
+	if peerID == e.currentMasterID || peerID < e.Id || e.IsMaster {
 		e.runElection("peer dead")
 	}
 
@@ -108,7 +108,7 @@ func (e *Elevator) enterOfflineMode() {
     fmt.Println("Entering offline mode (cab-only)")
     e.offline = true
 
-    for f := 0; f < len(e.system.hallRequests); f++ {
+    for f := 0; f < len(e.System.HallRequests); f++ {
         elevio.SetButtonLamp(elevio.BT_HallUp, f, false)
         elevio.SetButtonLamp(elevio.BT_HallDown, f, false)
     }
@@ -132,7 +132,9 @@ func (e *Elevator) exitOfflineMode() {
 func (e *Elevator) stopLocally() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.direction = elevio.MD_Stop
-	e.elevatorState = ES_Idle
+    tempElevator := e.System.Elevators[e.Id]
+	tempElevator.State = types.ES_Idle
+    e.System.Elevators[e.Id] = tempElevator
 
 	if e.faultTolerance != nil {
 		e.faultTolerance.SetMotorRunning(false)
@@ -148,7 +150,7 @@ func (e *Elevator) FT_SeenMaster() {
     }
 }
 
-func (e *Elevator) FT_SeenPeer(peerID int) {
+func (e *Elevator) FT_SeenPeer(peerID string) {
     if e.faultTolerance != nil {
         e.faultTolerance.SeenPeer(peerID)
     }

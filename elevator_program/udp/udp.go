@@ -15,10 +15,11 @@ const (
 	BROADCAST_COMMIT_TIMEOUT = 15
 
 	// Group4IP        = "10.100.23.15"
-	NtnuBroadcastIP = "10.100.23.255"
+	NtnuBroadcastIP = "10.22.67.255"
 	//HomeBroadcastIP = "192.168.50.255"
     HomeBroadcastIP = "255.255.255.255"
 
+	BroadcastIP     = NtnuBroadcastIP
 	BROADCAST_PORT  = 3000
 )
 

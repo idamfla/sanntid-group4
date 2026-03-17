@@ -1,7 +1,7 @@
 package elevtest
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
@@ -40,7 +40,7 @@ func (e *Elev) StartServer(ip string, port int) error {
 func (e *Elev) listen() {
 	defer e.wg.Done()
 	for msg := range e.ch {
-		fmt.Println("Got elevator packet:", msg.Packet.Payload.Content)
+		fmt.Println("Got elevator packet:", msg.Packet.Payload.Id)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
 		}

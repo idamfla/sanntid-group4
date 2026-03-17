@@ -5,9 +5,9 @@ import (
 
 )
 func (e *Elevator) InitMasterElevator() {
-    fmt.Printf("Elevator %d initializing master role\n", e.id)
-	e.isMaster = true
-	e.currentMasterID = e.id
+    fmt.Printf("Elevator %d initializing master role\n", e.Id)
+	e.IsMaster = true
+	e.currentMasterID = e.Id
 	e.connectedToMaster = true
 
 	// boradcast "I am master, here is my recieve ch"
@@ -20,7 +20,7 @@ func (e *Elevator) RunMasterLoop() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if !e.isMaster {
+		if !e.IsMaster {
 			return
 		}
 

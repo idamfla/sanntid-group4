@@ -2,16 +2,16 @@ package elevator
 
 import (
 	"elevator_program/fault"
+	"elevator_program/types"
 	"testing"
 	"time"
 )
 
-func newSmallTestElevator(id int) *Elevator {
+func newSmallTestElevator(id string) *Elevator {
 	e := &Elevator{}
-	e.id = id
-	e.currentMasterID = -1
-	e.system.Elevators = make(map[int]ElevatorsStatus)
-	e.elevatorRegistry = make(map[int]ElevatorsStatus)
+	e.Id = id
+	e.currentMasterID = "-1"
+	e.System.Elevators = make(map[string]types.ElevatorsStatus)
 
 	e.faultTolerance = fault.NewFaultManager(id, fault.Config{
 		StartupGrace:  20 * time.Millisecond,
@@ -25,39 +25,39 @@ func newSmallTestElevator(id int) *Elevator {
 }
 
 func TestChooseMasterID_ReturnsOwnIDWhenAlone(t *testing.T) {
-	e := newSmallTestElevator(3)
+	e := newSmallTestElevator("3")
 
 	got := e.chooseMasterID()
 
-	if got != 3 {
+	if got != "3" {
 		t.Fatalf("expected master id 3, got %d", got)
 	}
 }
 
 func TestChooseMasterID_ReturnsLowestAliveID(t *testing.T) {
-	e := newSmallTestElevator(3)
+	e := newSmallTestElevator("3")
 
-	e.faultTolerance.SeenPeer(5)
-	e.faultTolerance.SeenPeer(2)
-	e.faultTolerance.SeenPeer(7)
+	e.faultTolerance.SeenPeer("5")
+	e.faultTolerance.SeenPeer("2")
+	e.faultTolerance.SeenPeer("7")
 
 	got := e.chooseMasterID()
 
-	if got != 2 {
+	if got != "2" {
 		t.Fatalf("expected lowest id 2, got %d", got)
 	}
 }
 
 func TestRunElection_BecomesMasterWhenAlone(t *testing.T) {
-	e := newSmallTestElevator(3)
+	e := newSmallTestElevator("3")
 
 	e.runElection("test alone")
 
-	if !e.isMaster {
+	if !e.IsMaster {
 		t.Fatal("expected elevator to become master")
 	}
 
-	if e.currentMasterID != 3 {
+	if e.currentMasterID != "3" {
 		t.Fatalf("expected currentMasterID 3, got %d", e.currentMasterID)
 	}
 
@@ -71,16 +71,16 @@ func TestRunElection_BecomesMasterWhenAlone(t *testing.T) {
 }
 
 func TestRunElection_BecomesSlaveWhenLowerPeerExists(t *testing.T) {
-	e := newSmallTestElevator(3)
-	e.faultTolerance.SeenPeer(2)
+	e := newSmallTestElevator("3")
+	e.faultTolerance.SeenPeer("2")
 
 	e.runElection("test lower peer exists")
 
-	if e.isMaster {
+	if e.IsMaster {
 		t.Fatal("expected elevator not to be master")
 	}
 
-	if e.currentMasterID != 2 {
+	if e.currentMasterID != "2" {
 		t.Fatalf("expected currentMasterID 2, got %d", e.currentMasterID)
 	}
 
@@ -94,15 +94,15 @@ func TestRunElection_BecomesSlaveWhenLowerPeerExists(t *testing.T) {
 }
 
 func TestObservePeer_ChoosesLowerPeerAsMaster(t *testing.T) {
-	e := newSmallTestElevator(4)
+	e := newSmallTestElevator("4")
 
-	e.ObservePeer(2)
+	e.ObservePeer("2")
 
-	if e.currentMasterID != 2 {
+	if e.currentMasterID != "2" {
 		t.Fatalf("expected currentMasterID 2, got %d", e.currentMasterID)
 	}
 
-	if e.isMaster {
+	if e.IsMaster {
 		t.Fatal("expected elevator not to be master")
 	}
 
@@ -112,20 +112,20 @@ func TestObservePeer_ChoosesLowerPeerAsMaster(t *testing.T) {
 }
 
 func TestObserveMaster_MakesMasterStepDownForLowerID(t *testing.T) {
-	e := newSmallTestElevator(4)
+	e := newSmallTestElevator("4")
 
-	e.isMaster = true
-	e.currentMasterID = 4
+	e.IsMaster = true
+	e.currentMasterID = "4"
 	e.connectedToMaster = true
 	e.faultTolerance.SetRoleMaster()
 
-	e.ObserveMaster(2)
+	e.ObserveMaster("2")
 
-	if e.isMaster {
+	if e.IsMaster {
 		t.Fatal("expected elevator to step down and become slave")
 	}
 
-	if e.currentMasterID != 2 {
+	if e.currentMasterID != "2" {
 		t.Fatalf("expected currentMasterID 2, got %d", e.currentMasterID)
 	}
 

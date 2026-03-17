@@ -1,7 +1,7 @@
 package session
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/timer"
 	"fmt"
@@ -95,7 +95,6 @@ func (ses *Session) Close() {
 		// Close channels
 		close(ses.packetInCh)
 		close(ses.outgoingMsgCh)
-		close(ses.closeReq)
 
 		// Clear pending packet
 		ses.pendingPkt = nil

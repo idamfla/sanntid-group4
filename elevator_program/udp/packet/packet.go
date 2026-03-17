@@ -1,7 +1,7 @@
 package packet
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"encoding/json"
 	"fmt"
 	"net"
