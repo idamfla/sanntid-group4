@@ -125,10 +125,16 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.doorState = DS_Opening
 			elevatorStatus.State = types.ES_Idle
 			msg := message.Message{
-				MsgType:   types.MSG_T_TaskUpdate,
+				MsgType:   types.MSG_T_ButtonPress,
 				Id:        e.Id,
 				Task:      e.nextTarget,
 				BtnStatus: types.NotActive,
+			}
+			e.SendToProtocol <- msg
+
+			msg.MsgType = types.MSG_T_TaskRequest
+			msg.Elevators = map[string]types.ElevatorsStatus{
+				e.Id: elevatorStatus,
 			}
 			e.SendToProtocol <- msg
 		}
@@ -141,6 +147,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	if elevatorStatus.State != e.System.Elevators[e.Id].State {
 		msg := message.Message{
 			MsgType: types.MSG_T_StatusReport,
+			Id:      e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
 				e.Id: elevatorStatus,
 			},

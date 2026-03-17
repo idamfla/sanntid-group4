@@ -1,4 +1,4 @@
-package protocol
+package coordinator
 
 import (
 	"elevator_program/elevator"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (p *Protocol) InitMsg() []message.Message {
+func (c *Coordinator) InitMsg() []message.Message {
 	msg := []message.Message{
 		{
 			MsgType: types.MSG_T_TaskUpdate,
@@ -65,7 +65,7 @@ func (p *Protocol) InitMsg() []message.Message {
 	return msg
 }
 
-func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
+func (c *Coordinator) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	e.System.Elevators["2"] = types.ElevatorsStatus{
 		Id:          "2",
 		CabRequests: make([]types.ButtonStatus, numFloors),
@@ -75,7 +75,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	fmt.Println(e.System)
 
 	// Create test message
-	msg := p.InitMsg()
+	msg := c.InitMsg()
 
 	for id, currMsg := range msg {
 		fmt.Println("Msg Id: ", id)
@@ -86,7 +86,7 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 			},
 		}
 
-		p.msgRecieveCh <- tempPacket
+		c.msgRecieveCh <- tempPacket
 		time.Sleep(2 * time.Second)
 		// p.MessageHandler(e, currMsg)
 
@@ -115,12 +115,12 @@ func (p *Protocol) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 	fmt.Println(e.System)
 	time.Sleep(2 * time.Second)
 	// p.MessageHandler(e, newMsg)
-	p.msgRecieveCh <- tempPacket
+	c.msgRecieveCh <- tempPacket
 	fmt.Println("\nSystem state after message:")
 	fmt.Println(e.System)
 }
 
-func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
+func (c *Coordinator) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 
 	// Create system
 	system := system.System{
@@ -152,7 +152,7 @@ func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 		},
 	}
 
-	p.MessageHandler(e, msg)
+	c.MessageHandler(e, msg)
 
 	fmt.Println("System elevator map:", e.System.Elevators)
 
@@ -168,7 +168,7 @@ func (p *Protocol) TestMsgHandler_Master(e *elevator.Elevator, numFloors int) {
 		BtnStatus: types.Pending,
 	}
 
-	p.MessageHandler(&slave, taskMsg)
+	c.MessageHandler(&slave, taskMsg)
 
 	fmt.Println("Hall requests:", slave.System.HallRequests)
 	fmt.Println("System elevator map:", slave.System.Elevators)

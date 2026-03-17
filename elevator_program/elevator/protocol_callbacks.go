@@ -5,12 +5,12 @@ import (
 	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
-	"time"
 )
 
 // TODO This function is wierd, either we need to have it as e or something else if it is msg sending
 func (e *Elevator) HandleLostConnection(senderId string) {
-	if senderId == "" || time.Since(e.lostComsTimer) > 4*time.Second {
+	if senderId == "" { //|| time.Since(e.lostComsTimer) > 4*time.Second
+		e.IsOnline = false
 		// Need to schedule a restart
 		// TODO It is fault tolerance that should take the time maybe
 	} else {
@@ -28,7 +28,11 @@ func (e *Elevator) ConnectedToMaster() bool {
 
 func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
 	if btnStatus == types.NotActive {
-		e.clearHallLamp(floor, button)
+		if button == elevio.BT_Cab {
+			e.clearCabRequest(floor)
+		}
+		e.clearHallLamp(floor, button) // Chat don't like these function names. Don't want any underscores
+
 	} else {
 		elevio.SetButtonLamp(button, floor, true)
 	}
@@ -39,7 +43,6 @@ func (e *Elevator) SetConnectionState(msg message.Message) {
 	e.IsMaster = false
 	e.connectedToMaster = true
 	e.IsOnline = true
-	// e.elevatorState = types.ES_Idle // TODO Do I need this one here?
 	for id, elevator := range e.System.Elevators {
 		e.IpRegistery[elevator.Ip] = id
 	}
@@ -88,4 +91,5 @@ func (e *Elevator) SetRequestAsTarget(task elevio.ButtonEvent) {
 func (e *Elevator) TurnToMaster() {
 	e.IsOnline = true
 	e.IsMaster = true
+	e.connectedToMaster = true
 }

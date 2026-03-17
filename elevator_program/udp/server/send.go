@@ -2,7 +2,6 @@ package server
 
 import (
 	"elevator_program/message"
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
 	"net"
@@ -56,12 +55,6 @@ func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.Message) err
 
 // Initiate the broadcast message chain
 func (srv *Server) startBroadcast(msg message.Message) {
-	addr := &net.UDPAddr{
-		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(udp.BroadcastIP),
-		Port: udp.BROADCAST_PORT,
-	}
-
 	quorum := srv.getQuorum()
 	ses := srv.createBroadcastSession(srv.broadcastAddr, quorum)
 

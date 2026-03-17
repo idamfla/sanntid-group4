@@ -40,10 +40,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
 		e.emergencyStop = hwEvent.EmergencyStop
 		msg := message.Message{
+			MsgType:   types.MSG_T_StatusReport,
 			Id:        e.Id,
 			Elevators: e.System.Elevators,
 		}
-		fmt.Println("Number 1")
 		e.SendToProtocol <- msg
 
 	case HW_T_ButtonPress:
@@ -51,15 +51,28 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			println("Not connected to master, cannot accept buttonpress")
 			return
 		}
-		msg := message.Message{
-			MsgType: types.MSG_T_ButtonPress,
-			Task: elevio.ButtonEvent{
-				Floor:  hwEvent.Floor,
-				Button: hwEvent.Button,
-			},
-			BtnStatus: types.Pending,
+		task := elevio.ButtonEvent{
+			Floor:  hwEvent.Floor,
+			Button: hwEvent.Button,
 		}
-		fmt.Println("Number 2")
+
+		msg := message.Message{
+			MsgType:   types.MSG_T_ButtonPress,
+			Id:        "",
+			Task:      task,
+			BtnStatus: types.Pending,
+			Elevators: map[string]types.ElevatorsStatus{
+				e.Id: e.System.Elevators[e.Id],
+			},
+		}
+
+		if e.IsMaster {
+			taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, task)
+			if taskElevatorId != "" {
+				msg.BtnStatus = types.Running
+				msg.Id = taskElevatorId
+			}
+		}
 		e.SendToProtocol <- msg
 
 	case HW_T_FloorSensor:
@@ -70,10 +83,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
 			msg := message.Message{
+				MsgType:   types.MSG_T_StatusReport,
 				Id:        e.Id,
 				Elevators: e.System.Elevators,
 			}
-			fmt.Println("Number 3")
 			e.SendToProtocol <- msg
 		}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"elevator_program/coordinator"
 	"elevator_program/config"
 	"elevator_program/elevator"
 	"elevator_program/message"
@@ -39,7 +40,7 @@ func testElevator() {
 	e.InitElevator(id, numFloors, initFloor, ip_address, 5000) // TODO WHAT TO DO HERE, prot is int??
 	e.RunElevatorProgram()
 
-	p := protocol.Protocol{}
+	p := coordinator.Coordinator{}
 	p.InitProtocol()
 	// p.StartServer(ip_address, 5000, id)
 	p.Start(&e)
@@ -64,7 +65,7 @@ func testBroadcast_send(srv *server.Server) {
 	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastData, bcMsg)
+		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, bcMsg)
 		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
@@ -86,42 +87,6 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 
 	fmt.Println("Servers shut down cleanly")
 }
-
-func main() {
-	eA := elevtest.NewElev("A", 2)
-
-	if cfg.ID == 0 {
-		fmt.Println("STARTING ELEVATOR LAUNCHER")
-		config.SpawnElevators(cfg)
-		select {}
-	}
-
-	fmt.Printf(
-		"STARTING ONE ELEVATOR: id=%d addr=%s:%s floors=%d initfloor=%d\n",
-		cfg.ID, cfg.IP, cfg.Port, cfg.Floors, cfg.InitFloor,
-	)
-
-	config.RunOneElevator(cfg)
-}
-
-/*
-	ch := make(chan session.ElevatorPacket, 32)
-	udpPort := 9000 + (cfg.ID - 1)
-
-	srv := createServer(udpPort, fmt.Sprintf("%d", cfg.ID), cfg.N, ch)
-	srv.Start()
-
-	go testBroadcast_send(srv)
-
-	for msg := range ch {
-		fmt.Println("msgCh test:", msg.Packet.Payload.Content)
-		if msg.Done != nil {
-			msg.Done <- struct{}{}
-		}
-	}
-}
-
-
 
 func main() {
 	// eA := elevtest.NewElev("A", 2)
@@ -163,7 +128,7 @@ func main() {
 
 	e1 := elevator.Elevator{}
 	e1.InitElevator("1", 4, 3, localIP, 9000)
-	p1 := protocol.Protocol{}
+	p1 := coordinator.Coordinator{}
 	p1.InitProtocol()
 	err := p1.StartServer(localIP, 9000, "1")
 	if err != nil {
@@ -178,14 +143,17 @@ func main() {
 
 	e2 := elevator.Elevator{}
 	e2.InitElevator("2", 4, 3, localIP, 9001)
-	p2 := protocol.Protocol{}
+	p2 := coordinator.Coordinator{}
 	p2.InitProtocol()
 	err = p2.StartServer(localIP, 9001, "2")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("Created e2 and p2")
+	// e2copy := e2.System.Elevators[e2.Id]
+	// e2copy.CabRequests[2] = types.Running
+	// e2.System.Elevators[e2.Id] = e2copy
+	// fmt.Println("Created e2 and p2")
 
 	p2.Start(&e2)
 
@@ -208,19 +176,19 @@ func main() {
 	// 		"2": vierdElev,
 	// 	},
 	// }
+	// time.Sleep(2 * time.Second)
 
 	// msg := message.Message{
-	// 	MsgType: types.MSG_T_NewToChannel,
-	// 	Id:      "2",
-	// 	Ip:      e2.Ip,
-	// 	Elevators: map[string]types.ElevatorsStatus{
-	// 		e2.Id: e2.System.Elevators[e2.Id],
-	// 	},
+	// 	MsgType: types.MSG_T_LostComs,
+	// 	Id:      "1",
+	// 	Ip:      e1.Ip,
 	// }
 
+	// fmt.Println("Connected to master, ", e2.ConnectedToMaster())
+	// e1.IsMaster = false
 	// time.Sleep(2 * time.Second)
 	// fmt.Println("Sending now")
-	// p2.SendMessageSlave(&e2, msg)
+	// p1.SendMessageSlave(&e1, msg)
 
 	// msg = message.Message{
 	// 	MsgType:   types.MSG_T_TaskUpdate,
