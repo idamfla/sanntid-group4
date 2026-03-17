@@ -56,7 +56,7 @@ func NewSession(id uint32,
 		ID:       id,
 		peerAddr: peerAddr,
 		peerID:   peerAddr.String(),
-		// seq:                seq, // TODO do session even need to look at seq?
+		// seq:                seq, // TODO have it set on init ...
 		pendingPkt:         &packet.Packet{},
 		lastOutPkt:         nil,
 		packetInCh:         make(chan packet.Packet, 32),
@@ -71,8 +71,6 @@ func NewSession(id uint32,
 		stop:     make(chan struct{}),
 		closeReq: closeReq,
 	}
-
-	// fmt.Println("New session created:", id)
 
 	return ses
 }

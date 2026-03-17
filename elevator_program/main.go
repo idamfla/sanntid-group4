@@ -106,18 +106,23 @@ func main() {
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.Message{},
 	)
-	// eA.QueueMessage(
+	// eC.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_Data,
+	// 	packet.PROTO_PKT_T_SlaveUpdate,
 	// 	message.Message{Content: "Hello from A!"},
 	// )
 
 	closeProgram(eA, eB, eC)
-
-	//TODO
-	/*
-		make sure elevator_task sendElevatorTaskLoop works correctly ...
-		there is an issue after the quorum is reached in the broadcast_session, it stops there
-		fix, the one that broadcasts has no content inside the task ...
-	*/
 }
+
+// TODO
+/*
+- make peer sync
+- send snapshot msg
+- make peer track seq number
+- make sure all is orginized enough, folder-vise etc.
+- handle new msg, nb some only send forth ack and then do work before starting completely new session
+	- check if it is only stopping because it uses old logic, it does send the whole exchange before crashing
+- remove master
+- should "I am master" prompt you to remove old master if there are any?
+*/

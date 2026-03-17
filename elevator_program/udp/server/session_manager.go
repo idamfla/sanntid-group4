@@ -52,12 +52,11 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		}
 
 		if !srv.IsMaster() {
-			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Payload.Content)
+			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType)
 			srv.closeSession(incPkt.Packet.Header.SessionID)
 			// srv.PrintPeers()
 			return
 		}
-		// ses = srv.getOrCreateSession(senderAddr, sessionID)
 
 	default:
 		ses = srv.getOrCreateSession(senderAddr, sessionID)

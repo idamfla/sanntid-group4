@@ -13,8 +13,6 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 	defer srv.wg.Done()
 	buf := make([]byte, 2048)
 
-	// fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
-
 	for {
 		n, addr, err := conn.ReadFromUDP(buf)
 		if err != nil {

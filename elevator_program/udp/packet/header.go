@@ -67,9 +67,9 @@ func (p PacketType) String() string {
 	case PKT_T_IAmMaster:
 		return "I am master"
 	case PKT_T_SlaveUpdate:
-		return "Slave Notify"
+		return "Slave Update"
 	case PKT_T_SlaveUpdateAck:
-		return "Slave Notify Ack"
+		return "Slave Update Ack"
 	case PKT_T_BroadcastUpdate:
 		return "Broadcast Update"
 	case PKT_T_BroadcastAck:
