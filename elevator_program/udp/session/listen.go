@@ -9,9 +9,6 @@ import (
 func (ses *Session) listen(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
-	ticker := time.NewTicker(udp.RETRY_INTERVAL)
-	defer ticker.Stop()
-	// lastSeen := ticker
 	retryCounter := 0
 
 	for {
@@ -24,12 +21,14 @@ func (ses *Session) listen(behavior SessionBehavior) {
 			}
 			retryCounter = 0
 			behavior.HandlePacket(pkt)
-		case <-ticker.C:
-			// ses.retransmitt()
-			retryCounter++
-			if retryCounter > udp.MAX_RETRIES {
-				fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
-				return
+		case <-time.After(udp.RETRY_INTERVAL):
+			if ses.lastOutPkt != nil {
+				ses.sendRetry(*ses.lastOutPkt)
+				retryCounter++
+				if retryCounter > udp.MAX_RETRIES {
+					fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
+					return
+				}
 			}
 		case <-ses.stop:
 			return

@@ -111,6 +111,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 
 	switch h.PktType {
 	case packet.PKT_T_IAmAlive:
+		bs.lastOutPkt = nil
 		bs.addResponder(pkt.Header.SenderAddr)
 
 	case packet.PKT_T_WhoIsMaster:
@@ -131,8 +132,15 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		case bs.masterFound <- struct{}{}:
 		default:
 		}
-		fmt.Println(pkt.Header.SenderAddr, "was elected master")
-		bs.scheduleSessionClose()
+
+	// 	fmt.Println(pkt.Header.SenderAddr, "was elected master")
+
+	// 	// send the broadcast-done reply
+	// 	bs.sendBroadcastDone()
+
+	// 	// clean up the session
+	// 	bs.lastOutPkt = nil
+	// 	bs.scheduleSessionClose()
 
 	case packet.PKT_T_BroadcastAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
@@ -150,6 +158,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		fmt.Printf("bcDone: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
 		if quorumReached {
 			bs.seq++
+			bs.lastOutPkt = nil
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()
 		}

@@ -46,7 +46,7 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
 		peer.LastSeen = time.Now()
 	}
 
-	if (forceSync || isNew || wasRevived) && srv.isMaster {
+	if (forceSync || isNew || wasRevived) && srv.IsMaster() {
 		fmt.Println("sync peer")
 		// TODO request elevator to sync this peer
 		// go srv.syncPeer(addr.String()) // TODO this is handled by elevator

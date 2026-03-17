@@ -41,16 +41,24 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
 		ses = srv.getOrCreateBroadcastSession(sessionID)
-		if srv.isMaster {
+		if srv.IsMaster() {
 			ses.SendReply(packet.PKT_T_IAmMaster)
 		}
+
 	case packet.PKT_T_IAmMaster:
 		key := incPkt.Packet.Header.SenderAddr
 		if peer, exists := srv.peers[key]; exists {
 			peer.SetMaster(true)
 		}
-		// srv.PrintPeers()
-		ses = srv.getOrCreateSession(senderAddr, sessionID)
+
+		if !srv.IsMaster() {
+			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Payload.Content)
+			srv.closeSession(incPkt.Packet.Header.SessionID)
+			// srv.PrintPeers()
+			return
+		}
+		// ses = srv.getOrCreateSession(senderAddr, sessionID)
+
 	default:
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}

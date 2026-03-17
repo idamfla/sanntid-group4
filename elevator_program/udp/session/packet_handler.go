@@ -62,7 +62,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	*/
 
 	case packet.PKT_T_BroadcastCommit:
-		go ses.handleBroadcastCommit(h.PktType)
+		go ses.handleBroadcastCommit()
 
 	case packet.PKT_T_ElevatorFailed:
 		// TODO fault tolerence? what to do now ...
@@ -97,13 +97,13 @@ func (ses *Session) QueueElevatorTask() {
 	ses.tx.QueueElevatorTask(*ses.pendingPkt, ses.elevDone, ses.taskReady)
 }
 
-func (ses *Session) handleBroadcastCommit(pktType packet.PacketType) {
+func (ses *Session) handleBroadcastCommit() {
 	ses.notifyTaskReady()
 	if err := ses.waitForElevatorDoneWithReply(); err != nil {
 		return
 	}
 
-	ses.sendDoneAck(pktType)
+	ses.sendBroadcastDone()
 	ses.pendingPkt = nil
 
 	ses.scheduleSessionClose()
