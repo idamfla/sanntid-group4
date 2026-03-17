@@ -147,6 +147,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	if elevatorStatus.State != e.System.Elevators[e.Id].State {
 		msg := message.Message{
 			MsgType: types.MSG_T_StatusReport,
+			Id:      e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
 				e.Id: elevatorStatus,
 			},

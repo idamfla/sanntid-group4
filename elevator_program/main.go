@@ -1,9 +1,9 @@
 package main
 
 import (
+	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/protocol"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -38,8 +38,8 @@ func testElevator() {
 	e.InitElevator(id, numFloors, initFloor, ip_address, 5000) // TODO WHAT TO DO HERE, prot is int??
 	e.RunElevatorProgram()
 
-	p := protocol.Protocol{}
-	p.InitProtocol(9000)
+	p := coordinator.Coordinator{}
+	p.InitProtocol()
 	// p.StartServer(ip_address, 5000, id)
 	p.Start(&e)
 	// TODO MAybe the right spot to put it
@@ -126,8 +126,8 @@ func main() {
 
 	e1 := elevator.Elevator{}
 	e1.InitElevator("1", 4, 3, localIP, 9000)
-	p1 := protocol.Protocol{}
-	p1.InitProtocol(9000)
+	p1 := coordinator.Coordinator{}
+	p1.InitProtocol()
 	err := p1.StartServer(localIP, 9000, "1")
 	if err != nil {
 		fmt.Println(err)
@@ -141,8 +141,8 @@ func main() {
 
 	e2 := elevator.Elevator{}
 	e2.InitElevator("2", 4, 3, localIP, 9001)
-	p2 := protocol.Protocol{}
-	p2.InitProtocol(9001)
+	p2 := coordinator.Coordinator{}
+	p2.InitProtocol()
 	err = p2.StartServer(localIP, 9001, "2")
 	if err != nil {
 		fmt.Println(err)

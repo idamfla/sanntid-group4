@@ -1,4 +1,4 @@
-package protocol
+package coordinator
 
 import (
 	"elevator_program/elevator"
@@ -10,13 +10,8 @@ import (
 
 // TODO Ida thinks it could be a better way to structure it
 
-/*
-TODO Needs this somewhere
-ctx, cancel := context.Withcancel(context.Background())
-msgCh := make(chan string)
-*/
-
-func (p *Protocol) handleAsSlave(e *elevator.Elevator, msg message.Message) {
+// TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
+func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -57,15 +52,15 @@ func (p *Protocol) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 			ownIdInt, _ := strconv.Atoi(e.Id)
 			if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
 				e.TurnToMaster()
-				p.portRegistery["master"] = p.portSelf
+				c.portRegistery["master"] = c.portSelf
 
 				msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 				// fmt.Println("Now i am going to send back that this one is connected to network: ", msg)
 				e.IpRegistery[msg.Ip] = id
 
-				p.activePeers++
+				c.activePeers++
 				// p.Server.UpdateActivePeers(p.activePeers)
-				msg.ActivePeers = p.activePeers
+				msg.ActivePeers = c.activePeers
 
 				e.SendToProtocol <- msg
 				return
@@ -74,12 +69,12 @@ func (p *Protocol) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 				return // TODO is it possible the last number is the same?
 			}
 		}
-		p.activePeers = msg.ActivePeers
+		c.activePeers = msg.ActivePeers
 		// p.Server.UpdateActivePeers(p.activePeers)
 	}
 }
 
-func (p *Protocol) handleAsMaster(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -90,7 +85,6 @@ func (p *Protocol) handleAsMaster(e *elevator.Elevator, msg message.Message) {
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
 		fmt.Println("What does master see? ", e.Id, e.System)
 		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task)
-		fmt.Println("Do we get to message handler")
 		if taskElevatorId != "" {
 			msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
 			msg.Id = taskElevatorId
@@ -121,29 +115,29 @@ func (p *Protocol) handleAsMaster(e *elevator.Elevator, msg message.Message) {
 		}
 
 	case types.MSG_T_NewToChannel:
-		p.activePeers++
+		c.activePeers++
 		// p.Server.UpdateActivePeers(p.activePeers)
 
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-		msg.ActivePeers = p.activePeers
+		msg.ActivePeers = c.activePeers
 		e.IpRegistery[msg.Ip] = id
 		e.SendToProtocol <- msg
 	}
 }
 
-func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	if e.IsMaster {
-		p.handleAsMaster(e, msg)
+		c.handleAsMaster(e, msg)
 	} else {
-		p.handleAsSlave(e, msg)
+		c.handleAsSlave(e, msg)
 	}
 }
 
-func (p *Protocol) MessageListener(e *elevator.Elevator) {
+func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
-	for pktCtx := range p.msgRecieveCh {
+	for pktCtx := range c.msgRecieveCh {
 		msg := pktCtx.Packet.Payload
-		p.MessageHandler(e, msg)
+		c.MessageHandler(e, msg)
 		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e.System)
 		if pktCtx.Done != nil {
 			pktCtx.Done <- struct{}{}
@@ -179,7 +173,7 @@ Applying protocol functions which is ment to split between the different roles
 // 	e.SetConnectionState(msg)
 // }
 
-// func (p *Protocol) addNewRequestToSystem_master(e *elevator.Elevator, msg message.Message) {
+// func (c *Coordinator) addNewRequestToSystem_master(e *elevator.Elevator, msg message.Message) {
 // 	// TODO Lets hope that we only get commit messages, or else we need to count ack
 // 	taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, *msg.Task)
 // 	if taskElevatorId != -1 {
@@ -189,6 +183,6 @@ Applying protocol functions which is ment to split between the different roles
 // 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 // }
 
-// func (p *Protocol) applyRegisterAndSyncElevatorToServer(e *elevator.Elevator, msg message.Message) {
+// func (c *Coordinator) applyRegisterAndSyncElevatorToServer(e *elevator.Elevator, msg message.Message) {
 // 	e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 // }
