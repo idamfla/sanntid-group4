@@ -53,7 +53,7 @@ type Elevator struct {
 	IsMaster          bool
 	connectedToMaster bool
 	IsOnline          bool
-	currentMasterID   int
+	currentMasterID   string
 	System            system.System
 
 	// Server *server.Server // TODO be carefull with pass by value functions, locks
@@ -85,9 +85,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-	e.msgRecieveCh = make(chan Message, 20)
-	e.msgSendCh = make(chan Message, 20)
-
+	
 	e.IsOnline = false
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -116,14 +114,13 @@ func (e *Elevator) RunElevatorProgram() {
 	e.faultTolerance.OnGoOnline = func() { e.exitOfflineMode() }
 	e.faultTolerance.OnMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
 	e.faultTolerance.OnNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
-	e.faultTolerance.OnPeerDead = func(peerID int) { e.handlePeerDead(peerID) }
+	e.faultTolerance.OnPeerDead = func(peerID string) { e.handlePeerDead(peerID) }
 	e.faultTolerance.OnMasterSuspected = func(reason string) { e.handleMasterSuspected(reason) }
 
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	go e.faultTolerance.Run()
-	go e.messageListener()
 
 	e.StartHardwareEventsListeners()
 	// time.Sleep(10 * time.Second)

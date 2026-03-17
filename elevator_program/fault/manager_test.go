@@ -16,7 +16,7 @@ func smallTestConfig() Config {
 }
 
 func TestNewFaultManager_StartsAsSlave(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
 	if fm == nil {
 		t.Fatal("expected fault manager, got nil")
@@ -32,9 +32,9 @@ func TestNewFaultManager_StartsAsSlave(t *testing.T) {
 }
 
 func TestSeenPeer_AddsAlivePeer(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
-	fm.SeenPeer(2)
+	fm.SeenPeer("2")
 
 	alive := fm.AlivePeers()
 
@@ -42,15 +42,15 @@ func TestSeenPeer_AddsAlivePeer(t *testing.T) {
 		t.Fatalf("expected 1 alive peer, got %d", len(alive))
 	}
 
-	if alive[0] != 2 {
+	if alive[0] != "2" {
 		t.Fatalf("expected peer 2 to be alive, got %d", alive[0])
 	}
 }
 
 func TestAlivePeers_RemovesTimedOutPeer(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
-	fm.SeenPeer(2)
+	fm.SeenPeer("2")
 
 	time.Sleep(fm.cfg.PeerTimeout + 10*time.Millisecond)
 
@@ -62,7 +62,7 @@ func TestAlivePeers_RemovesTimedOutPeer(t *testing.T) {
 }
 
 func TestMasterTimeout_TriggersMasterSuspected(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
 	called := false
 	gotReason := ""
@@ -86,7 +86,7 @@ func TestMasterTimeout_TriggersMasterSuspected(t *testing.T) {
 }
 
 func TestSeenMaster_BringsNodeBackOnline(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
 	wentOffline := false
 	wentOnline := false
@@ -121,14 +121,14 @@ func TestSeenMaster_BringsNodeBackOnline(t *testing.T) {
 }
 
 func TestPeerTimeout_CallsOnPeerDeadWhenMaster(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 	fm.SetRoleMaster()
-	fm.SeenPeer(2)
+	fm.SeenPeer("2")
 
 	called := false
-	deadID := -1
+	deadID := "-1"
 
-	fm.OnPeerDead = func(peerID int) {
+	fm.OnPeerDead = func(peerID string) {
 		called = true
 		deadID = peerID
 	}
@@ -141,13 +141,13 @@ func TestPeerTimeout_CallsOnPeerDeadWhenMaster(t *testing.T) {
 		t.Fatal("expected OnPeerDead to be called after peer timeout")
 	}
 
-	if deadID != 2 {
+	if deadID != "2" {
 		t.Fatalf("expected dead peer id 2, got %d", deadID)
 	}
 }
 
 func TestMotorTimeout_CallsOnMotorFault(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
 	called := false
 	gotReason := ""
@@ -173,7 +173,7 @@ func TestMotorTimeout_CallsOnMotorFault(t *testing.T) {
 }
 
 func TestFloorEvent_PreventsMotorFault(t *testing.T) {
-	fm := NewFaultManager(1, smallTestConfig())
+	fm := NewFaultManager("1", smallTestConfig())
 
 	called := false
 

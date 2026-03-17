@@ -1,13 +1,13 @@
 package main
 
 import (
+	"elevator_program/config"
 	"elevator_program/elevator"
 	"elevator_program/message"
 	"elevator_program/protocol"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
-	"elevator_program/config"
 	"fmt"
 	"os"
 	"os/signal"
@@ -87,7 +87,6 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	fmt.Println("Servers shut down cleanly")
 }
 
-
 func main() {
 	cfg := config.ParseFlags()
 
@@ -104,7 +103,6 @@ func main() {
 
 	config.RunOneElevator(cfg)
 }
-
 
 /*
 	ch := make(chan session.ElevatorPacket, 32)
@@ -246,3 +244,5 @@ func main() {
 
 // 127.0.0.1 er lokal <- du kan bruke denne for en til en
 // 10.22.67.255 broadcast, broadcast har 255 som siste verdi
+
+*/

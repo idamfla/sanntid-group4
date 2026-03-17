@@ -40,7 +40,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 		for f := from; f >= to; f-- {
 			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if !e.offline && e.system.hallRequests[f][elevio.BT_HallDown] == Pending {
+			} else if !e.offline && e.System.HallRequests[f][elevio.BT_HallDown] == types.Pending {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 
 			} else if e.System.HallRequests[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct

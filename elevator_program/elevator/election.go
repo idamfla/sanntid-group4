@@ -5,42 +5,47 @@ import (
 	"sort"
 )
 
-func (e *Elevator) chooseMasterID() int {
-	candidates := []int{e.id}
+func (e *Elevator) chooseMasterID() string {
 
-	if e.faultTolerance != nil {
-		candidates = append(candidates, e.faultTolerance.AlivePeers()...)
-	}
+    // Start med egen ID som kandidat
+    candidates := []string{e.Id}
 
-	sort.Ints(candidates)
+    // Legg til alle levende peers hvis faultTolerance finnes
+    if e.faultTolerance != nil {
+        candidates = append(candidates, e.faultTolerance.AlivePeers()...)
+    }
+
+    // Sorter kandidatene for å velge den minste
+    sort.Strings(candidates)
+
 	return candidates[0]
 }
 
 func (e *Elevator) runElection(reason string) {
 	chosenMaster := e.chooseMasterID()
 
-	fmt.Printf("Elevator %d runs election (%s). Chosen master: %d\n", e.id, reason, chosenMaster)
+	fmt.Printf("Elevator %d runs election (%s). Chosen master: %d\n", e.Id, reason, chosenMaster)
 
-	if chosenMaster == e.id {
-		if !e.isMaster {
+	if chosenMaster == e.Id {
+		if !e.IsMaster {
 			e.BecameMaster()
 		} else {
-			e.currentMasterID = e.id
+			e.currentMasterID = e.Id
 			e.connectedToMaster = true
 		}
 		return
 	}
 
-	if e.isMaster || e.currentMasterID != chosenMaster {
+	if e.IsMaster || e.currentMasterID != chosenMaster {
 		e.BecameSlave(chosenMaster)
 	}
 }
 
 func (e *Elevator) BecameMaster() {
-	fmt.Printf("Elevator %d became MASTER\n", e.id)
+	fmt.Printf("Elevator %d became MASTER\n", e.Id)
 
-	e.isMaster = true
-	e.currentMasterID = e.id
+	e.IsMaster = true
+	e.currentMasterID = e.Id
 	e.connectedToMaster = true
 
 	if e.faultTolerance != nil {
@@ -51,10 +56,10 @@ func (e *Elevator) BecameMaster() {
 	go e.RunMasterLoop()
 }
 
-func (e *Elevator) BecameSlave(masterID int) {
-	fmt.Printf("Elevator %d became SLAVE. Master is %d\n", e.id, masterID)
+func (e *Elevator) BecameSlave(masterID string) {
+	fmt.Printf("Elevator %d became SLAVE. Master is %d\n", e.Id, masterID)
 
-	e.isMaster = false
+	e.IsMaster = false
 	e.currentMasterID = masterID
 	e.connectedToMaster = true
 
@@ -63,8 +68,8 @@ func (e *Elevator) BecameSlave(masterID int) {
 	}
 }
 
-func (e *Elevator) ObservePeer(peerID int) {
-	if peerID == e.id {
+func (e *Elevator) ObservePeer(peerID string) {
+	if peerID == e.Id {
 		return
 	}
 
@@ -72,13 +77,13 @@ func (e *Elevator) ObservePeer(peerID int) {
 		e.faultTolerance.SeenPeer(peerID)
 	}
 
-	if e.currentMasterID == -1 || peerID < e.currentMasterID {
+	if e.currentMasterID == "-1" || peerID < e.currentMasterID {
 		e.runElection("peer observed")
 	}
 }
 
-func (e *Elevator) ObserveMaster(masterID int) {
-	if masterID == e.id {
+func (e *Elevator) ObserveMaster(masterID string) {
+	if masterID == e.Id {
 		return
 	}
 
@@ -90,7 +95,7 @@ func (e *Elevator) ObserveMaster(masterID int) {
 	e.currentMasterID = masterID
 	e.connectedToMaster = true
 
-	if e.isMaster && masterID < e.id {
+	if e.IsMaster && masterID < e.Id {
 		e.BecameSlave(masterID)
 	}
 }

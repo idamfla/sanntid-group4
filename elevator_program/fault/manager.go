@@ -11,12 +11,12 @@ type Manager struct {
 
 	cfg  Config
 	role Role
-	id   int
+	id   string
 
 	startedAt time.Time
 
 	lastSeenMaster time.Time
-	lastSeenPeer   map[int]time.Time
+	lastSeenPeer   map[string]time.Time
 
 	lastFloorEvent time.Time
 	motorRunning   bool
@@ -26,21 +26,21 @@ type Manager struct {
 
 	OnBecomeMaster    func()
 	OnMasterSuspected func(reason string)
-	OnPeerDead        func(peerID int)
+	OnPeerDead        func(peerID string)
 	OnGoOnline        func()
 	OnGoOffline       func()
 	OnMotorFault      func(reason string)
 	OnNetworkFault    func(reason string)
 }
 
-func NewFaultManager(id int, cfg Config) *Manager {
+func NewFaultManager(id string, cfg Config) *Manager {
 	return &Manager{
 		cfg:            cfg,
 		id:             id,
 		role:           RoleSlave,
 		online:         true,
 		startedAt:      time.Now(),
-		lastSeenPeer:   make(map[int]time.Time),
+		lastSeenPeer:   make(map[string]time.Time),
 		lastFloorEvent: time.Now(),
 		lastSeenMaster: time.Now(),
 	}
@@ -64,14 +64,14 @@ func (fm *Manager) SeenMaster() {
 	}
 }
 
-func (fm *Manager) SeenPeer(peerID int) {
+func (fm *Manager) SeenPeer(peerID string) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
 	fm.lastSeenPeer[peerID] = time.Now()
 }
 
-func (fm *Manager) RemovePeer(peerID int) {
+func (fm *Manager) RemovePeer(peerID string) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
@@ -119,12 +119,12 @@ func (fm *Manager) Role() Role {
 	return fm.role
 }
 
-func (fm *Manager) AlivePeers() []int {
+func (fm *Manager) AlivePeers() []string {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
 	now := time.Now()
-	alive := make([]int, 0, len(fm.lastSeenPeer))
+	alive := make([]string, 0, len(fm.lastSeenPeer))
 
 	for peerID, ts := range fm.lastSeenPeer {
 		if now.Sub(ts) <= fm.cfg.PeerTimeout {
@@ -193,7 +193,7 @@ func (fm *Manager) checkPeerTimeout() {
 	}
 
 	now := time.Now()
-	deadPeers := make([]int, 0)
+	deadPeers := make([]string, 0)
 
 	for peerID, ts := range fm.lastSeenPeer {
 		if now.Sub(ts) > fm.cfg.PeerTimeout {
@@ -250,4 +250,5 @@ func (fm *Manager) Run() {
 		fm.checkMotorTimeout()
 	}
 }
+
 
