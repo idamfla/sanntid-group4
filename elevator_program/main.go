@@ -63,7 +63,7 @@ func testBroadcast_send(srv *server.Server) {
 	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
-		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastData, bcMsg)
+		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, bcMsg)
 		fmt.Println("bcMsg:", srv.ID, ",", bcMsg)
 	}
 }
