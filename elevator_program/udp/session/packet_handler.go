@@ -14,9 +14,10 @@ func (ses *Session) ReceivePacket(pkt packet.Packet) {
 func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
-	if !ses.checkSequence(h.Seq) {
-		fmt.Printf("order of packages is off ... got: %d, expected: %d\n", h.Seq, ses.seq+1)
-		return ses.sendRetry(ses.lastOutPkt)
+	if h.Seq != ses.seq+1 {
+		fmt.Printf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
+			ses.ID, h.Seq, ses.seq+1)
+		return ses.sendRetry(*ses.lastOutPkt)
 
 	}
 
@@ -136,10 +137,6 @@ func (ses *Session) waitForElevatorDone() error {
 	case <-ses.stop:
 		return fmt.Errorf("Session stopped")
 	}
-}
-
-func (ses *Session) checkSequence(seq uint32) bool {
-	return seq == ses.seq+1
 }
 
 // --- lifecycle / timers

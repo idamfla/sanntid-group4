@@ -24,7 +24,7 @@ type Session struct {
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
-	lastOutPkt outgoingMessage
+	lastOutPkt *outgoingMessage
 
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
@@ -58,7 +58,7 @@ func NewSession(id uint32,
 		peerID:   peerAddr.String(),
 		// seq:                seq, // TODO do session even need to look at seq?
 		pendingPkt:         &packet.Packet{},
-		lastOutPkt:         outgoingMessage{},
+		lastOutPkt:         nil,
 		packetInCh:         make(chan packet.Packet, 32),
 		outgoingMsgCh:      make(chan outgoingMessage, 32),
 		remoteCommitTimer:  timer.NewTimer(),

@@ -11,7 +11,7 @@ var emtpyMsg message.Message
 // helper
 func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
-	ses.lastOutPkt = outPkt
+	ses.lastOutPkt = &outPkt
 	return ses.tx.Send(
 		ses.peerAddr,
 		ses.seq,

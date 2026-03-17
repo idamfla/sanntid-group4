@@ -65,3 +65,7 @@ func (e *Elev) Close() {
 
 	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
 }
+
+func (e *Elev) IsMaster() bool {
+	return e.srv.IsMaster()
+}

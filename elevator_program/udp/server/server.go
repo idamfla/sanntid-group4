@@ -152,6 +152,10 @@ func (srv *Server) Close() {
 	})
 }
 
+func (srv *Server) IsMaster() bool {
+	return srv.isMaster
+}
+
 func (srv *Server) SetMaster(isMaster bool) {
 	srv.isMaster = isMaster
 }

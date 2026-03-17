@@ -131,7 +131,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		case bs.masterFound <- struct{}{}:
 		default:
 		}
-		fmt.Println("Someone was elected master")
+		fmt.Println(pkt.Header.SenderAddr, "was elected master")
 		bs.scheduleSessionClose()
 
 	case packet.PKT_T_BroadcastAck:
