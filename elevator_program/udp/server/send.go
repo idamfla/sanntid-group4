@@ -37,49 +37,40 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) er
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueDataMessage(msg)
+	ses.QueueSlaveUpdate(msg)
 	// srv.elevatorTaskQueue()
-	return nil
-}
-
-func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.Message) error {
-	if srv.isLocalAddr(remoteAddr) {
-		err := fmt.Errorf("Tried to report to oneself %s", remoteAddr.String())
-		fmt.Println(err)
-		return err
-	}
-
-	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueMasterMessage(msg)
 	return nil
 }
 
 // Initiate the broadcast message chain
 func (srv *Server) startBroadcast(msg message.Message) {
 	quorum := srv.getQuorum()
-	ses := srv.createBroadcastSession(srv.broadcastAddr, quorum)
+	ses := srv.createBroadcastSession(nil, quorum)
 
 	ses.QueueBroadcastUpdate(msg)
 }
 
-func (srv *Server) startStateSync() {
-	fmt.Printf("Server %s: about to request state sync\n", srv.ID)
-	ses := srv.createSession(srv.broadcastAddr, nil)
-	ses.QueueStateSync()
+func (srv *Server) startWhoIsMasterMsg() {
+	ses := srv.createBroadcastSession(nil, 0)
+
+	ses.QueueWhoIsMasterMsg()
 }
 
+// deciding how to output messages from the server, what type of session they belong to
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_Data:
+	case packet.PKT_T_SlaveUpdate:
 		srv.startSession(outMsg.RemoteAddr, outMsg.Msg)
 	case packet.PKT_T_BroadcastUpdate:
 		srv.startBroadcast(outMsg.Msg)
-	case packet.PKT_T_SlaveReport:
-		// srv.startMasterSession(srvMsg.RemoteAddr, srvMsg.Msg)
-	case packet.PKT_T_StateSync:
-		srv.startStateSync()
-		// TODO what to do when you are completely new???
+	case packet.PKT_T_WhoIsMaster:
+		srv.startWhoIsMasterMsg()
+	}
+
+	peers := srv.getAliveUnsyncedPeers()
+	for _, peer := range peers {
+		peer.QueueMessage(outMsg.Msg)
 	}
 }
 

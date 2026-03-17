@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -19,9 +20,29 @@ func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32)
 	return srv.createSession(senderAddr, &sessionID)
 }
 
+func (srv *Server) getOrCreateBroadcastSession(sessionID uint32) SessionHandler {
+	srv.mu.Lock()
+	bs, exists := srv.sessions[sessionID]
+	srv.mu.Unlock()
+
+	if exists {
+		return bs
+	}
+
+	return srv.createBroadcastSession(&sessionID, 0)
+}
+
 func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
 	sessionID := incPkt.Packet.Header.SessionID
-	ses := srv.getOrCreateSession(senderAddr, sessionID)
+	var ses SessionHandler
+	if incPkt.Packet.Header.PktType == packet.PKT_T_WhoIsMaster {
+		ses = srv.getOrCreateBroadcastSession(sessionID)
+		if srv.isMaster {
+			ses.SendReply(packet.PKT_T_IAmMaster)
+		}
+	} else {
+		ses = srv.getOrCreateSession(senderAddr, sessionID)
+	}
 
 	fmt.Printf(
 		`%s, Session %d:
@@ -89,13 +110,18 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	return ses
 }
 
-func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedResponses int) *session.BroadcastSession {
+func (srv *Server) createBroadcastSession(sessionID *uint32, expectedResponses int) *session.BroadcastSession {
 	// generate unique id
-	id := srv.generateSessionIDLocked()
+	var id uint32
+	if sessionID != nil {
+		id = *sessionID
+	} else {
+		id = srv.generateSessionIDLocked()
+	}
 
 	bs := session.NewBroadcastSession(
 		id,
-		remoteAddr,
+		srv.broadcastAddr,
 		srv.closeReq,
 		srv,
 		expectedResponses,

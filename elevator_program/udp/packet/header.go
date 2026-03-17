@@ -5,43 +5,45 @@ type PacketType int
 const (
 	PKT_T_Heartbeat PacketType = iota
 	PKT_T_LostConn
-	PKT_T_Data
-	PKT_T_SlaveReport
-	PKT_T_RequestNewOrder
+
+	PKT_T_WhoIsMaster
+	PKT_T_IAmMaster
+
+	PKT_T_SlaveUpdate
+	PKT_T_SlaveUpdateAck
+
 	PKT_T_BroadcastUpdate
-	PKT_T_StateSync
-	PKT_T_Ack
-	PKT_T_BroadcastUpdateAck
-	PKT_T_ReportAck
-	PKT_T_Commit
-	PKT_T_ElevatorFailed
+	PKT_T_BroadcastAck
 	PKT_T_BroadcastCommit
-	PKT_T_Done
 	PKT_T_BroadcastDone
+
+	PKT_T_SyncRequest
+	PKT_T_SyncAck
+
+	PKT_T_StateSnapshot
+	PKT_T_SnapshotAck
+
+	PKT_T_ElevatorFailed
 )
+
+// TODO combine all MasterDoSomethingRequest: slavereport,requestneworder, data. Dont need report and report ack
+/*
+commit and done is redundant, ack closes one to one msg -> changes only happen when master broadcast. look at msg receiver field for who should do what
+- {this is me: ip, who is master} x3 -> (if someone is master) -> wait 5 sec -> one send {i am master, ip}
+											|-> sync -> who should be master (should new be master)
+*/
 
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat       ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)       // broadcast
-	PROTO_PKT_T_LostConn        ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)        // broadcast
-	PROTO_PKT_T_Data            ProtocolPacketType = ProtocolPacketType(PKT_T_Data)            // master -> slave
-	PROTO_PKT_T_SlaveReport     ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveReport)     // slave -> master
-	PROTO_PKT_T_RequestNewOrder ProtocolPacketType = ProtocolPacketType(PKT_T_RequestNewOrder) // slave -> master
+	PROTO_PKT_T_Heartbeat       ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat) // broadcast
+	PROTO_PKT_T_LostConn        ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)  // broadcast
+	PROTO_PKT_T_WhoIsMaster     ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)
+	PROTO_PKT_T_SlaveUpdate     ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)     // slave -> master
 	PROTO_PKT_T_BroadcastUpdate ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate) // master -> broadcast
-	PROTO_PKT_T_StateSync       ProtocolPacketType = ProtocolPacketType(PKT_T_StateSync)       // unknown -> broadcast
+	PROTO_PKT_T_SyncRequest     ProtocolPacketType = ProtocolPacketType(PKT_T_SyncRequest)     // slave -> master
+	PROTO_PKT_T_StateSnapshot   ProtocolPacketType = ProtocolPacketType(PKT_T_StateSnapshot)   // master -> slave
 )
-
-// TODO
-/*
-1. lost conn - broadcast
-2. master control - ask for new order, one-to-one
-3. button press - have master broadcast, one-to-one
-4. master assign task - one-to-one
-5. master broadcast - broadcast
-6. new to network - get id etc ..., boadcast
-7. heartbeat - master broadcast
-*/
 
 type Header struct {
 	Seq           uint32
@@ -57,32 +59,32 @@ func (p PacketType) String() string {
 		return "Heartbeat"
 	case PKT_T_LostConn:
 		return "Lost connection ..."
-	case PKT_T_Data:
-		return "Data"
-	case PKT_T_SlaveReport:
-		return "Slave Report"
-	case PKT_T_RequestNewOrder:
-		return "Slave requested new order"
+	case PKT_T_WhoIsMaster:
+		return "Who is master"
+	case PKT_T_IAmMaster:
+		return "I am master"
+	case PKT_T_SlaveUpdate:
+		return "Slave Notify"
+	case PKT_T_SlaveUpdateAck:
+		return "Slave Notify Ack"
 	case PKT_T_BroadcastUpdate:
 		return "Broadcast Update"
-	case PKT_T_StateSync:
-		return "State Sync"
-	case PKT_T_Ack:
-		return "Ack"
-	case PKT_T_BroadcastUpdateAck:
-		return "Broadcast Update Ack"
-	case PKT_T_ReportAck:
-		return "Master Ack"
-	case PKT_T_Commit:
-		return "Commit"
-	case PKT_T_ElevatorFailed:
-		return "Elevator Failed"
+	case PKT_T_BroadcastAck:
+		return "Broadcast Ack"
 	case PKT_T_BroadcastCommit:
 		return "Broadcast Commit"
-	case PKT_T_Done:
-		return "Done"
 	case PKT_T_BroadcastDone:
 		return "Broadcast Done"
+	case PKT_T_SyncRequest:
+		return "Sync Request"
+	case PKT_T_SyncAck:
+		return "Sync Ack"
+	case PKT_T_StateSnapshot:
+		return "State Snapshot"
+	case PKT_T_SnapshotAck:
+		return "Snapshot Ack"
+	case PKT_T_ElevatorFailed:
+		return "Elevator Failed"
 	default:
 		return "unknown"
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
-	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
@@ -93,14 +92,14 @@ func main() {
 
 	eB.QueueMessage(
 		nil,
-		packet.PROTO_PKT_T_StateSync,
+		packet.PROTO_PKT_T_WhoIsMaster,
 		message.Message{},
 	)
-	eA.QueueMessage(
-		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_Data,
-		message.Message{Content: "Hello from A!"},
-	)
+	// eA.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_Data,
+	// 	message.Message{Content: "Hello from A!"},
+	// )
 
 	closeProgram(eA, eB)
 

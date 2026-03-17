@@ -13,11 +13,13 @@ type SessionHandler interface {
 	ReceivePacket(packet.Packet)
 	Start()
 	Close()
+	SendReply(pkt packet.PacketType)
 }
 
 type Server struct {
 	ID            string
 	isMaster      bool
+	isSynced      bool
 	incPktCh      chan incomingPacket
 	outgoingMsgCh chan outgoingMessage
 	recvConn      *net.UDPConn
@@ -38,7 +40,7 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, isMaster bool, toElevator chan session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, isMaster bool, toElevator chan session.ElevatorPacket) (*Server, error) { // TODO isMaster is default false, set by election or something
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -73,6 +75,7 @@ func NewServer(ip string, port int, id string, isMaster bool, toElevator chan se
 	srv := &Server{
 		ID:                id,
 		isMaster:          isMaster,
+		isSynced:          false,
 		incPktCh:          make(chan incomingPacket),
 		outgoingMsgCh:     make(chan outgoingMessage),
 		recvConn:          recvConn,

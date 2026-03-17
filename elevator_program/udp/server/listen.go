@@ -64,7 +64,7 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 		return
 	}
 
-	if incPkt.Packet.Header.PktType == packet.PKT_T_StateSync {
+	if incPkt.Packet.Header.PktType == packet.PKT_T_SyncRequest {
 		srv.handleStateSyncPacket(senderAddr)
 		return
 	}

@@ -74,6 +74,8 @@ func (bs *BroadcastSession) Close() {
 
 func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 	switch pktType {
+	case packet.PKT_T_WhoIsMaster:
+
 	case packet.PKT_T_BroadcastUpdate:
 		bs.QueueElevatorTask()
 		bs.startAckTimer()
@@ -96,16 +98,19 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	bs.mu.Unlock()
 
 	switch h.PktType {
-	case packet.PKT_T_BroadcastUpdateAck:
+	case packet.PKT_T_WhoIsMaster:
+		// TODO what to do if no master ...
+
+	case packet.PKT_T_BroadcastAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
 		if quorumReached {
 			bs.seq++
 			bs.stopAckTimer()
 
 			// TODO elevator should receive and then start a broadcast session where it send the packet to everyone
-			bs.signalTaskReady()
+			bs.notifyTaskReady()
 
-			bs.sendReply(packet.PKT_T_BroadcastCommit)
+			bs.SendReply(packet.PKT_T_BroadcastCommit)
 			bs.responsesReceived = 0
 		}
 	case packet.PKT_T_BroadcastDone:

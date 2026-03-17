@@ -46,3 +46,7 @@ func (srv *Server) sendToElevator(elevTask ElevatorTask) {
 		Done:   elevTask.ElevPacket.Done,
 	}
 }
+
+func (srv *Server) QueueElevatorSnapshot() {
+	// TODO how to notify ...
+}

@@ -21,16 +21,9 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 	)
 }
 
-func (ses *Session) QueueDataMessage(msg message.Message) {
+func (ses *Session) QueueSlaveUpdate(msg message.Message) {
 	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_Data,
-		Msg:     msg,
-	}
-}
-
-func (ses *Session) QueueMasterMessage(msg message.Message) {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_SlaveReport,
+		PktType: packet.PKT_T_SlaveUpdate,
 		Msg:     msg,
 	}
 }
@@ -42,14 +35,21 @@ func (ses *Session) QueueBroadcastUpdate(msg message.Message) {
 	}
 }
 
-func (ses *Session) QueueStateSync() {
+func (ses *Session) QueueWhoIsMasterMsg() {
 	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_StateSync,
+		PktType: packet.PKT_T_WhoIsMaster,
 		Msg:     emtpyMsg,
 	}
 }
 
-func (ses *Session) sendReply(pktType packet.PacketType) {
+// func (ses *Session) QueueStateSync() {
+// 	ses.outgoingMsgCh <- outgoingMessage{
+// 		PktType: packet.PKT_T_StateSync,
+// 		Msg:     emtpyMsg,
+// 	}
+// }
+
+func (ses *Session) SendReply(pktType packet.PacketType) {
 	done := make(chan struct{})
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
@@ -62,9 +62,8 @@ func (ses *Session) sendReply(pktType packet.PacketType) {
 func (ses *Session) sendDoneAck(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastCommit:
-		ses.sendReply(packet.PKT_T_BroadcastDone)
+		ses.SendReply(packet.PKT_T_BroadcastDone)
 	default:
-		ses.sendReply(packet.PKT_T_Done)
 	}
 }
 

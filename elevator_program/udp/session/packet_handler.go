@@ -41,67 +41,63 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		fmt.Printf("%s lost connection ...", h.SenderAddr)
 		// TODO what to do now?
 
-	case packet.PKT_T_Data, packet.PKT_T_BroadcastUpdate, packet.PKT_T_SlaveReport:
-		ses.handleData(&pkt, h.PktType)
+	case packet.PKT_T_SlaveUpdate, packet.PKT_T_SyncRequest:
+		ses.handleWorkerRequest(&pkt, h.PktType)
+
+	case packet.PKT_T_StateSnapshot:
+		ses.handleSnapshot()
+
+	case packet.PKT_T_BroadcastUpdate:
+		ses.SendReply(packet.PKT_T_BroadcastAck)
 		ses.QueueElevatorTask()
 
-	case packet.PKT_T_Ack:
-		ses.sendReply(packet.PKT_T_Commit)
-		ses.remoteCommitTimer.Restart(udp.REMOTE_COMMIT_TIMEOUT*time.Second, func() {
-			fmt.Println("The receiving elevator did not commit the task ...")
-			// TODO what now??
-			// ses.closeReq <- ses.ID
-		})
+	case packet.PKT_T_SyncAck, packet.PKT_T_SlaveUpdateAck, packet.PKT_T_SnapshotAck:
+		ses.remoteCommitTimer.Stop()
+		ses.requestClose()
+	// TODO master must give it an id, send it all important updates
+	/*
+		maybe send to elevator, elevator send done when it receive. the master elevator handle the request and use its server to start
+		communication witht the wondering elevator on a private session another session
+	*/
 
-	case packet.PKT_T_Commit, packet.PKT_T_BroadcastCommit:
-		go ses.handleCommit(h.PktType)
+	case packet.PKT_T_BroadcastCommit:
+		go ses.handleBroadcastCommit(h.PktType)
 
 	case packet.PKT_T_ElevatorFailed:
 		// TODO fault tolerence? what to do now ...
 
-	case packet.PKT_T_Done, packet.PKT_T_ReportAck:
-		ses.remoteCommitTimer.Stop()
-		ses.requestClose()
-
-	case packet.PKT_T_RequestNewOrder:
-		ses.pendingPkt = &pkt
-		go ses.handleRequestNewOrder(ses.pendingPkt)
-	case packet.PKT_T_StateSync:
-		// TODO master must give it an id, send it all important updates
-		/*
-			maybe send to elevator, elevator send done when it receive. the master elevator handle the request and use its server to start
-			communication witht the wondering elevator on a private session another session
-		*/
 	}
 	return nil
 }
 
-func (ses *Session) handleData(pkt *packet.Packet, pktType packet.PacketType) {
+func (ses *Session) handleWorkerRequest(pkt *packet.Packet, pktType packet.PacketType) {
 	ses.pendingPkt = pkt
 	switch pktType {
-	case packet.PKT_T_BroadcastUpdate:
-		ses.sendReply(packet.PKT_T_BroadcastUpdateAck)
-	case packet.PKT_T_SlaveReport:
-		ses.sendReply(packet.PKT_T_ReportAck)
+	case packet.PKT_T_SyncRequest:
+		ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 
-		// select {
-		// case ses.taskReady <- struct{}{}:
-		// case <-ses.stop:
-		// } // TODO elevator should receive and then start a broadcast session where it send the packet to everyone
-		// ses.waitForElevatorDone()
-
-		ses.scheduleSessionClose()
-	default:
-		ses.sendReply(packet.PKT_T_Ack)
+	case packet.PKT_T_SlaveUpdate:
+		ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	}
+
+	ses.QueueElevatorTask()
+	ses.notifyTaskReady()
+	ses.scheduleSessionClose()
+}
+
+func (ses *Session) handleSnapshot() {
+	ses.SendReply(packet.PKT_T_SnapshotAck)
+	ses.QueueElevatorTask()
+	ses.notifyTaskReady()
+	ses.scheduleSessionClose()
 }
 
 func (ses *Session) QueueElevatorTask() {
 	ses.tx.QueueElevatorTask(*ses.pendingPkt, ses.elevDone, ses.taskReady)
 }
 
-func (ses *Session) handleCommit(pktType packet.PacketType) {
-	ses.signalTaskReady()
+func (ses *Session) handleBroadcastCommit(pktType packet.PacketType) {
+	ses.notifyTaskReady()
 	if err := ses.waitForElevatorDoneWithReply(); err != nil {
 		return
 	}
@@ -112,25 +108,17 @@ func (ses *Session) handleCommit(pktType packet.PacketType) {
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) signalTaskReady() {
+func (ses *Session) notifyTaskReady() {
 	select {
 	case ses.taskReady <- struct{}{}:
 	case <-ses.stop:
 	}
 }
 
-func (ses *Session) handleRequestNewOrder(pkt *packet.Packet) { // TODO
-	// if err := ses.waitForElevatorDoneWithReply(); err != nil {
-	// 	return
-	// }
-	// ses.scheduleSessionClose()
-	// ses.sendReply(packet.PKT_T_Done)
-}
-
 // --- elevator interaction
 func (ses *Session) waitForElevatorDoneWithReply() error {
 	if err := ses.waitForElevatorDone(); err != nil {
-		ses.sendReply(packet.PKT_T_ElevatorFailed)
+		ses.SendReply(packet.PKT_T_ElevatorFailed)
 		fmt.Println(err)
 		return err
 	}
