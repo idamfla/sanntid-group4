@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
@@ -12,7 +13,7 @@ type ElevatorTask struct {
 	Ready      <-chan struct{}
 }
 
-func (srv *Server) sendTaskLoop() { // TODO should i waitForElevator here or in session?
+func (srv *Server) sendTaskLoop() {
 	defer srv.wg.Done()
 
 	for task := range srv.elevatorTaskQueue {
@@ -21,7 +22,7 @@ func (srv *Server) sendTaskLoop() { // TODO should i waitForElevator here or in 
 		case <-task.Ready:
 			fmt.Println(srv.ID, "task ready, sending to elevator")
 			srv.sendToElevator(task)
-		case <-time.After(5 * time.Second): // TODO magic number, find name for how long to wait for a task to be ready
+		case <-time.After(udp.TASK_READY_TIMEOUT * time.Second): // TODO magic number, find name for how long to wait for a task to be ready
 			fmt.Println(srv.ID, "task never became ready, skipping")
 			return
 		}

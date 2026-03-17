@@ -11,34 +11,36 @@ import (
 )
 
 type Elev struct {
-	ID  string
-	ch  chan session.ElevatorPacket
-	srv *server.Server
-	wg  sync.WaitGroup
+	ID       string
+	isMaster bool
+	ch       chan session.ElevatorPacket
+	srv      *server.Server
+	wg       sync.WaitGroup
 }
 
-func NewElev(id string) *Elev {
+func NewElev(id string, isMaster bool) *Elev {
 	return &Elev{
-		ID: id,
-		ch: make(chan session.ElevatorPacket),
+		ID:       id,
+		isMaster: isMaster,
+		ch:       make(chan session.ElevatorPacket),
 	}
 }
 
 func (e *Elev) StartServer(ip string, port int) error {
-	srv, err := server.NewServer(ip, port, e.ID, e.ch)
+	srv, err := server.NewServer(ip, port, e.ID, e.isMaster, e.ch)
 	if err != nil {
 		return err
 	}
 
 	e.srv = srv
-	fmt.Println("Server", e.srv.ID, "is running...")
+	fmt.Println("Server", e.srv.ID, "is running ...")
 	return nil
 }
 
 func (e *Elev) listen() {
 	defer e.wg.Done()
 	for msg := range e.ch {
-		fmt.Println("Got elevator packet:", msg.Packet.Payload.Content)
+		fmt.Println("elev got elevator packet:", msg.Packet.Payload.Content)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
 		}

@@ -1,6 +1,9 @@
 package server
 
 import (
+	"elevator_program/udp/message"
+	"elevator_program/udp/packet"
+	"fmt"
 	"net"
 	"time"
 )
@@ -18,25 +21,41 @@ func (srv *Server) activePeerCount() int {
 	return count
 }
 
-func (srv *Server) nextSeq(addr *net.UDPAddr) uint32 {
+func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*PeerInfo, bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	key := addr.String()
-	peer, ok := srv.peers[key]
-	if !ok {
-		peer = &PeerInfo{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
+	peer, exists := srv.peers[key]
+	if !exists {
+		peer = NewPeer(addr)
 		srv.peers[key] = peer
+		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)
+		return peer, true
 	}
 
-	// Assign current seq to the outgoing message
-	seq := peer.Seq
+	peer.LastSeen = time.Now()
+	return peer, false
+}
 
-	// Increment for next message
-	peer.Seq++
-	if peer.Seq >= seq { // optional wrap-around
-		peer.Seq = 0
+func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
+	peer, isNew := srv.getOrCreatePeer(addr)
+
+	wasRevived := !isNew && !peer.Active
+	if wasRevived {
+		peer.Active = true
+		peer.LastSeen = time.Now()
 	}
 
-	return seq
+	if (forceSync || isNew || wasRevived) && srv.isMaster {
+		go srv.syncPeer(addr.String())
+	}
+}
+
+func (srv *Server) syncPeer(key string) {
+	srv.mu.Lock()
+	peer := srv.peers[key]
+	srv.mu.Unlock()
+
+	srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_Data, message.Message{Content: "information to sync ..."}) // TODO what this should actually contain, should it be another type? sync this content kind of, snapshot or something
 }

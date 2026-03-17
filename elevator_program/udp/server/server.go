@@ -4,6 +4,7 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
+	"fmt"
 	"net"
 	"sync"
 )
@@ -16,6 +17,7 @@ type SessionHandler interface {
 
 type Server struct {
 	ID            string
+	isMaster      bool
 	incPktCh      chan incomingPacket
 	outgoingMsgCh chan outgoingMessage
 	recvConn      *net.UDPConn
@@ -36,7 +38,7 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, id string, isMaster bool, toElevator chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -70,6 +72,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 
 	srv := &Server{
 		ID:                id,
+		isMaster:          isMaster,
 		incPktCh:          make(chan incomingPacket),
 		outgoingMsgCh:     make(chan outgoingMessage),
 		recvConn:          recvConn,
@@ -98,6 +101,11 @@ func (srv *Server) Start() {
 	srv.wg.Add(4)
 	go srv.readLoop(srv.recvConn)
 	go srv.readLoop(srv.broadcastConn)
+	fmt.Printf(`Server %s: listening on %s
+			%s
+`,
+		srv.ID, srv.recvConn.LocalAddr().String(), srv.broadcastConn.LocalAddr().String(),
+	)
 
 	go srv.run()
 	go srv.sendTaskLoop()
@@ -111,7 +119,7 @@ func (srv *Server) run() {
 			srv.closeSession(id)
 
 		case incPkt := <-srv.incPktCh:
-			srv.routeToSession(incPkt)
+			srv.routeInkPkt(incPkt)
 
 		case outMsg := <-srv.outgoingMsgCh:
 			srv.wg.Add(1)

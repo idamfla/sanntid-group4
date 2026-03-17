@@ -66,7 +66,7 @@ func (p PacketType) String() string {
 	case PKT_T_BroadcastUpdate:
 		return "Broadcast Update"
 	case PKT_T_StateSync:
-		return "New Node"
+		return "State Sync"
 	case PKT_T_Ack:
 		return "Ack"
 	case PKT_T_BroadcastUpdateAck:

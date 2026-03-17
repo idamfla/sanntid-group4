@@ -13,6 +13,8 @@ const (
 	REMOTE_COMMIT_TIMEOUT    = 10
 	BROADCAST_ACK_TIMEOUT    = 15
 	BROADCAST_COMMIT_TIMEOUT = 15
+	TASK_READY_TIMEOUT       = 10
+	// PEER_TIMEOUT             = 15
 
 	// --- IP and Port ---
 	// Group4IP        = "10.100.23.15"

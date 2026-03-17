@@ -6,9 +6,17 @@ import (
 )
 
 type PeerInfo struct {
-	Addr       *net.UDPAddr
-	Seq        uint32
-	Active     bool
-	LastSeen   time.Time
-	SessionIDs []uint32
+	Addr     *net.UDPAddr
+	LastSeen time.Time
+	Active   bool
+	IsMaster bool
+}
+
+func NewPeer(addr *net.UDPAddr) *PeerInfo {
+	return &PeerInfo{
+		Addr:     addr,
+		LastSeen: time.Now(),
+		Active:   true,
+		IsMaster: false,
+	}
 }

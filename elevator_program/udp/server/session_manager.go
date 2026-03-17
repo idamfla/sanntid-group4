@@ -19,6 +19,28 @@ func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32)
 	return srv.createSession(senderAddr, &sessionID)
 }
 
+func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
+	sessionID := incPkt.Packet.Header.SessionID
+	ses := srv.getOrCreateSession(senderAddr, sessionID)
+
+	fmt.Printf(
+		`%s, Session %d:
+	sent from : %s
+	to        : %s
+	reply sock: %s
+	pktType   : %s
+`,
+		srv.ID,
+		incPkt.Packet.Header.SessionID,
+		incPkt.Addr.String(),
+		incPkt.Packet.Header.RecipientAddr,
+		senderAddr.String(),
+		incPkt.Packet.Header.PktType,
+	)
+
+	ses.ReceivePacket(incPkt.Packet)
+}
+
 // helper function, not called directly: *unsafe*
 func (srv *Server) closeSessionLocked(sesID uint32) {
 	ses, exists := srv.sessions[sesID]
@@ -58,6 +80,8 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	}
 
 	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
+	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
+
 	srv.mu.Lock()
 	srv.sessions[ses.ID] = ses
 	srv.mu.Unlock()
@@ -76,6 +100,7 @@ func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedRespo
 		srv,
 		expectedResponses,
 	)
+	fmt.Printf("Server %s: new broadcast session: %d\n", srv.ID, id)
 
 	// store it in sessions map (so server tracks it)
 	srv.mu.Lock()

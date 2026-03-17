@@ -112,7 +112,6 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		fmt.Printf("bcDone: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
 		if quorumReached {
 			bs.seq++
-			bs.pendingPkt = nil
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()
 		}

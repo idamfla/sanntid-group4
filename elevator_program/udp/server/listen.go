@@ -13,7 +13,7 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 	defer srv.wg.Done()
 	buf := make([]byte, 2048)
 
-	fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
+	// fmt.Println(srv.ID, "listening on", conn.LocalAddr().String())
 
 	for {
 		n, addr, err := conn.ReadFromUDP(buf)
@@ -58,31 +58,25 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	return pc.(*net.UDPConn), nil
 }
 
-func (srv *Server) routeToSession(incPkt incomingPacket) {
+func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
 	}
 
-	sessionID := incPkt.Packet.Header.SessionID
-	ses := srv.getOrCreateSession(senderAddr, sessionID)
+	if incPkt.Packet.Header.PktType == packet.PKT_T_StateSync {
+		srv.handleStateSyncPacket(senderAddr)
+		return
+	}
 
-	fmt.Printf(
-		`%s, Session %d:
-	sent from : %s
-	to        : %s
-	reply sock: %s
-	pktType   : %s
-`,
-		srv.ID,
-		incPkt.Packet.Header.SessionID,
-		incPkt.Addr.String(),
-		incPkt.Packet.Header.RecipientAddr,
-		senderAddr.String(),
-		incPkt.Packet.Header.PktType,
-	)
+	srv.registerOrUpdatePeer(senderAddr, false)
 
-	ses.ReceivePacket(incPkt.Packet)
+	srv.deliverToSession(senderAddr, incPkt)
+}
+
+func (srv *Server) handleStateSyncPacket(addr *net.UDPAddr) {
+	srv.registerOrUpdatePeer(addr, true)
+	fmt.Println("StateSync packet: peer registration and sync only")
 }
 
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {

@@ -72,7 +72,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	eA := elevtest.NewElev("A")
+	eA := elevtest.NewElev("A", true)
 
 	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
@@ -80,7 +80,7 @@ func main() {
 		return
 	}
 
-	eB := elevtest.NewElev("B")
+	eB := elevtest.NewElev("B", false)
 
 	err = eB.StartServer(localIP, 9001)
 	if err != nil {
@@ -91,10 +91,15 @@ func main() {
 	eA.Start()
 	eB.Start()
 
+	eB.QueueMessage(
+		nil,
+		packet.PROTO_PKT_T_StateSync,
+		message.Message{},
+	)
 	eA.QueueMessage(
 		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_BroadcastUpdate,
-		message.Message{Content: "Hello A!"},
+		packet.PROTO_PKT_T_Data,
+		message.Message{Content: "Hello from A!"},
 	)
 
 	closeProgram(eA, eB)

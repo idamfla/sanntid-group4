@@ -63,6 +63,7 @@ func (srv *Server) startBroadcast(msg message.Message) {
 }
 
 func (srv *Server) startStateSync() {
+	fmt.Printf("Server %s: about to request state sync\n", srv.ID)
 	ses := srv.createSession(srv.broadcastAddr, nil)
 	ses.QueueStateSync()
 }

@@ -13,7 +13,7 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
 	return ses.tx.Send(
-		ses.senderAddr,
+		ses.peerAddr,
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
@@ -70,7 +70,7 @@ func (ses *Session) sendDoneAck(pktType packet.PacketType) {
 
 func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 	return ses.tx.Send(
-		ses.senderAddr,
+		ses.peerAddr,
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
