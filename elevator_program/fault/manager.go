@@ -165,6 +165,8 @@ func (fm *Manager) checkMasterTimeout() {
 			fm.online = false
 			shouldNotify = true
 			onMasterSuspected = fm.OnMasterSuspected
+			onGoOffline = fm.OnGoOffline
+			OnNetworkFault = fm.OnNetworkFault
 		}
 	}
 
