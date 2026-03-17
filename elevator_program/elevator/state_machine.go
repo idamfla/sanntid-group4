@@ -125,7 +125,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.doorState = DS_Opening
 			elevatorStatus.State = types.ES_Idle
 			msg := message.Message{
-				MsgType:   types.MSG_T_TaskUpdate,
+				MsgType:   types.MSG_T_ButtonPress,
 				Id:        e.Id,
 				Task:      e.nextTarget,
 				BtnStatus: types.NotActive,

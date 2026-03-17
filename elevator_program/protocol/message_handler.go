@@ -21,7 +21,6 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
-		fmt.Println("Status rapport: ", e.System)
 
 	case types.MSG_T_TaskUpdate:
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
@@ -32,21 +31,20 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
 	case types.MSG_T_LostComs:
-		e.HandleLostConnection(msg.Id)
+		if !e.ConnectedToMaster() {
+			e.HandleLostConnection(msg.Id)
+		}
 
 	case types.MSG_T_ElevatorLost:
-		isConnectedToMaster := e.ConnectedToMaster()
-		if isConnectedToMaster {
+		if e.ConnectedToMaster() {
 			msg.Id = "" // Send "" if connected, TODO kind of wierd to send the value on Id
 		} else {
 			msg.Id = e.Id
 		}
-		msg.MsgType = types.MSG_T_LostComs
-		fmt.Println("Message handler 1")
+		msg.MsgType = types.MSG_T_ElevatorLost
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_NewToChannel:
-		fmt.Println("Messaging: ", msg)
 		if e.ConnectedToMaster() {
 			e.IpRegistery[msg.Ip] = msg.Id // TODO now we can update IpRegistery for the others as well, is it smart?
 			e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -58,21 +56,27 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 			// The one with smallest ip gets to be master
 			senderIdInt, _ := strconv.Atoi(msg.Id)
 			ownIdInt, _ := strconv.Atoi(e.Id)
-			if ownIdInt < senderIdInt {
+			if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
 				e.TurnToMaster()
+				p.portRegistery["master"] = p.portSelf
 
 				msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-				fmt.Println("Now i am going to send back that this one is connected to network: ", msg)
+				// fmt.Println("Now i am going to send back that this one is connected to network: ", msg)
 				e.IpRegistery[msg.Ip] = id
-				fmt.Println("Message handler 2")
+
+				p.activePeers++
+				// p.Server.UpdateActivePeers(p.activePeers)
+				msg.ActivePeers = p.activePeers
+
 				e.SendToProtocol <- msg
+				return
 			} else {
 				// You are not the master, continiue
 				return // TODO is it possible the last number is the same?
 			}
 		}
 		p.activePeers = msg.ActivePeers
-		p.Server.UpdateActivePeers(p.activePeers)
+		// p.Server.UpdateActivePeers(p.activePeers)
 	}
 }
 
@@ -82,14 +86,12 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
-		fmt.Println("Message handler 3")
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
 
 		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task)
-		fmt.Println("aM i at buttonpress??")
 		if taskElevatorId != "" {
 			msg.MsgType = types.MSG_T_TaskUpdate
 			msg.Id = taskElevatorId
@@ -98,14 +100,12 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		} else { // If it is not the case we just need to broadcast the change
 			msg.MsgType = types.MSG_T_TaskUpdate
 			msg.Id = ""
-			msg.BtnStatus = types.Pending
 		}
-		fmt.Println("Message handler 4")
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_TaskUpdate:
-		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)      // TODO These shouldn't be uppdated before everyone is ready
-		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button) // TODO SetRequestStatus can be there but not the light
+		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
+		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
@@ -113,22 +113,20 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 		currentFloor := msg.Elevators[msg.Id].CurrentFloor
 		direction := msg.Elevators[msg.Id].Direction
 		task := e.ComputeNewTarget(currentFloor, cabRequestsTemp, direction)
-		fmt.Println("Need to send new task: ", task)
 		if task.Floor != -1 {
 			// Broadcast new assignment if we found a new task
 			msg.Task = task
 			msg.BtnStatus = types.Running
-			fmt.Println("Message handler 5")
 			e.SendToProtocol <- msg
 		}
 
 	case types.MSG_T_NewToChannel:
 		p.activePeers++
-		p.Server.UpdateActivePeers(p.activePeers)
+		// p.Server.UpdateActivePeers(p.activePeers)
 
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
+		msg.ActivePeers = p.activePeers
 		e.IpRegistery[msg.Ip] = id
-		fmt.Println("Message handler 6")
 		e.SendToProtocol <- msg
 	}
 }
@@ -137,7 +135,6 @@ func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	if e.IsMaster {
 		p.masterMessageHandler(e, msg)
 	} else {
-		fmt.Println("5000 IDown, idmsg: ", e.Id, msg.Id)
 		p.slaveMessageHandler(e, msg)
 	}
 }
@@ -145,9 +142,7 @@ func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
 func (p *Protocol) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
 	for pktCtx := range p.msgRecieveCh {
-		fmt.Println("Wallah broren min")
 		msg := pktCtx.Packet.Payload
-		fmt.Println("IDown, idmsg: ", e.Id, msg.Id)
 		p.MessageHandler(e, msg)
 		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e.System)
 		if pktCtx.Done != nil {

@@ -39,7 +39,7 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := protocol.Protocol{}
-	p.InitProtocol()
+	p.InitProtocol(9000)
 	// p.StartServer(ip_address, 5000, id)
 	p.Start(&e)
 	// TODO MAybe the right spot to put it
@@ -127,7 +127,7 @@ func main() {
 	e1 := elevator.Elevator{}
 	e1.InitElevator("1", 4, 3, localIP, 9000)
 	p1 := protocol.Protocol{}
-	p1.InitProtocol()
+	p1.InitProtocol(9000)
 	err := p1.StartServer(localIP, 9000, "1")
 	if err != nil {
 		fmt.Println(err)
@@ -142,7 +142,7 @@ func main() {
 	e2 := elevator.Elevator{}
 	e2.InitElevator("2", 4, 3, localIP, 9001)
 	p2 := protocol.Protocol{}
-	p2.InitProtocol()
+	p2.InitProtocol(9001)
 	err = p2.StartServer(localIP, 9001, "2")
 	if err != nil {
 		fmt.Println(err)
@@ -171,19 +171,19 @@ func main() {
 	// 		"2": vierdElev,
 	// 	},
 	// }
+	// time.Sleep(2 * time.Second)
 
 	// msg := message.Message{
-	// 	MsgType: types.MSG_T_NewToChannel,
-	// 	Id:      "2",
-	// 	Ip:      e2.Ip,
-	// 	Elevators: map[string]types.ElevatorsStatus{
-	// 		e2.Id: e2.System.Elevators[e2.Id],
-	// 	},
+	// 	MsgType: types.MSG_T_LostComs,
+	// 	Id:      "1",
+	// 	Ip:      e1.Ip,
 	// }
 
+	// fmt.Println("Connected to master, ", e2.ConnectedToMaster())
+	// e1.IsMaster = false
 	// time.Sleep(2 * time.Second)
 	// fmt.Println("Sending now")
-	// p2.SendMessageSlave(&e2, msg)
+	// p1.SendMessageSlave(&e1, msg)
 
 	// msg = message.Message{
 	// 	MsgType:   types.MSG_T_TaskUpdate,
