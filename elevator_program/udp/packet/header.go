@@ -4,6 +4,7 @@ type PacketType int
 
 const (
 	PKT_T_Heartbeat PacketType = iota
+	PKT_T_IAmAlive
 	PKT_T_LostConn
 
 	PKT_T_WhoIsMaster
@@ -57,6 +58,8 @@ func (p PacketType) String() string {
 	switch p {
 	case PKT_T_Heartbeat:
 		return "Heartbeat"
+	case PKT_T_IAmAlive:
+		return "I am alive"
 	case PKT_T_LostConn:
 		return "Lost connection ..."
 	case PKT_T_WhoIsMaster:

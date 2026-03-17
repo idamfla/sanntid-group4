@@ -34,13 +34,24 @@ func (srv *Server) getOrCreateBroadcastSession(sessionID uint32) SessionHandler 
 
 func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
 	sessionID := incPkt.Packet.Header.SessionID
+	pktType := incPkt.Packet.Header.PktType
+
 	var ses SessionHandler
-	if incPkt.Packet.Header.PktType == packet.PKT_T_WhoIsMaster {
+
+	switch pktType {
+	case packet.PKT_T_WhoIsMaster:
 		ses = srv.getOrCreateBroadcastSession(sessionID)
 		if srv.isMaster {
 			ses.SendReply(packet.PKT_T_IAmMaster)
 		}
-	} else {
+	case packet.PKT_T_IAmMaster:
+		key := incPkt.Packet.Header.SenderAddr
+		if peer, exists := srv.peers[key]; exists {
+			peer.SetMaster(true)
+		}
+		// srv.PrintPeers()
+		ses = srv.getOrCreateSession(senderAddr, sessionID)
+	default:
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}
 
@@ -56,7 +67,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		incPkt.Addr.String(),
 		incPkt.Packet.Header.RecipientAddr,
 		senderAddr.String(),
-		incPkt.Packet.Header.PktType,
+		pktType,
 	)
 
 	ses.ReceivePacket(incPkt.Packet)
@@ -121,6 +132,7 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, expectedResponses i
 
 	bs := session.NewBroadcastSession(
 		id,
+		srv.recvConn.LocalAddr().String(),
 		srv.broadcastAddr,
 		srv.closeReq,
 		srv,

@@ -3,24 +3,25 @@ package udp
 import (
 	"fmt"
 	"net"
+	"time"
 )
 
 const (
-	RETRY_FREQUENCY          = 50
-	MAX_RETRIES              = 5
-	SHUTDOWN_TIMEOUT         = 5
-	LOCAL_COMMIT_TIMEOUT     = 5
-	REMOTE_COMMIT_TIMEOUT    = 10
-	BROADCAST_ACK_TIMEOUT    = 15
-	BROADCAST_COMMIT_TIMEOUT = 15
-	TASK_READY_TIMEOUT       = 10
+	RETRY_INTERVAL           = 500 * time.Millisecond
+	MAX_RETRIES              = 10
+	SHUTDOWN_TIMEOUT         = 5 * time.Second
+	LOCAL_COMMIT_TIMEOUT     = 5 * time.Second
+	BROADCAST_ACK_TIMEOUT    = 3 * time.Second
+	BROADCAST_COMMIT_TIMEOUT = 4 * time.Second
+	TASK_READY_TIMEOUT       = 2 * time.Second
+	MASTER_ELECTION_TIMEOUT  = 500 * time.Millisecond
 	// PEER_TIMEOUT             = 15
 
 	// --- IP and Port ---
 	// Group4IP        = "10.100.23.15"
 	NtnuBroadcastIP = "10.22.119.255"
 	HomeBroadcastIP = "192.168.50.255"
-	BroadcastIP     = NtnuBroadcastIP
+	BroadcastIP     = HomeBroadcastIP
 	BROADCAST_PORT  = 3000
 )
 

@@ -65,7 +65,7 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 	}
 
 	if incPkt.Packet.Header.PktType == packet.PKT_T_SyncRequest {
-		srv.handleStateSyncPacket(senderAddr)
+		srv.handleSyncRequest(senderAddr)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 	srv.deliverToSession(senderAddr, incPkt)
 }
 
-func (srv *Server) handleStateSyncPacket(addr *net.UDPAddr) {
+func (srv *Server) handleSyncRequest(addr *net.UDPAddr) {
 	srv.registerOrUpdatePeer(addr, true)
 	fmt.Println("StateSync packet: peer registration and sync only")
 }

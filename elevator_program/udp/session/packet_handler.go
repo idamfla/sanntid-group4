@@ -131,7 +131,7 @@ func (ses *Session) waitForElevatorDone() error {
 	case <-ses.elevDone:
 		fmt.Println("Elevator done commiting")
 		return nil
-	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT * time.Second):
+	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT):
 		return fmt.Errorf("Elevator failed to commit …")
 	case <-ses.stop:
 		return fmt.Errorf("Session stopped")
@@ -144,7 +144,7 @@ func (ses *Session) checkSequence(seq uint32) bool {
 
 // --- lifecycle / timers
 func (ses *Session) scheduleSessionClose() {
-	ses.shutdownDelayTimer.Restart(udp.SHUTDOWN_TIMEOUT*time.Second, func() {
+	ses.shutdownDelayTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {
 		ses.closeReq <- ses.ID
 	})
 }

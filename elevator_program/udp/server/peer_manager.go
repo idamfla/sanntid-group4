@@ -70,18 +70,18 @@ func (srv *Server) isMasterKnown() bool {
 	return false
 }
 
-func (srv *Server) getAliveUnsyncedPeers() []*PeerInfo {
-	srv.mu.Lock()
-	peers := make([]*PeerInfo, 0, len(srv.peers))
-	for _, p := range srv.peers {
-		if p.Active && !p.IsSynced {
-			peers = append(peers, p)
-		}
-	}
-	srv.mu.Unlock()
+// func (srv *Server) getAliveUnsyncedPeers() []*PeerInfo {
+// 	srv.mu.Lock()
+// 	peers := make([]*PeerInfo, 0, len(srv.peers))
+// 	for _, p := range srv.peers {
+// 		if p.Active && !p.IsSynced {
+// 			peers = append(peers, p)
+// 		}
+// 	}
+// 	srv.mu.Unlock()
 
-	return peers
-}
+// 	return peers
+// }
 
 func (srv *Server) flushPeerPendingMsg(peer *PeerInfo) {
 	done := false
@@ -93,4 +93,28 @@ func (srv *Server) flushPeerPendingMsg(peer *PeerInfo) {
 			done = true // no more messages
 		}
 	}
+}
+
+func (srv *Server) PrintPeers() {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	msg := "=== Peers map ===\n"
+
+	for key, peer := range srv.peers {
+		if peer == nil {
+			msg += fmt.Sprintf("%s -> nil\n", key)
+			continue
+		}
+		msg += fmt.Sprintf(`%s -> Addr: %v
+	IsMaster: %v
+	Active: %v
+	LastSeen: %v
+`,
+			key, peer.Addr, peer.IsMaster, peer.Active, peer.LastSeen)
+	}
+
+	msg += `=================
+	`
+	fmt.Println(msg)
 }

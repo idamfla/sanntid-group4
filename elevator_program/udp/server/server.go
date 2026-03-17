@@ -40,7 +40,7 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, isMaster bool, toElevator chan session.ElevatorPacket) (*Server, error) { // TODO isMaster is default false, set by election or something
+func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) { // TODO isMaster is default false, set by election or something
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -74,7 +74,7 @@ func NewServer(ip string, port int, id string, isMaster bool, toElevator chan se
 
 	srv := &Server{
 		ID:                id,
-		isMaster:          isMaster,
+		isMaster:          false,
 		isSynced:          false,
 		incPktCh:          make(chan incomingPacket),
 		outgoingMsgCh:     make(chan outgoingMessage),
@@ -150,4 +150,8 @@ func (srv *Server) Close() {
 		}
 		srv.mu.Unlock()
 	})
+}
+
+func (srv *Server) SetMaster(isMaster bool) {
+	srv.isMaster = isMaster
 }

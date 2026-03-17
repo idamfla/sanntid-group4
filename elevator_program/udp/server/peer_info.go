@@ -22,8 +22,12 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 		IsSynced: false,
 		Active:   true,
 		IsMaster: false,
-		msgQueue: make(chan message.Message),
+		msgQueue: make(chan message.Message, 10), // TODO make all channels bufferd ... how much?
 	}
+}
+
+func (peer *PeerInfo) SetMaster(isMaster bool) {
+	peer.IsMaster = isMaster
 }
 
 func (peer *PeerInfo) QueueMessage(msg message.Message) {

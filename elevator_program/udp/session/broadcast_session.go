@@ -15,13 +15,18 @@ type BroadcastSession struct {
 
 	responsesReceived    int // how many elevators replied
 	expectedResponses    int // how many must reply before we commit
+	selfAddr             string
 	broadcastAckTimer    *timer.Timer
 	broadcastCommitTimer *timer.Timer
+	responders           map[string]bool
+	masterFound          chan struct{}
+	electionStarted      bool
 	mu                   sync.Mutex // protect counters
 }
 
 func NewBroadcastSession(
 	id uint32,
+	selfAddr string,
 	addr *net.UDPAddr,
 	closeReq chan<- uint32,
 	tx PacketSender,
@@ -30,9 +35,15 @@ func NewBroadcastSession(
 	bs := &BroadcastSession{
 		Session:              NewSession(id, addr, closeReq, tx),
 		expectedResponses:    expected,
+		selfAddr:             selfAddr,
 		broadcastAckTimer:    timer.NewTimer(),
 		broadcastCommitTimer: timer.NewTimer(),
+		responders:           make(map[string]bool),
+		masterFound:          make(chan struct{}, 1),
+		electionStarted:      false,
 	}
+
+	bs.responders[bs.selfAddr] = true
 	return bs
 }
 
@@ -64,6 +75,7 @@ func (bs *BroadcastSession) Close() {
 		// Close channels
 		close(bs.Session.packetInCh)
 		close(bs.Session.outgoingMsgCh)
+		close(bs.masterFound)
 
 		// Clear pending packet
 		bs.Session.pendingPkt = nil
@@ -98,8 +110,29 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	bs.mu.Unlock()
 
 	switch h.PktType {
+	case packet.PKT_T_IAmAlive:
+		bs.addResponder(pkt.Header.SenderAddr)
+
 	case packet.PKT_T_WhoIsMaster:
-		// TODO what to do if no master ...
+		fmt.Println("Collecting master responses ...")
+
+		bs.addResponder(pkt.Header.SenderAddr)
+
+		bs.SendReply(packet.PKT_T_IAmAlive)
+
+		if !bs.electionStarted {
+			bs.electionStarted = true
+			bs.wg.Add(1)
+			go bs.electMaster()
+		}
+
+	case packet.PKT_T_IAmMaster:
+		select {
+		case bs.masterFound <- struct{}{}:
+		default:
+		}
+		fmt.Println("Someone was elected master")
+		bs.scheduleSessionClose()
 
 	case packet.PKT_T_BroadcastAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
@@ -126,7 +159,7 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 }
 
 func (bs *BroadcastSession) startAckTimer() {
-	bs.broadcastAckTimer.Restart(udp.BROADCAST_ACK_TIMEOUT*time.Second, func() {
+	bs.broadcastAckTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
 		fmt.Println("Not enought elevators received the data in time ...")
 		// TODO what now??
 		// ses.closeReq <- ses.ID
@@ -138,7 +171,7 @@ func (bs *BroadcastSession) stopAckTimer() {
 }
 
 func (bs *BroadcastSession) startRemoteCommitTimer() {
-	bs.broadcastCommitTimer.Restart(udp.BROADCAST_COMMIT_TIMEOUT*time.Second, func() {
+	bs.broadcastCommitTimer.Restart(udp.BROADCAST_COMMIT_TIMEOUT, func() {
 		fmt.Println("Not enought elevators completed the task in time ...")
 		// TODO what now??
 		// ses.closeReq <- ses.ID
@@ -147,4 +180,60 @@ func (bs *BroadcastSession) startRemoteCommitTimer() {
 
 func (bs *BroadcastSession) stopRemoteCommitTimer() {
 	bs.broadcastCommitTimer.Stop()
+}
+
+func (bs *BroadcastSession) addResponder(addr string) {
+	bs.mu.Lock()
+	bs.responders[addr] = true
+	bs.mu.Unlock()
+}
+
+func (bs *BroadcastSession) resetResponders() {
+	bs.mu.Lock()
+	bs.responders = make(map[string]bool)
+	bs.mu.Unlock()
+}
+
+func (bs *BroadcastSession) electMaster() {
+	defer bs.wg.Done()
+	select {
+	case <-bs.masterFound:
+		fmt.Println("Master already exists, stopping election")
+		return
+
+	case <-time.After(udp.MASTER_ELECTION_TIMEOUT):
+		fmt.Println("No master found, electing...")
+
+		bs.mu.Lock()
+		defer bs.mu.Unlock()
+
+		if len(bs.responders) == 0 {
+			fmt.Println("No responders")
+			return
+		}
+
+		// find lowest
+		lowest := ""
+		for addr := range bs.responders {
+			if lowest == "" || addr < lowest {
+				lowest = addr
+			}
+		}
+
+		fmt.Println("Lowest:", lowest)
+
+		if lowest == bs.selfAddr {
+			fmt.Println(bs.selfAddr, "is the new master")
+			bs.SendReply(packet.PKT_T_IAmMaster)
+			bs.setMaster(true)
+			bs.scheduleSessionClose()
+		}
+
+	case <-bs.stop:
+		return
+	}
+}
+
+func (bs *BroadcastSession) setMaster(isMaster bool) {
+	bs.tx.SetMaster(isMaster)
 }

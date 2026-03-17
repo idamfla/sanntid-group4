@@ -18,16 +18,15 @@ type Elev struct {
 	wg       sync.WaitGroup
 }
 
-func NewElev(id string, isMaster bool) *Elev {
+func NewElev(id string) *Elev {
 	return &Elev{
-		ID:       id,
-		isMaster: isMaster,
-		ch:       make(chan session.ElevatorPacket),
+		ID: id,
+		ch: make(chan session.ElevatorPacket),
 	}
 }
 
 func (e *Elev) StartServer(ip string, port int) error {
-	srv, err := server.NewServer(ip, port, e.ID, e.isMaster, e.ch)
+	srv, err := server.NewServer(ip, port, e.ID, e.ch)
 	if err != nil {
 		return err
 	}

@@ -71,7 +71,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	eA := elevtest.NewElev("A", true)
+	eA := elevtest.NewElev("A")
 
 	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
@@ -79,7 +79,7 @@ func main() {
 		return
 	}
 
-	eB := elevtest.NewElev("B", false)
+	eB := elevtest.NewElev("B")
 
 	err = eB.StartServer(localIP, 9001)
 	if err != nil {
@@ -87,8 +87,17 @@ func main() {
 		return
 	}
 
+	eC := elevtest.NewElev("C")
+
+	err = eC.StartServer(localIP, 9002)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	eA.Start()
 	eB.Start()
+	eC.Start()
 
 	eB.QueueMessage(
 		nil,

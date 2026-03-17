@@ -22,7 +22,7 @@ func (srv *Server) sendTaskLoop() {
 		case <-task.Ready:
 			fmt.Println(srv.ID, "task ready, sending to elevator")
 			srv.sendToElevator(task)
-		case <-time.After(udp.TASK_READY_TIMEOUT * time.Second): // TODO magic number, find name for how long to wait for a task to be ready
+		case <-time.After(udp.TASK_READY_TIMEOUT): // TODO magic number, find name for how long to wait for a task to be ready
 			fmt.Println(srv.ID, "task never became ready, skipping")
 			return
 		}

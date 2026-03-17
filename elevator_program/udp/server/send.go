@@ -68,10 +68,10 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 		srv.startWhoIsMasterMsg()
 	}
 
-	peers := srv.getAliveUnsyncedPeers()
-	for _, peer := range peers {
-		peer.QueueMessage(outMsg.Msg)
-	}
+	// peers := srv.getAliveUnsyncedPeers()
+	// for _, peer := range peers {
+	// 	peer.QueueMessage(outMsg.Msg)
+	// }
 }
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
