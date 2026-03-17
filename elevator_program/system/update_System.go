@@ -11,15 +11,17 @@ import (
 
 func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
 	fmt.Println("System befor error: ", s)
+	fmt.Println("And the new elevator is \n\n\n\n\n\n\n ", elevator)
 	s.Elevators[id] = elevator
 }
 
 func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
-	f := btnEvent.Floor // TODO Is it wierd that i define b and f?
+	f := btnEvent.Floor
 	b := btnEvent.Button
 	if b == elevio.BT_Cab {
 		fmt.Println("System before error: ", s)
 		s.Elevators[id].CabRequests[f] = status
+		fmt.Println("How do i look now? ", s.Elevators[id])
 	} else {
 		s.HallRequests[f][b] = status
 	}
@@ -62,7 +64,7 @@ func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[st
 		CabRequests: make([]types.ButtonStatus, len(msg.Elevators[msg.Id].CabRequests)),
 	}
 
-	_, ok := ipRegistery[msg.Ip]
+	_, ok := ipRegistery[msg.Ip] // TODO Maybe remove the way to not loose new elevators requests if we don't use online
 	if ok {
 		for f, btnStatus := range s.Elevators[msg.Id].CabRequests {
 			if btnStatus != types.NotActive || msg.Elevators[msg.Id].CabRequests[f] != types.NotActive {
@@ -98,4 +100,14 @@ func (s System) CopySystem() System {
 	copy(newCopy.HallRequests, s.HallRequests)
 
 	return newCopy
+}
+
+func (s System) IsRequestInSystem(id string, task elevio.ButtonEvent) bool {
+	f := task.Floor
+	b := task.Button
+	if b == elevio.BT_Cab {
+		return s.Elevators[id].CabRequests[f] != types.NotActive
+	} else {
+		return s.HallRequests[f][b] != types.NotActive
+	}
 }

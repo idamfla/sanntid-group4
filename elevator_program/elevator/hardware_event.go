@@ -56,24 +56,27 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Button: hwEvent.Button,
 		}
 
-		msg := message.Message{
-			MsgType:   types.MSG_T_ButtonPress,
-			Id:        "",
-			Task:      task,
-			BtnStatus: types.Pending,
-			Elevators: map[string]types.ElevatorsStatus{
-				e.Id: e.System.Elevators[e.Id],
-			},
-		}
-
-		if e.IsMaster {
-			taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, task)
-			if taskElevatorId != "" {
-				msg.BtnStatus = types.Running
-				msg.Id = taskElevatorId
+		// Check if button press is already in system, no need to message master
+		if !e.System.IsRequestInSystem(e.Id, task) {
+			msg := message.Message{
+				MsgType:   types.MSG_T_ButtonPress,
+				Id:        e.Id,
+				Task:      task,
+				BtnStatus: types.Pending,
+				Elevators: map[string]types.ElevatorsStatus{
+					e.Id: e.System.Elevators[e.Id],
+				},
 			}
+
+			if e.IsMaster {
+				taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, task)
+				if taskElevatorId != e.Id {
+					msg.BtnStatus = types.Running
+					msg.Id = taskElevatorId
+				}
+			}
+			e.SendToProtocol <- msg
 		}
-		e.SendToProtocol <- msg
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
@@ -82,6 +85,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
+
+			elevatorCopy := e.System.Elevators[e.Id]
+			elevatorCopy.CurrentFloor = hwEvent.Floor
+			e.System.Elevators[e.Id] = elevatorCopy
 			msg := message.Message{
 				MsgType:   types.MSG_T_StatusReport,
 				Id:        e.Id,

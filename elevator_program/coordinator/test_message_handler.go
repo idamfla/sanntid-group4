@@ -50,16 +50,16 @@ func (c *Coordinator) InitMsg() []message.Message {
 			},
 			BtnStatus: types.Pending,
 		},
-		{
-			MsgType: types.MSG_T_StatusReport,
-			Id:      "2",
-			Elevators: map[string]types.ElevatorsStatus{
-				"2": types.ElevatorsStatus{
-					Id:          "20",
-					CabRequests: []types.ButtonStatus{types.Pending, types.NotActive, types.NotActive, types.Running},
-				},
-			},
-		},
+		// {
+		// 	MsgType: types.MSG_T_StatusReport,
+		// 	Id:      "2",
+		// 	Elevators: map[string]types.ElevatorsStatus{
+		// 		"2": types.ElevatorsStatus{
+		// 			Id:          "20",
+		// 			CabRequests: []types.ButtonStatus{types.Pending, types.NotActive, types.NotActive, types.Running},
+		// 		},
+		// 	},
+		// },
 	}
 
 	return msg

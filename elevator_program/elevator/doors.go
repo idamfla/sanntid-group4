@@ -26,7 +26,7 @@ func (e *Elevator) updateDoorState() {
 		elevio.SetDoorOpenLamp(true)
 
 		if e.atTargetFloor() {
-			e.clearCurrentFloor(e.currentFloor, e.nextTarget.Button)
+			e.clearCurrentFloor(e.currentFloor, e.System.Elevators[e.Id].Target.Button)
 		}
 
 		e.doorState = DS_Open

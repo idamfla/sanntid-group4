@@ -4,6 +4,7 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/types"
 	"elevator_program/utilities"
+	"fmt"
 )
 
 // TODO Sending a pointer should maybe not do that since we don't change the variable
@@ -24,6 +25,7 @@ func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.Ele
 	if elev.State == types.ES_Idle {
 		return true, newTarget, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
+	fmt.Println("HALLLLLLLLLLALe \n\n\n\n\n ", newTarget, elev)
 
 	switch elev.Direction {
 	case elevio.MD_Up:
@@ -86,14 +88,7 @@ func (e Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSta
 func (e Elevator) ComputeNewTarget(currFloor int, cabRequests []types.ButtonStatus, dir elevio.MotorDirection) elevio.ButtonEvent {
 	// ruffly same as the basic scan_logic
 
-	// Hallrequests need to change its logic, pending, active, ...
-	hallRequestsCopy := e.hallRequests // Needs to be sure we don't modify e.hallRequests
-	elevatorCopy := Elevator{
-		hallRequests: hallRequestsCopy,
-		currentFloor: currFloor,
-		cabRequests:  cabRequests,
-		direction:    dir,
-	}
+	elevatorCopy := e
 
 	return getNextTargetFloor(elevatorCopy)
 }
@@ -108,3 +103,17 @@ func (e Elevator) ComputeNewTarget(currFloor int, cabRequests []types.ButtonStat
 	else
 		elev := ClosesElevator()
 */
+
+func (e Elevator) IsNewTargetBetterCab(id string, target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
+	fmt.Println("Need to debug here: ", e)
+	if elevatorStatus.State == types.ES_Idle {
+		return true
+	}
+	fmt.Println("Hihihiha \n\n\n\n\n\n ", target, elevatorStatus)
+
+	if elevatorStatus.Direction == elevio.MD_Up {
+		return elevatorStatus.CurrentFloor < target.Floor && target.Floor < elevatorStatus.Target.Floor
+	} else {
+		return elevatorStatus.Target.Floor < target.Floor && target.Floor < elevatorStatus.CurrentFloor
+	}
+}

@@ -31,7 +31,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
 			} else if e.System.HallRequests[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
-				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallUp { // To not steal anyone elses task
+				if e.System.Elevators[e.Id].Target.Floor == f && e.System.Elevators[e.Id].Target.Button == elevio.BT_HallUp { // To not steal anyone elses task
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 				}
 			}
@@ -42,7 +42,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
 			} else if e.System.HallRequests[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
-				if e.nextTarget.Floor == f && e.nextTarget.Button == elevio.BT_HallDown { // To not steal anyone elses task
+				if e.System.Elevators[e.Id].Target.Floor == f && e.System.Elevators[e.Id].Target.Button == elevio.BT_HallDown { // To not steal anyone elses task
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 				}
 			}
@@ -86,7 +86,7 @@ func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	if e.inBetweenFloors {
 		return false, elevio.ButtonEvent{}
 	}
-	return e.scanFloor(e.currentFloor, e.currentFloor, e.direction)
+	return e.scanFloor(e.currentFloor, e.currentFloor, e.System.Elevators[e.Id].Direction)
 }
 
 func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
@@ -137,11 +137,11 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 	}
 	// endregion
 
-	if e.System.Elevators[e.Id].State == types.ES_Idle || e.direction == elevio.MD_Stop {
+	if e.System.Elevators[e.Id].State == types.ES_Idle || e.System.Elevators[e.Id].Direction == elevio.MD_Stop {
 		return e.getClosestFloor()
-	} else if e.direction == elevio.MD_Up {
+	} else if e.System.Elevators[e.Id].Direction == elevio.MD_Up {
 		return upScan()
-	} else if e.direction == elevio.MD_Down {
+	} else if e.System.Elevators[e.Id].Direction == elevio.MD_Down {
 		return downScan()
 	}
 

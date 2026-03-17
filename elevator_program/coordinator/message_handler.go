@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"elevator_program/elevator"
+	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
 	"fmt"
@@ -19,7 +20,11 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 	case types.MSG_T_TaskUpdate:
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
 			e.SetRequestAsTarget(msg.Task)
-		} else { // Just update system
+		} else if msg.BtnStatus == types.NotActive { // Just update system
+			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
+			e.ClearTarget()
+			fmt.Println("eeeeeeeeee \n\n\n\n\n\n ", e)
+		} else {
 			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
@@ -35,7 +40,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 		} else {
 			msg.Id = e.Id
 		}
-		msg.MsgType = types.MSG_T_ElevatorLost
+		msg.MsgType = types.MSG_T_LostComs
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_NewToChannel:
@@ -83,16 +88,25 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 
 	case types.MSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
-		fmt.Println("What does master see? ", e.Id, e.System)
-		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task)
-		if taskElevatorId != "" {
-			msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
-			msg.Id = taskElevatorId
-			msg.BtnStatus = types.Running
-			// Someone has a better task to do, we need to broadcast task_Update
-		} else { // If it is not the case we just need to broadcast the change
-			msg.MsgType = types.MSG_T_ButtonPress
-			msg.Id = ""
+		if msg.BtnStatus != types.NotActive {
+			if msg.Task.Button == elevio.BT_Cab {
+				if e.IsNewTargetBetterCab(msg.Id, msg.Task, msg.Elevators[msg.Id]) {
+					msg.BtnStatus = types.Running
+				} else {
+					msg.BtnStatus = types.Pending
+				}
+			} else {
+				fmt.Println("What does master see? ", e.Id, e.System)
+				taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task) // TODO could be wrong here if master don't update system
+				if taskElevatorId != "" {
+					// Someone has a better task to do, we need to broadcast task_Update
+					msg.Id = taskElevatorId
+					msg.BtnStatus = types.Running
+				} else { // If it is not the case we just need to broadcast the change
+					msg.Id = ""
+				}
+				msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
+			}
 		}
 		e.SendToProtocol <- msg
 
@@ -100,6 +114,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 		fmt.Println("Is it here?") // TODO We need a way to get here!!!
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+		// TODO Here we need to time if an request has been taking to long, if it is Running
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
@@ -115,9 +130,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 		}
 
 	case types.MSG_T_NewToChannel:
-		c.activePeers++
-		// p.Server.UpdateActivePeers(p.activePeers)
-
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 		msg.ActivePeers = c.activePeers
 		e.IpRegistery[msg.Ip] = id
@@ -125,6 +137,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 	}
 }
 
+// Route the message to a handler
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	if e.IsMaster {
 		c.handleAsMaster(e, msg)
@@ -133,6 +146,7 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.Message) 
 	}
 }
 
+// Read new message from server when it appears on the channel
 func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
 	for pktCtx := range c.msgRecieveCh {

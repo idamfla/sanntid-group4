@@ -18,9 +18,9 @@ type Elevator struct {
 
 	inBetweenFloors bool
 	currentFloor    int
-	nextTarget      elevio.ButtonEvent
-	direction       elevio.MotorDirection
-	initFloor       int
+	// nextTarget      elevio.ButtonEvent
+	// direction elevio.MotorDirection
+	initFloor int
 
 	hallRequests [][2]types.ButtonStatus // TODO Should remove these
 	cabRequests  []types.ButtonStatus    // TODO Should remove these
@@ -56,7 +56,7 @@ type Elevator struct {
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
 	e.Id = id
 	e.currentFloor = -1
-	e.nextTarget = elevio.ButtonEvent{Floor: -1}
+	// e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
@@ -120,7 +120,7 @@ func (e Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		e.Id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.System.Elevators[e.Id].State)
+		e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
 
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.System.HallRequests[f]

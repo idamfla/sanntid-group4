@@ -177,7 +177,7 @@ func main() {
 	// time.Sleep(2 * time.Second)
 
 	// msg := message.Message{
-	// 	MsgType: types.MSG_T_LostComs,
+	// 	MsgType: types.MSG_T_ElevatorLost,
 	// 	Id:      "1",
 	// 	Ip:      e1.Ip,
 	// }
@@ -186,7 +186,7 @@ func main() {
 	// e1.IsMaster = false
 	// time.Sleep(2 * time.Second)
 	// fmt.Println("Sending now")
-	// p1.SendMessageSlave(&e1, msg)
+	// e1.SendToProtocol <- msg
 
 	// msg = message.Message{
 	// 	MsgType:   types.MSG_T_TaskUpdate,
