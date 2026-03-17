@@ -34,7 +34,7 @@ func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 	localIP := "127.0.0.1"
 	port := p.portRegistery["master"]
 
-	msgPacket := packet.PROTO_PKT_T_BroadcastData
+	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
@@ -43,13 +43,15 @@ func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 		msg.Elevators[e.Id] = e.System.Elevators[e.Id]
 		ip = localIP
 		port = p.portRegistery["master"]
-		msgPacket = packet.PROTO_PKT_T_SlaveReport
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
+		fmt.Println("Trying to send status report")
 
 	case types.MSG_T_ButtonPress:
 		msg.MsgType = types.MSG_T_ButtonPress
 		ip = localIP
 		port = p.portRegistery["master"]
-		msgPacket = packet.PROTO_PKT_T_SlaveReport
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
+		fmt.Println("Trying to send button press")
 
 	case types.MSG_T_TaskRequest:
 		msg.MsgType = types.MSG_T_TaskRequest
@@ -57,20 +59,23 @@ func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 		msg.Elevators[e.Id] = e.System.Elevators[e.Id]
 		ip = localIP
 		port = p.portRegistery["master"]
-		msgPacket = packet.PROTO_PKT_T_RequestNewOrder
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_RequestNewOrder
+		fmt.Println("Trying to send Task request 1")
 
 	case types.MSG_T_LostComs:
 		msg.MsgType = types.MSG_T_ElevatorLost
 		ip = broadcastIp
 		port = p.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_LostConn
+		fmt.Println("Trying to send lost coms")
 
 	case types.MSG_T_ElevatorLost:
 		msg.MsgType = types.MSG_T_LostComs
 		msg.Id = e.Id
 		ip = localIP
 		port = p.portRegistery["broadcast"]
-		msgPacket = packet.PROTO_PKT_T_BroadcastData
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
+		fmt.Println("Trying to send elevator lost")
 
 	case types.MSG_T_NewToChannel:
 		msg.MsgType = types.MSG_T_NewToChannel
@@ -78,6 +83,7 @@ func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 		ip = broadcastIp
 		port = 3000 //p.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data
+		fmt.Println("Trying to send new to channel")
 	}
 	p.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, msg)
 }
@@ -86,25 +92,29 @@ func (p *Protocol) SendMessageSlave(e *elevator.Elevator, msg message.Message) {
 func (p *Protocol) SendMessageMaster(msg message.Message) {
 	// port := udp.BROADCAST_PORT
 	var ip string
-	broadcastIp := udp.NtnuBroadcastIP
-	// localIP := "127.0.0.1"
-	port := p.portRegistery["broadcast"]
-	msgPacket := packet.PROTO_PKT_T_BroadcastData
+	// broadcastIp := udp.NtnuBroadcastIP
+	localIP := "127.0.0.1"
+	port := 9001 //p.portRegistery["broadcast"]
+	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		msg.MsgType = types.MSG_T_StatusReport
-		msgPacket = packet.PROTO_PKT_T_BroadcastData
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
+		fmt.Println("Trying to send status report")
 	case types.MSG_T_ButtonPress:
 		msg.MsgType = types.MSG_T_TaskUpdate // Now we send slaves to update request
-		msgPacket = packet.PROTO_PKT_T_BroadcastData
+		msgPacket = packet.PROTO_PKT_T_Data  //PROTO_PKT_T_BroadcastUpdate
+		fmt.Println("Trying to send task update")
 	case types.MSG_T_TaskRequest:
 		msg.MsgType = types.MSG_T_TaskUpdate
-		msgPacket = packet.PROTO_PKT_T_BroadcastData
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
+		fmt.Println("Trying to send task update 2")
 	case types.MSG_T_NewToChannel:
 		msg.MsgType = types.MSG_T_NewToChannel
-		msgPacket = packet.PROTO_PKT_T_Data
+		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
+		fmt.Println("Trying to send new to channel")
 	}
-	ip = broadcastIp
+	ip = localIP // broadcastIp
 	p.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, msg)
 }

@@ -28,7 +28,11 @@ func (e *Elevator) ConnectedToMaster() bool {
 
 func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
 	if btnStatus == types.NotActive {
-		e.clearHallLamp(floor, button)
+		if button == elevio.BT_Cab {
+			e.clearCabRequest(floor)
+		}
+		e.clearHallLamp(floor, button) // Chat don't like these function names. Don't want any underscores
+
 	} else {
 		elevio.SetButtonLamp(button, floor, true)
 	}

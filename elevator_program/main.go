@@ -148,7 +148,10 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("Created e2 and p2")
+	// e2copy := e2.System.Elevators[e2.Id]
+	// e2copy.CabRequests[2] = types.Running
+	// e2.System.Elevators[e2.Id] = e2copy
+	// fmt.Println("Created e2 and p2")
 
 	p2.Start(&e2)
 

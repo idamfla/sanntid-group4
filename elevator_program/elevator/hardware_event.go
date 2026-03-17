@@ -61,6 +61,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Id:        "",
 			Task:      task,
 			BtnStatus: types.Pending,
+			Elevators: map[string]types.ElevatorsStatus{
+				e.Id: e.System.Elevators[e.Id],
+			},
 		}
 
 		if e.IsMaster {

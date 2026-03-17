@@ -4,11 +4,13 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
+	"fmt"
 )
 
 // TODO Probably a bad name for the file
 
 func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
+	fmt.Println("System befor error: ", s)
 	s.Elevators[id] = elevator
 }
 
@@ -16,6 +18,7 @@ func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent
 	f := btnEvent.Floor // TODO Is it wierd that i define b and f?
 	b := btnEvent.Button
 	if b == elevio.BT_Cab {
+		fmt.Println("System before error: ", s)
 		s.Elevators[id].CabRequests[f] = status
 	} else {
 		s.HallRequests[f][b] = status

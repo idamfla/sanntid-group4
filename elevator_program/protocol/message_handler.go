@@ -16,8 +16,7 @@ ctx, cancel := context.Withcancel(context.Background())
 msgCh := make(chan string)
 */
 
-// Chat don't like these function names. Don't want any underscores
-func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message) {
+func (p *Protocol) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -26,7 +25,7 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
 			e.SetRequestAsTarget(msg.Task)
 		} else { // Just update system
-			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task) // TODO Should I use my own ID or msg Id??
+			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
@@ -80,8 +79,7 @@ func (p *Protocol) slaveMessageHandler(e *elevator.Elevator, msg message.Message
 	}
 }
 
-// TODO chat don't like this name either
-func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Message) {
+func (p *Protocol) handleAsMaster(e *elevator.Elevator, msg message.Message) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -90,20 +88,22 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 
 	case types.MSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
-
+		fmt.Println("What does master see? ", e.Id, e.System)
 		taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task)
+		fmt.Println("Do we get to message handler")
 		if taskElevatorId != "" {
-			msg.MsgType = types.MSG_T_TaskUpdate
+			msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
 			msg.Id = taskElevatorId
 			msg.BtnStatus = types.Running
 			// Someone has a better task to do, we need to broadcast task_Update
 		} else { // If it is not the case we just need to broadcast the change
-			msg.MsgType = types.MSG_T_TaskUpdate
+			msg.MsgType = types.MSG_T_ButtonPress
 			msg.Id = ""
 		}
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_TaskUpdate:
+		fmt.Println("Is it here?") // TODO We need a way to get here!!!
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
@@ -133,9 +133,9 @@ func (p *Protocol) masterMessageHandler(e *elevator.Elevator, msg message.Messag
 
 func (p *Protocol) MessageHandler(e *elevator.Elevator, msg message.Message) {
 	if e.IsMaster {
-		p.masterMessageHandler(e, msg)
+		p.handleAsMaster(e, msg)
 	} else {
-		p.slaveMessageHandler(e, msg)
+		p.handleAsSlave(e, msg)
 	}
 }
 
@@ -146,7 +146,7 @@ func (p *Protocol) MessageListener(e *elevator.Elevator) {
 		p.MessageHandler(e, msg)
 		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e.System)
 		if pktCtx.Done != nil {
-			pktCtx.Done <- struct{}{} // TODO this may not work
+			pktCtx.Done <- struct{}{}
 		}
 	}
 }

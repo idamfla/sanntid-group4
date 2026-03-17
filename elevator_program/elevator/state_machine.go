@@ -131,6 +131,12 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 				BtnStatus: types.NotActive,
 			}
 			e.SendToProtocol <- msg
+
+			msg.MsgType = types.MSG_T_TaskRequest
+			msg.Elevators = map[string]types.ElevatorsStatus{
+				e.Id: elevatorStatus,
+			}
+			e.SendToProtocol <- msg
 		}
 
 	case types.ES_EmergencyStop:
