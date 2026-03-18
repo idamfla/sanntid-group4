@@ -1,7 +1,7 @@
 package server
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 	"net"
@@ -12,7 +12,7 @@ func (srv *Server) Send(
 	seq uint32,
 	sessionID uint32,
 	pktType packet.PacketType,
-	msg message.Message,
+	eMsg message.ElevatorMessage,
 ) error {
 
 	pkt := packet.Packet{
@@ -23,13 +23,13 @@ func (srv *Server) Send(
 			RecipientAddr: remoteAddr.String(),
 			SenderAddr:    srv.recvConn.LocalAddr().String(),
 		},
-		Payload: msg,
+		Payload: eMsg,
 	}
 
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) error {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, eMsg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
@@ -37,17 +37,17 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) er
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueSlaveUpdate(msg)
+	ses.QueueSlaveUpdate(eMsg)
 	// srv.elevatorTaskQueue()
 	return nil
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startBroadcast(msg message.Message) {
+func (srv *Server) startBroadcast(eMsg message.ElevatorMessage) {
 	quorum := srv.getQuorum()
 	ses := srv.createBroadcastSession(nil, quorum)
 
-	ses.QueueBroadcastUpdate(msg)
+	ses.QueueBroadcastUpdate(eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
@@ -61,9 +61,9 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_SlaveUpdate:
-		srv.startSession(outMsg.RemoteAddr, outMsg.Msg)
+		srv.startSession(outMsg.RemoteAddr, outMsg.EMsg)
 	case packet.PKT_T_BroadcastUpdate:
-		srv.startBroadcast(outMsg.Msg)
+		srv.startBroadcast(outMsg.EMsg)
 	case packet.PKT_T_WhoIsMaster:
 		srv.startWhoIsMasterMsg()
 	}
@@ -74,12 +74,12 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	// }
 }
 
-func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
+func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 	srv.outgoingMsgCh <- outgoingMessage{
 		RemoteAddr: remoteAddr,
 		PktType:    pktType,
-		Msg:        msg,
+		EMsg:       eMsg,
 	}
 }
 

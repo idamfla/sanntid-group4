@@ -3,8 +3,8 @@ package main
 import (
 	// "fmt"
 	"elevator_program/elevator"
+	"elevator_program/message"
 	elevtest "elevator_program/udp/elev_test"
-	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"fmt"
@@ -44,7 +44,7 @@ func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	bcMsg := message.Message{Content: "Hello, broadcast from " + srv.ID}
+	bcMsg := message.ElevatorMessage{ActivePeers: 80085}
 
 	for range ticker.C {
 		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, bcMsg)
@@ -109,7 +109,7 @@ func main() {
 	// eC.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9001),
 	// 	packet.PROTO_PKT_T_SlaveUpdate,
-	// 	message.Message{Content: "Hello from A!"},
+	// 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
 	// )
 
 	closeProgram(eA, eB, eC)

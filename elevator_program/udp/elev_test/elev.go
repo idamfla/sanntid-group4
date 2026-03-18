@@ -1,7 +1,7 @@
 package elevtest
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
@@ -39,7 +39,7 @@ func (e *Elev) StartServer(ip string, port int) error {
 func (e *Elev) listen() {
 	defer e.wg.Done()
 	for msg := range e.ch {
-		fmt.Println("elev got elevator packet:", msg.Packet.Payload.Content)
+		fmt.Println("elev got elevator packet:", msg.Packet.Payload)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
 		}
@@ -52,8 +52,8 @@ func (e *Elev) Start() {
 	go e.srv.Start()
 }
 
-func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
-	e.srv.QueueMessage(remoteAddr, protoPktType, msg)
+func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
+	e.srv.QueueMessage(remoteAddr, protoPktType, eMsg)
 
 }
 

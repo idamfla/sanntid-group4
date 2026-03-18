@@ -1,7 +1,7 @@
 package session
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/timer"
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 type PacketSender interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, msg message.Message) error
+	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{})
 	SetMaster(isMaster bool)
 }

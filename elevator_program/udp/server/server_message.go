@@ -1,7 +1,7 @@
 package server
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"net"
 )
@@ -14,5 +14,5 @@ type incomingPacket struct {
 type outgoingMessage struct {
 	RemoteAddr *net.UDPAddr
 	PktType    packet.PacketType
-	Msg        message.Message
+	EMsg       message.ElevatorMessage
 }

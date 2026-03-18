@@ -87,7 +87,7 @@ func (srv *Server) flushPeerPendingMsg(peer *PeerInfo) {
 	done := false
 	for !done {
 		select {
-		case msg := <-peer.msgQueue:
+		case msg := <-peer.eMsgQueue:
 			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_StateSnapshot, msg)
 		default:
 			done = true // no more messages

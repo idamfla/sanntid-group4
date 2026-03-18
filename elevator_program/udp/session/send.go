@@ -1,12 +1,12 @@
 package session
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
 
-var emtpyMsg message.Message
+var emtpyEMsg message.ElevatorMessage
 
 // helper
 func (ses *Session) send(outPkt outgoingMessage) error {
@@ -17,28 +17,28 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
-		outPkt.Msg,
+		outPkt.EMsg,
 	)
 }
 
-func (ses *Session) QueueSlaveUpdate(msg message.Message) {
+func (ses *Session) QueueSlaveUpdate(eMsg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_SlaveUpdate,
-		Msg:     msg,
+		EMsg:    eMsg,
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdate(msg message.Message) {
+func (ses *Session) QueueBroadcastUpdate(eMsg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_BroadcastUpdate,
-		Msg:     msg,
+		EMsg:    eMsg,
 	}
 }
 
 func (ses *Session) QueueWhoIsMasterMsg() {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_WhoIsMaster,
-		Msg:     emtpyMsg,
+		EMsg:    emtpyEMsg,
 	}
 }
 
@@ -53,7 +53,7 @@ func (ses *Session) SendReply(pktType packet.PacketType) {
 	done := make(chan struct{})
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
-		Msg:     emtpyMsg,
+		EMsg:    emtpyEMsg,
 		Done:    done, // new field in Outgoing
 	}
 	<-done // wait until SendLoop actually sends it
@@ -69,7 +69,7 @@ func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
-		outPkt.Msg)
+		outPkt.EMsg)
 }
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {

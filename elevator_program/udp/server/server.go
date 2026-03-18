@@ -1,8 +1,8 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
-	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
@@ -111,7 +111,7 @@ func (srv *Server) Start() {
 	srv.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
-		message.Message{},
+		message.ElevatorMessage{},
 	)
 }
 
