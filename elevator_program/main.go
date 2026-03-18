@@ -101,11 +101,11 @@ func main() {
 	eB.Start()
 	eC.Start()
 
-	eB.QueueMessage(
-		nil,
-		packet.PROTO_PKT_T_WhoIsMaster,
-		message.Message{},
-	)
+	// eB.QueueMessage(
+	// 	nil,
+	// 	packet.PROTO_PKT_T_WhoIsMaster,
+	// 	message.Message{},
+	// )
 	// eC.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9001),
 	// 	packet.PROTO_PKT_T_SlaveUpdate,

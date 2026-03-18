@@ -30,6 +30,12 @@ func (srv *Server) sendTaskLoop() {
 	fmt.Println(srv.ID, "task loop stopped ...")
 }
 
+//	func (srv *Server) QueueElevatorTask(msgType message.MessageType, pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{}) {
+//		pkt.Payload = message.Message{
+//			ID:      srv.ID,
+//			Adder:   srv.recvConn.LocalAddr().String(),
+//			MsgType: msgType,
+//		}
 func (srv *Server) QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{}) {
 	srv.elevatorTaskQueue <- ElevatorTask{
 		ElevPacket: session.ElevatorPacket{

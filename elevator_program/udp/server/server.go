@@ -2,6 +2,7 @@ package server
 
 import (
 	"elevator_program/udp"
+	"elevator_program/udp/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
@@ -24,8 +25,8 @@ type Server struct {
 	outgoingMsgCh chan outgoingMessage
 	recvConn      *net.UDPConn
 	sendConn      *net.UDPConn
-	broadcastConn *net.UDPConn
-	broadcastAddr *net.UDPAddr
+	broadcastConn *net.UDPConn // Listening conn
+	broadcastAddr *net.UDPAddr // Broadcast sending addr
 	sessions      map[uint32]SessionHandler
 	peers         map[string]*PeerInfo
 	bcSeq         uint32
@@ -90,13 +91,6 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		elevatorTaskQueue: make(chan ElevatorTask),
 	}
 
-	// TODO add initial msg
-	// srv.QueueMessage(
-	// 	nil,
-	// 	packet.PROTO_PKT_T_StateSync,
-	// 	message.Message{Content: "I am new"},
-	// )
-
 	return srv, nil
 }
 
@@ -112,6 +106,13 @@ func (srv *Server) Start() {
 
 	go srv.run()
 	go srv.sendTaskLoop()
+
+	// TODO add initial msg
+	srv.QueueMessage(
+		nil,
+		packet.PROTO_PKT_T_WhoIsMaster,
+		message.Message{},
+	)
 }
 
 func (srv *Server) run() {
