@@ -26,8 +26,8 @@ const (
 	PKT_T_SlaveUpdate
 	PKT_T_SlaveUpdateAck
 
-	PKT_T_SyncRequest
-	PKT_T_SyncAck
+	PKT_T_RequestTaskExecution
+	PKT_T_RequestTaskExecutionAck
 
 	PKT_T_ElevatorFailed // todo do i need this?
 )
@@ -42,15 +42,15 @@ commit and done is redundant, ack closes one to one msg -> changes only happen w
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat       ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)       // broadcast
-	PROTO_PKT_T_LostConn        ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)        // broadcast
-	PROTO_PKT_T_WhoIsMaster     ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)     //broadcast
-	PROTO_PKT_T_StateSnapshot   ProtocolPacketType = ProtocolPacketType(PKT_T_StateSnapshot)   // master -> slave
-	PROTO_PKT_T_CatchupUpdate   ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)   // master -> slave
-	PROTO_PKT_T_CatchupDone     ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupDone)     // master -> slave
-	PROTO_PKT_T_BroadcastUpdate ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate) // master -> broadcast
-	PROTO_PKT_T_SlaveUpdate     ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)     // slave -> master
-	PROTO_PKT_T_SyncRequest     ProtocolPacketType = ProtocolPacketType(PKT_T_SyncRequest)     // slave -> master
+	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
+	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
+	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)          //broadcast
+	PROTO_PKT_T_StateSnapshot        ProtocolPacketType = ProtocolPacketType(PKT_T_StateSnapshot)        // master -> slave
+	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
+	PROTO_PKT_T_CatchupDone          ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupDone)          // master -> slave
+	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
+	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)          // slave -> master
+	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
 )
 
 type Header struct {
@@ -97,10 +97,10 @@ func (p PacketType) String() string {
 		return "Slave Update"
 	case PKT_T_SlaveUpdateAck:
 		return "Slave Update Ack"
-	case PKT_T_SyncRequest:
-		return "Sync Request"
-	case PKT_T_SyncAck:
-		return "Sync Ack"
+	case PKT_T_RequestTaskExecution:
+		return "Request Task Execution"
+	case PKT_T_RequestTaskExecutionAck:
+		return "Request Task Execution Ack"
 	case PKT_T_ElevatorFailed:
 		return "Elevator Failed"
 	default:

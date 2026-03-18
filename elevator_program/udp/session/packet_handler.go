@@ -46,8 +46,8 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		fmt.Printf("%s lost connection ...", h.SenderAddr)
 		// TODO what to do now?
 
-	case packet.PKT_T_SyncRequest:
-		ses.handleSyncRequest()
+	case packet.PKT_T_RequestTaskExecution:
+		ses.handleRequestTaskExecution()
 
 	case packet.PKT_T_StateSnapshot:
 		ses.handleSnapshot()
@@ -71,7 +71,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		ses.SendReply(packet.PKT_T_BroadcastAck)
 		ses.QueueElevatorStateTask()
 
-	case packet.PKT_T_SyncAck, packet.PKT_T_SlaveUpdateAck:
+	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
 		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 	// TODO master must give it an id, send it all important updates
@@ -91,9 +91,9 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 }
 
 // ask elevator for sync, get PKT_T_StateSnapshot back
-func (ses *Session) handleSyncRequest() {
+func (ses *Session) handleRequestTaskExecution() {
 	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport)
-	ses.SendReply(packet.PKT_T_SyncAck)
+	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.notifyTaskReady()
 	ses.scheduleSessionClose()
 }

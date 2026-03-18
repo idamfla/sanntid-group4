@@ -115,7 +115,7 @@ func main() {
 	time.Sleep(5 * time.Second)
 	eB.QueueMessage(
 		udp.MustUDPAddr(localIP, 9000),
-		packet.PROTO_PKT_T_SlaveUpdate,
+		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
 		message.ElevatorMessage{},
 	)
 
