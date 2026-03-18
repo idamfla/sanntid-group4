@@ -185,9 +185,6 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
 		e.markRecoveryVerified()
 	}
-
-	e.System.Elevators[e.Id] = elevatorState
-	elevio.SetMotorDirection(dir)
 }
 
 // Updates the elevator state when not connected to the network
