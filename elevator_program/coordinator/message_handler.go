@@ -12,7 +12,7 @@ import (
 // TODO Ida thinks it could be a better way to structure it
 
 // TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
-func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMessage) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -79,7 +79,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
 	}
 }
 
-func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorMessage) {
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -140,7 +140,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 }
 
 // Route the message to a handler
-func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if e.IsMaster {
 		c.handleAsMaster(e, msg)
 	} else {
@@ -167,29 +167,29 @@ Applying protocol functions which is ment to split between the different roles
 ------------------------------------------------------------------------------
 */
 
-// func (p Protocol) applyStatusReport(e *elevator.Elevator, msg message.Message) {
+// func (p Protocol) applyStatusReport(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 // }
 
-// func (p Protocol) applyTaskUpdate_slave(e *elevator.Elevator, msg message.Message) {
+// func (p Protocol) applyTaskUpdate_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
 // 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 // }
 
-// func (p Protocol) applyRemoteCabUpdate_slave(e *elevator.Elevator, msg message.Message) {
+// func (p Protocol) applyRemoteCabUpdate_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.System.UpdateRemoteCabBtn(msg.Id, msg.BtnStatus, msg.Task.Floor)
 // }
 
-// func (p Protocol) applyLostComsProtocol_slave(e *elevator.Elevator, msg message.Message) {
+// func (p Protocol) applyLostComsProtocol_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.HandleLostConnection(msg.Id)
 // }
 
-// func (p Protocol) applySystemSync_slave(e *elevator.Elevator, msg message.Message) {
+// func (p Protocol) applySystemSync_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.System.InitializeFromSystemState(msg)
 // 	e.SetConnectionState(msg)
 // }
 
-// func (c *Coordinator) addNewRequestToSystem_master(e *elevator.Elevator, msg message.Message) {
+// func (c *Coordinator) addNewRequestToSystem_master(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	// TODO Lets hope that we only get commit messages, or else we need to count ack
 // 	taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, *msg.Task)
 // 	if taskElevatorId != -1 {
@@ -199,6 +199,6 @@ Applying protocol functions which is ment to split between the different roles
 // 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 // }
 
-// func (c *Coordinator) applyRegisterAndSyncElevatorToServer(e *elevator.Elevator, msg message.Message) {
+// func (c *Coordinator) applyRegisterAndSyncElevatorToServer(e *elevator.Elevator, msg message.ElevatorMessage) {
 // 	e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 // }

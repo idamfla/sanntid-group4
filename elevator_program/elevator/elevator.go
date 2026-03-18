@@ -33,15 +33,15 @@ type Elevator struct {
 	ackCounterLostComs int
 
 	// TODO Maybe temp need to notify protocol to send something
-	SendToProtocol chan message.Message
+	SendToProtocol chan message.ElevatorMessage
 
 	// elevatorState    types.ElevatorState
 	obstruction      bool
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
 
-	// MsgRecieveCh chan message.Message
-	// msgSendCh    chan message.Message
+	// MsgRecieveCh chan message.ElevatorMessage
+	// msgSendCh    chan message.ElevatorMessage
 	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
 
 	IsMaster          bool
@@ -75,7 +75,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.IpRegistery = make(map[string]string)
 
 	// TODO temp
-	e.SendToProtocol = make(chan message.Message, 10)
+	e.SendToProtocol = make(chan message.ElevatorMessage, 10)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
@@ -86,7 +86,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	// e.MsgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	// e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
+	// e.MsgRecieveCh = make(chan message.ElevatorMessage, 10) // TODO Should have this in the code
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 }

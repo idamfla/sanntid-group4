@@ -31,7 +31,7 @@ func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent
 // 	s.Elevators[id].CabRequests[floor] = status
 // }
 
-func (s *System) InitializeFromSystemState(msg message.Message) {
+func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 	// s.HallRequests = msg.HallRequests
 	// s.Elevators = msg.Elevators
 
@@ -47,8 +47,8 @@ func (s *System) InitializeFromSystemState(msg message.Message) {
 	}
 }
 
-func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[string]string) (message.Message, string) {
-	newMessage := message.Message{
+func (s *System) RegisterAndSyncElevator(msg message.ElevatorMessage, ipRegistery map[string]string) (message.ElevatorMessage, string) {
+	newMessage := message.ElevatorMessage{
 		MsgType: types.MSG_T_NewToChannel,
 		Id:      msg.Id,
 		Ip:      msg.Ip,

@@ -103,7 +103,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.doorState = DS_Opening
 			// fmt.Println(e)
 
-			msg := message.Message{
+			msg := message.ElevatorMessage{
 				MsgType: types.MSG_T_TaskRequest,
 				Id:      e.Id,
 				Elevators: map[string]types.ElevatorsStatus{
@@ -120,7 +120,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 				elevatorState.State = types.ES_Moving
 			} else {
 				e.doorState = DS_Opening
-				msg := message.Message{
+				msg := message.ElevatorMessage{
 					MsgType:   types.MSG_T_ButtonPress,
 					Id:        e.Id,
 					Task:      e.System.Elevators[e.Id].Target,
@@ -129,7 +129,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 				e.SendToProtocol <- msg
 			}
 		} //else {
-		// 	msg := message.Message{
+		// 	msg := message.ElevatorMessage{
 		// 		MsgType: types.MSG_T_TaskRequest,
 		// 		Id:      e.Id,
 		// 		Elevators: map[string]types.ElevatorsStatus{
@@ -145,7 +145,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		if dir == elevio.MD_Stop {
 			e.doorState = DS_Opening
 			elevatorState.State = types.ES_Idle
-			msg := message.Message{
+			msg := message.ElevatorMessage{
 				MsgType:   types.MSG_T_ButtonPress,
 				Id:        e.Id,
 				Task:      e.System.Elevators[e.Id].Target,
@@ -176,7 +176,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 
 	// If state has changed, notify
 	if elevatorState.State != e.System.Elevators[e.Id].State {
-		msg := message.Message{
+		msg := message.ElevatorMessage{
 			MsgType: types.MSG_T_StatusReport,
 			Id:      e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
@@ -284,7 +284,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 
 	e.System.Elevators[e.Id] = elevatorStatus
 
-	msg := message.Message{
+	msg := message.ElevatorMessage{
 		MsgType: types.MSG_T_NewToChannel,
 		Id:      e.Id,
 		Ip:      e.Ip,

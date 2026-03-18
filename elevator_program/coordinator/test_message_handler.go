@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-func (c *Coordinator) InitMsg() []message.Message {
-	msg := []message.Message{
+func (c *Coordinator) InitMsg() []message.ElevatorMessage {
+	msg := []message.ElevatorMessage{
 		{
 			MsgType: types.MSG_T_TaskUpdate,
 			Id:      "1",
@@ -97,7 +97,7 @@ func (c *Coordinator) TestMsgHandler(e *elevator.Elevator, numFloors int) {
 
 	// TODO Figure this out need Elevator map in message
 	newCopy := e.System.CopySystem()
-	newMsg := message.Message{
+	newMsg := message.ElevatorMessage{
 		MsgType:      types.MSG_T_NewToChannel,
 		Id:           "1",
 		Elevators:    newCopy.Elevators,
@@ -144,7 +144,7 @@ func (c *Coordinator) TestMsgHandler_Master(e *elevator.Elevator, numFloors int)
 	fmt.Println("---- TEST: Status Report ----")
 	fmt.Println("System before msg: ", e.System.Elevators)
 
-	msg := message.Message{
+	msg := message.ElevatorMessage{
 		MsgType: types.MSG_T_StatusReport,
 		Id:      "2",
 		Elevators: map[string]types.ElevatorsStatus{
@@ -158,7 +158,7 @@ func (c *Coordinator) TestMsgHandler_Master(e *elevator.Elevator, numFloors int)
 
 	fmt.Println("---- TEST: Task Update ----")
 
-	taskMsg := message.Message{
+	taskMsg := message.ElevatorMessage{
 		MsgType: types.MSG_T_TaskUpdate,
 		Id:      "2",
 		Task: elevio.ButtonEvent{
@@ -175,7 +175,7 @@ func (c *Coordinator) TestMsgHandler_Master(e *elevator.Elevator, numFloors int)
 
 	// fmt.Println("---- TEST: Slave receiving TaskAssign ----")
 
-	// assignMsg := Message{
+	// assignMsg := ElevatorMessage{
 	// 	msgType: MSG_T_TaskAssign,
 	// 	task: elevio.ButtonEvent{
 	// 		Floor:  3,
@@ -194,5 +194,5 @@ func (c *Coordinator) TestMsgHandler_Master(e *elevator.Elevator, numFloors int)
 // NB need to make two elevators on two different ports, also both "e.server.Listen()"
 // must be called as go-routines for them to start listening
 // func test_sending(srv *server.Server, sessionID uint32, ip_receiver string, port_receiver int) {
-// 	srv.SendSession(sessionID, ip_receiver, port_receiver, message.Message{Ip: "Dette er en test :)"})
+// 	srv.SendSession(sessionID, ip_receiver, port_receiver, message.ElevatorMessage{Ip: "Dette er en test :)"})
 // }

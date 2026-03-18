@@ -14,7 +14,7 @@ import (
 type Coordinator struct {
 	Server        *server.Server              // TODO be carefull with pass by value functions, locks
 	msgRecieveCh  chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
-	msgSendCh     chan message.Message
+	msgSendCh     chan message.ElevatorMessage
 	wg            sync.WaitGroup
 	activePeers   int
 	portRegistery map[string]int
@@ -23,7 +23,7 @@ type Coordinator struct {
 
 func (c *Coordinator) InitProtocol() { // TODO how can I allways now excactly how many elevators we are going to use
 	c.msgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
-	c.msgSendCh = make(chan message.Message, 10)
+	c.msgSendCh = make(chan message.ElevatorMessage, 10)
 	c.activePeers = 1
 	c.portRegistery = map[string]int{
 		"broadcast": 3000,
@@ -33,7 +33,7 @@ func (c *Coordinator) InitProtocol() { // TODO how can I allways now excactly ho
 
 // For starting server
 func (c *Coordinator) StartServer(ip string, port int, id string) error {
-	srv, err := server.NewServer(ip, port, id, c.activePeers, c.msgRecieveCh)
+	srv, err := server.NewServer(ip, port, id, c.msgRecieveCh)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	go c.Server.Start()
 }
 
-func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
+func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
 	c.Server.QueueMessage(remoteAddr, protoPktType, msg)
 
 }

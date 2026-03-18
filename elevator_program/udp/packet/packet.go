@@ -8,8 +8,8 @@ import (
 )
 
 type Packet struct {
-	Header  Header          `json:"header"`
-	Payload message.Message `json:"payload"`
+	Header  Header                  `json:"header"`
+	Payload message.ElevatorMessage `json:"payload"`
 }
 
 func (p Packet) encodePacket() ([]byte, error) {

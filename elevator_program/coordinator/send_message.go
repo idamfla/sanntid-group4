@@ -17,7 +17,7 @@ func (c *Coordinator) sendListener(e *elevator.Elevator) {
 	}
 }
 
-func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if e.IsMaster {
 		c.sendAsMaster(msg)
 	} else {
@@ -26,7 +26,7 @@ func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Mes
 }
 
 // slave starting the session with master or someone ...
-func (c *Coordinator) sendAsSlave(msg message.Message) {
+func (c *Coordinator) sendAsSlave(msg message.ElevatorMessage) {
 	// var pktType packet.PacketType
 	var ip string
 	broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
@@ -79,7 +79,7 @@ func (c *Coordinator) sendAsSlave(msg message.Message) {
 }
 
 // TODO Is this a smart way to do it, seams kind of unneccesary
-func (c *Coordinator) sendAsMaster(msg message.Message) {
+func (c *Coordinator) sendAsMaster(msg message.ElevatorMessage) {
 	// port := udp.BROADCAST_PORT
 	var ip string
 	broadcastIp := udp.NtnuBroadcastIP

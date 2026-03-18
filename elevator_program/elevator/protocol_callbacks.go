@@ -39,7 +39,7 @@ func (e Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button 
 	}
 }
 
-func (e *Elevator) SetConnectionState(msg message.Message) {
+func (e *Elevator) SetConnectionState(msg message.ElevatorMessage) {
 	e.Id = msg.Id
 	e.IsMaster = false
 	e.connectedToMaster = true

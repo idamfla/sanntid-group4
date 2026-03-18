@@ -6,35 +6,36 @@ import (
 	"fmt"
 )
 
-var emtpyMsg message.Message
+var emtpyMsg message.ElevatorMessage
 
 // helper
-func (ses *Session) send(pktType packet.PacketType, msg message.Message) error {
+func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
+	ses.lastOutPkt = outPkt
 	return ses.tx.Send(
 		ses.senderAddr,
 		ses.seq,
 		ses.ID,
-		pktType,
-		msg,
+		outPkt.PktType,
+		outPkt.Msg,
 	)
 }
 
-func (ses *Session) QueueDataMessage(msg message.Message) {
+func (ses *Session) QueueDataMessage(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_Data,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) QueueMasterMessage(msg message.Message) {
+func (ses *Session) QueueMasterMessage(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_SlaveReport,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdate(msg message.Message) {
+func (ses *Session) QueueBroadcastUpdate(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_BroadcastUpdate,
 		Msg:     msg,
@@ -67,13 +68,13 @@ func (ses *Session) sendDoneAck(pktType packet.PacketType) {
 	}
 }
 
-func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error {
+func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 	return ses.tx.Send(
 		ses.senderAddr,
 		ses.seq,
 		ses.ID,
-		pktType,
-		msg)
+		outPkt.PktType,
+		outPkt.Msg)
 }
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
@@ -82,7 +83,7 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 	for {
 		select {
 		case outPkt := <-ses.outgoingMsgCh:
-			err := ses.send(outPkt.PktType, outPkt.Msg)
+			err := ses.send(outPkt)
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}

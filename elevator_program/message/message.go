@@ -8,7 +8,7 @@ import (
 // DTOs, data transfer objects
 
 // Hopefully a better struct
-type Message struct {
+type ElevatorMessage struct {
 	MsgType types.MessageType
 
 	Id string

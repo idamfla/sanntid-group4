@@ -12,7 +12,7 @@ func (srv *Server) Send(
 	seq uint32,
 	sessionID uint32,
 	pktType packet.PacketType,
-	msg message.Message,
+	msg message.ElevatorMessage,
 ) error {
 
 	pkt := packet.Packet{
@@ -29,7 +29,7 @@ func (srv *Server) Send(
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) error {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
@@ -38,12 +38,13 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, msg message.Message) er
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDataMessage(msg)
+	// srv.elevatorTaskQueue()
 	return nil
 }
 
-func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.Message) error {
+func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
-		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
+		err := fmt.Errorf("Tried to report to oneself %s", remoteAddr.String())
 		fmt.Println(err)
 		return err
 	}
@@ -54,7 +55,7 @@ func (srv *Server) startReport(remoteAddr *net.UDPAddr, msg message.Message) err
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startBroadcast(msg message.Message) {
+func (srv *Server) startBroadcast(msg message.ElevatorMessage) {
 	quorum := srv.getQuorum()
 	ses := srv.createBroadcastSession(srv.broadcastAddr, quorum)
 
@@ -67,6 +68,7 @@ func (srv *Server) startStateSync() {
 }
 
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
+	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_Data:
 		srv.startSession(outMsg.RemoteAddr, outMsg.Msg)
@@ -74,10 +76,13 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 		srv.startBroadcast(outMsg.Msg)
 	case packet.PKT_T_SlaveReport:
 		// srv.startMasterSession(srvMsg.RemoteAddr, srvMsg.Msg)
+	case packet.PKT_T_StateSync:
+		srv.startStateSync()
+		// TODO what to do when you are completely new???
 	}
 }
 
-func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
+func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 	srv.outgoingMsgCh <- outgoingMessage{
 		RemoteAddr: remoteAddr,

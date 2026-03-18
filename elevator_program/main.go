@@ -60,7 +60,7 @@ func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	bcMsg := message.Message{Ip: "Hello, broadcast from " + srv.ID}
+	bcMsg := message.ElevatorMessage{Ip: "Hello, broadcast from " + srv.ID}
 
 	for range ticker.C {
 		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, bcMsg)
@@ -89,7 +89,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 func main() {
 	// eA := elevtest.NewElev("A", 2)
 
-	// err := eA.StartServer(localIP, 9000)
+	// err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	// if err != nil {
 	// 	fmt.Println(err)
 	// 	return
@@ -108,15 +108,10 @@ func main() {
 
 	// eA.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_BroadcastData,
-	// 	message.Message{Ip: "Hello A!"},
+	// 	packet.PROTO_PKT_T_BroadcastUpdate,
+	// 	message.ElevatorMessage{Content: "Hello A!"},
 	// )
 
-	// eA.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_BroadcastData,
-	// 	message.Message{Ip: "Hello Ax2!"},
-	// )
 	// closeProgram(eA, eB)
 
 	ip_address := "localhost"
@@ -148,64 +143,13 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	// e2copy := e2.System.Elevators[e2.Id]
-	// e2copy.CabRequests[2] = types.Running
-	// e2.System.Elevators[e2.Id] = e2copy
-	// fmt.Println("Created e2 and p2")
 
-	p2.Start(&e2)
-
-	defer p1.Close()
-	defer p2.Close()
-
-	fmt.Println("finished init")
-	// e1.IsOnline = true
-	e2.RunElevatorProgram()
-
-	// vierdElev := types.ElevatorsStatus{
-	// 	Ip:          "Halla balla",
-	// 	CabRequests: make([]types.ButtonStatus, 4),
-	// }
-
-	// msg := message.Message{
-	// 	MsgType: types.MSG_T_NewToChannel,
-	// 	Id:      "2",
-	// 	Elevators: map[string]types.ElevatorsStatus{
-	// 		"2": vierdElev,
-	// 	},
-	// }
-	// time.Sleep(2 * time.Second)
-
-	// msg := message.Message{
-	// 	MsgType: types.MSG_T_ElevatorLost,
-	// 	Id:      "1",
-	// 	Ip:      e1.Ip,
-	// }
-
-	// fmt.Println("Connected to master, ", e2.ConnectedToMaster())
-	// e1.IsMaster = false
-	// time.Sleep(2 * time.Second)
-	// fmt.Println("Sending now")
-	// e1.SendToProtocol <- msg
-
-	// msg = message.Message{
-	// 	MsgType:   types.MSG_T_TaskUpdate,
-	// 	Id:        "1",
-	// 	BtnStatus: types.Pending,
-	// 	Task: elevio.ButtonEvent{
-	// 		Floor:  1,
-	// 		Button: elevio.BT_HallUp,
-	// 	},
-	// }
-	time.Sleep(2 * time.Second)
-
-	fmt.Println("Is it now connected to system? ", e1.Id, e1.IsMaster, e1.IsOnline)
-	// fmt.Println("Sending now")
-	// p2.SendMessageMaster(msg)
-
-	select {}
-
-	//TODO make sure the server dosent take in peers and not totalnumberofElevators
+	//TODO
+	/*
+		make sure elevator_task sendElevatorTaskLoop works correctly ...
+		there is an issue after the quorum is reached in the broadcast_session, it stops there
+		fix, the one that broadcasts has no content inside the task ...
+	*/
 }
 
 // 127.0.0.1 er lokal <- du kan bruke denne for en til en
