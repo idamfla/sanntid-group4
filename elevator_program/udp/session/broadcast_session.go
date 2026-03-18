@@ -106,6 +106,16 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 	peerID := pkt.Header.SenderAddr
 
+	if h.Seq != bs.seq+1 { // TODO is it correct to always inc here?
+		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
+			bs.ID, h.Seq, bs.seq+1)
+		fmt.Println(err)
+		return err
+
+	}
+
+	bs.seq = pkt.Header.Seq
+
 	bs.addResponder(peerID)
 	isQuorumReached := bs.countResponders() >= bs.expectedResponses
 
@@ -152,7 +162,6 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_BroadcastAck:
 		fmt.Printf("bcAck: %d/%d\n", bs.countResponders(), bs.expectedResponses)
 		if isQuorumReached {
-			bs.seq++
 			bs.stopAckTimer()
 
 			// TODO elevator should receive and then start a broadcast session where it send the packet to everyone
@@ -164,7 +173,6 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_BroadcastDone:
 		fmt.Printf("bcDone: %d/%d\n", bs.countResponders(), bs.expectedResponses)
 		if isQuorumReached {
-			bs.seq++
 			bs.hasLastPkt = false
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()

@@ -10,6 +10,7 @@ import (
 func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
+	fmt.Println(outPkt.EMsg.ID, outPkt.PktType, "sent msg with seq", ses.seq) // TODO db remove later
 	return ses.tx.Send(
 		ses.peerAddr,
 		ses.seq,
@@ -17,6 +18,10 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 		outPkt.PktType,
 		outPkt.EMsg,
 	)
+}
+
+func (ses *Session) QueueServerMsg(eMsg message.ElevatorMessage) {
+	ses.tx.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, eMsg)
 }
 
 func (ses *Session) QueueSlaveUpdateMsg(eMsg message.ElevatorMessage) {

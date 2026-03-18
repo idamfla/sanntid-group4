@@ -28,6 +28,7 @@ func (srv *Server) Send(
 
 	if pktType == packet.PKT_T_IAmMaster {
 		srv.setSelfAsMaster(true)
+		srv.isSynced = true
 	}
 
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
@@ -89,6 +90,14 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 
 		srv.startBroadcast(outMsg.EMsg)
 	case packet.PKT_T_WhoIsMaster:
+		srv.mu.Lock()
+		if srv.searchingForMaster {
+			srv.mu.Unlock()
+			return
+		}
+		srv.searchingForMaster = true
+		srv.mu.Unlock()
+
 		if peer := srv.GetMasterPeer(); peer != nil {
 			peer.SetMaster(false)
 		}

@@ -40,6 +40,12 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
+		srv.mu.Lock()
+		if srv.searchingForMaster {
+			srv.mu.Unlock()
+			return
+		}
+		srv.mu.Unlock()
 		ses = srv.getOrCreateBroadcastSession(sessionID)
 
 	case packet.PKT_T_IAmMaster:

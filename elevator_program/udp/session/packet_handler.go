@@ -112,7 +112,7 @@ func (ses *Session) handleCatchup() {
 }
 
 func (ses *Session) handleSlaveUpdate() {
-	ses.QueueBroadcastUpdateMsg(ses.pendingPkt.Payload)
+	ses.QueueServerMsg(ses.pendingPkt.Payload)
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	ses.notifyTaskReady()
 	ses.scheduleSessionClose()

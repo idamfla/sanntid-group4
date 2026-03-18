@@ -13,6 +13,7 @@ import (
 type PacketSender interface {
 	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
+	QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
 	IsMaster() bool
 	GetMasterPeer() *peerinfo.PeerInfo
 	StartPeerCatchup(peerAddr *net.UDPAddr)

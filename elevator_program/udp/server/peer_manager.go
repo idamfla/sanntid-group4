@@ -121,6 +121,10 @@ func (srv *Server) setMasterPeer(peerID string, isMaster bool) {
 		peer.SetMaster(isMaster)
 	}
 
+	if isMaster {
+		srv.searchingForMaster = false
+	}
+
 }
 
 func (srv *Server) PrintPeers() {

@@ -18,20 +18,21 @@ type SessionHandler interface {
 }
 
 type Server struct {
-	ID            string
-	isMaster      bool
-	isSynced      bool
-	incPktCh      chan incomingPacket
-	outgoingMsgCh chan outgoingMessage
-	recvConn      *net.UDPConn
-	sendConn      *net.UDPConn
-	broadcastConn *net.UDPConn // Listening conn
-	broadcastAddr *net.UDPAddr // Broadcast sending addr
-	sessions      map[uint32]SessionHandler
-	peers         map[string]*peerinfo.PeerInfo
-	bcSeq         uint32
-	mu            sync.Mutex
-	closeReq      chan uint32
+	ID                 string
+	isMaster           bool
+	searchingForMaster bool
+	isSynced           bool
+	incPktCh           chan incomingPacket
+	outgoingMsgCh      chan outgoingMessage
+	recvConn           *net.UDPConn
+	sendConn           *net.UDPConn
+	broadcastConn      *net.UDPConn // Listening conn
+	broadcastAddr      *net.UDPAddr // Broadcast sending addr
+	sessions           map[uint32]SessionHandler
+	peers              map[string]*peerinfo.PeerInfo
+	bcSeq              uint32
+	mu                 sync.Mutex
+	closeReq           chan uint32
 
 	stop      chan struct{}
 	wg        sync.WaitGroup
@@ -74,21 +75,22 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 	}
 
 	srv := &Server{
-		ID:                id,
-		isMaster:          false,
-		isSynced:          false,
-		incPktCh:          make(chan incomingPacket),
-		outgoingMsgCh:     make(chan outgoingMessage),
-		recvConn:          recvConn,
-		sendConn:          sendConn,
-		broadcastConn:     bcConn,
-		broadcastAddr:     bcAddr,
-		sessions:          make(map[uint32]SessionHandler),
-		peers:             make(map[string]*peerinfo.PeerInfo),
-		closeReq:          make(chan uint32),
-		stop:              make(chan struct{}),
-		elevator:          toElevator,
-		elevatorTaskQueue: make(chan ElevatorTask),
+		ID:                 id,
+		isMaster:           false,
+		searchingForMaster: false,
+		isSynced:           true,
+		incPktCh:           make(chan incomingPacket),
+		outgoingMsgCh:      make(chan outgoingMessage),
+		recvConn:           recvConn,
+		sendConn:           sendConn,
+		broadcastConn:      bcConn,
+		broadcastAddr:      bcAddr,
+		sessions:           make(map[uint32]SessionHandler),
+		peers:              make(map[string]*peerinfo.PeerInfo),
+		closeReq:           make(chan uint32),
+		stop:               make(chan struct{}),
+		elevator:           toElevator,
+		elevatorTaskQueue:  make(chan ElevatorTask),
 	}
 
 	return srv, nil
@@ -156,4 +158,8 @@ func (srv *Server) setSelfAsMaster(isMaster bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	srv.isMaster = isMaster
+
+	if isMaster {
+		srv.searchingForMaster = false
+	}
 }
