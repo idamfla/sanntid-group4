@@ -6,7 +6,7 @@ import (
 	"elevator_program/types"
 )
 
-// TODO This function is wierd, either we need to have it as e or something else if it is msg sending
+// TODO This function is wierd, either we need to have it as e or something else if it is eMsg sending
 func (e *Elevator) HandleLostConnection(senderId string) {
 	if senderId == "" { //|| time.Since(e.lostComsTimer) > 4*time.Second
 		e.IsOnline = false
@@ -39,8 +39,8 @@ func (e *Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button
 	}
 }
 
-func (e *Elevator) SetConnectionState(msg message.ElevatorMessage) {
-	e.Id = msg.Id
+func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
+	e.Id = eMsg.ID
 	e.IsMaster = false
 	e.connectedToMaster = true
 	e.IsOnline = true

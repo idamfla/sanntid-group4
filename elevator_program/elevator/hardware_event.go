@@ -42,12 +42,12 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		e.System.Mutex.RLock()
 		_, elevators := e.System.Snapshot()
 		e.System.Mutex.RUnlock()
-		msg := message.ElevatorMessage{
-			MsgType:   types.MSG_T_StatusReport,
-			Id:        e.Id,
+		eMsg := message.ElevatorMessage{
+			EMsgType:  message.EMSG_T_StatusReport,
+			ID:        e.Id,
 			Elevators: elevators,
 		}
-		e.SendToCoordinator <- msg
+		e.SendToCoordinator <- eMsg
 
 	case HW_T_ButtonPress:
 		if !e.connectedToMaster {
@@ -64,9 +64,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.System.Mutex.RLock()
 			_, elevators := e.System.Snapshot()
 			e.System.Mutex.RUnlock()
-			msg := message.ElevatorMessage{
-				MsgType:   types.MSG_T_ButtonPress,
-				Id:        e.Id,
+			eMsg := message.ElevatorMessage{
+				EMsgType:  message.EMSG_T_ButtonPress,
+				ID:        e.Id,
 				Task:      task,
 				BtnStatus: types.Pending,
 				Elevators: map[string]types.ElevatorsStatus{
@@ -77,11 +77,11 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			if e.IsMaster {
 				taskElevatorId, _, _ := e.ClosestToTarget(elevators, task)
 				if taskElevatorId != e.Id {
-					msg.BtnStatus = types.Running
-					msg.Id = taskElevatorId
+					eMsg.BtnStatus = types.Running
+					eMsg.ID = taskElevatorId
 				}
 			}
-			e.SendToCoordinator <- msg
+			e.SendToCoordinator <- eMsg
 		}
 
 	case HW_T_FloorSensor:
@@ -96,12 +96,12 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevatorCopy := e.System.Elevators[e.Id]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
 			e.System.Elevators[e.Id] = elevatorCopy
-			msg := message.ElevatorMessage{
-				MsgType:   types.MSG_T_StatusReport,
-				Id:        e.Id,
+			eMsg := message.ElevatorMessage{
+				EMsgType:  message.EMSG_T_StatusReport,
+				ID:        e.Id,
 				Elevators: e.System.Elevators,
 			}
-			e.SendToCoordinator <- msg
+			e.SendToCoordinator <- eMsg
 			e.System.Mutex.Unlock()
 		}
 

@@ -1,6 +1,10 @@
 package server
 
 import (
+	"elevator_program/message"
+	"elevator_program/udp/packet"
+	"elevator_program/udp/peerinfo"
+	"fmt"
 	"net"
 	"time"
 )
@@ -18,25 +22,131 @@ func (srv *Server) activePeerCount() int {
 	return count
 }
 
-func (srv *Server) nextSeq(addr *net.UDPAddr) uint32 {
+func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*peerinfo.PeerInfo, bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	key := addr.String()
-	peer, ok := srv.peers[key]
-	if !ok {
-		peer = &PeerInfo{Addr: addr, Seq: 0, Active: true, LastSeen: time.Now()}
+	peer, exists := srv.peers[key]
+	if !exists {
+		peer = peerinfo.NewPeer(addr)
 		srv.peers[key] = peer
+		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)
+		return peer, true
 	}
 
-	// Assign current seq to the outgoing message
-	seq := peer.Seq
+	peer.LastSeen = time.Now()
+	return peer, false
+}
 
-	// Increment for next message
-	peer.Seq++
-	if peer.Seq >= seq { // optional wrap-around
-		peer.Seq = 0
+func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
+	peer, isNew := srv.getOrCreatePeer(addr)
+
+	wasRevived := !isNew && !peer.Active
+	if wasRevived {
+		peer.Active = true
+		peer.LastSeen = time.Now()
 	}
 
-	return seq
+	if (forceSync || isNew || wasRevived) && srv.IsMaster() {
+		fmt.Println("sync peer")
+		// TODO request elevator to sync this peer
+		// go srv.syncPeer(addr.String()) // TODO this is handled by elevator
+	}
+}
+
+func (srv *Server) GetMasterPeer() *peerinfo.PeerInfo {
+	for _, p := range srv.peers {
+		if p.IsMaster {
+			return p
+		}
+	}
+	return nil
+}
+
+func (srv *Server) getPeerCount() int {
+	count := 0
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	for _, peer := range srv.peers {
+		if peer.Active {
+			count++
+		}
+	}
+	return count
+}
+
+// func (srv *Server) getAliveUnsyncedPeers() []*peerinfo.PeerInfo {
+// 	srv.mu.Lock()
+// 	peers := make([]*peerinfo.PeerInfo, 0, len(srv.peers))
+// 	for _, p := range srv.peers {
+// 		if p.Active && !p.IsSynced {
+// 			peers = append(peers, p)
+// 		}
+// 	}
+// 	srv.mu.Unlock()
+
+// 	return peers
+// }
+
+func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
+	defer srv.wg.Done()
+	done := false
+	for !done {
+		select {
+		case msg := <-peer.EMsgQueue:
+			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupUpdate, msg)
+		default:
+			done = true // no more messages
+			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupDone, message.ElevatorMessage{})
+			peer.IsSynced = true
+		}
+	}
+}
+
+func (srv *Server) StartPeerCatchup(peerAddr *net.UDPAddr) {
+	srv.wg.Add(1)
+	peer, isNew := srv.getOrCreatePeer(peerAddr)
+	if isNew {
+		return
+	}
+	go srv.flushPeerPendingMsg(peer)
+}
+
+func (srv *Server) setMasterPeer(peerID string, isMaster bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if peer, exists := srv.peers[peerID]; exists {
+		peer.SetMaster(isMaster)
+	}
+
+	if isMaster {
+		srv.searchingForMaster = false
+	}
+
+}
+
+func (srv *Server) PrintPeers() {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	msg := "=== Peers map ===\n"
+
+	for key, peer := range srv.peers {
+		if peer == nil {
+			msg += fmt.Sprintf("%s -> nil\n", key)
+			continue
+		}
+		msg += fmt.Sprintf(`%s -> Addr: %v
+	IsMaster: %v
+	Active: %v
+	LastSeen: %v
+`,
+			key, peer.Addr, peer.IsMaster, peer.Active, peer.LastSeen)
+	}
+
+	msg += `=================
+	`
+	fmt.Println(msg)
 }

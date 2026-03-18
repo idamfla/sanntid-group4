@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -17,6 +18,77 @@ func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32)
 	}
 
 	return srv.createSession(senderAddr, &sessionID)
+}
+
+func (srv *Server) getOrCreateBroadcastSession(sessionID uint32) SessionHandler {
+	srv.mu.Lock()
+	bs, exists := srv.sessions[sessionID]
+	srv.mu.Unlock()
+
+	if exists {
+		return bs
+	}
+
+	return srv.createBroadcastSession(&sessionID, 0)
+}
+
+func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
+	sessionID := incPkt.Packet.Header.SessionID
+	pktType := incPkt.Packet.Header.PktType
+
+	var ses SessionHandler
+
+	switch pktType {
+	case packet.PKT_T_WhoIsMaster:
+		srv.mu.Lock()
+		if srv.searchingForMaster {
+			srv.mu.Unlock()
+			return
+		}
+		srv.mu.Unlock()
+		ses = srv.getOrCreateBroadcastSession(sessionID)
+
+	case packet.PKT_T_IAmMaster:
+		key := incPkt.Packet.Header.SenderAddr
+		if peer, exists := srv.peers[key]; exists {
+			peer.SetMaster(true)
+			ses = srv.getOrCreateBroadcastSession(sessionID)
+		}
+
+		if !srv.IsMaster() {
+			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
+		}
+
+		srv.setMasterPeer(key, true)
+
+	default:
+		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
+			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+			return
+		}
+		ses = srv.getOrCreateSession(senderAddr, sessionID)
+	}
+
+	if pktType == packet.PKT_T_MasterAck && !srv.isMaster {
+
+	} else {
+		fmt.Printf(
+			`%s, Session %d:
+	sent from : %s
+	to        : %s
+	reply sock: %s
+	pktType   : %s
+`,
+			srv.ID,
+			incPkt.Packet.Header.SessionID,
+			incPkt.Addr.String(),
+			incPkt.Packet.Header.RecipientAddr,
+			senderAddr.String(),
+			pktType,
+		)
+	}
+
+	ses.ReceivePacket(incPkt.Packet)
 }
 
 // helper function, not called directly: *unsafe*
@@ -58,6 +130,8 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	}
 
 	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
+	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
+
 	srv.mu.Lock()
 	srv.sessions[ses.ID] = ses
 	srv.mu.Unlock()
@@ -65,17 +139,24 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	return ses
 }
 
-func (srv *Server) createBroadcastSession(remoteAddr *net.UDPAddr, expectedResponses int) *session.BroadcastSession {
+func (srv *Server) createBroadcastSession(sessionID *uint32, expectedResponses int) *session.BroadcastSession {
 	// generate unique id
-	id := srv.generateSessionIDLocked()
+	var id uint32
+	if sessionID != nil {
+		id = *sessionID
+	} else {
+		id = srv.generateSessionIDLocked()
+	}
 
 	bs := session.NewBroadcastSession(
 		id,
-		remoteAddr,
+		srv.recvConn.LocalAddr().String(),
+		srv.broadcastAddr,
 		srv.closeReq,
 		srv,
 		expectedResponses,
 	)
+	fmt.Printf("Server %s: new broadcast session: %d\n", srv.ID, id)
 
 	// store it in sessions map (so server tracks it)
 	srv.mu.Lock()

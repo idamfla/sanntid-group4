@@ -48,13 +48,13 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
 			// TODO send fault to fault tolerance
 
-			msg := message.ElevatorMessage{
-				MsgType:   types.MSG_T_TaskUpdate,
-				Id:        taskKey.Owner,
+			eMsg := message.ElevatorMessage{
+				EMsgType:  message.EMSG_T_TaskUpdate,
+				ID:        taskKey.Owner,
 				Task:      taskKey.TaskID,
 				BtnStatus: types.Pending,
 			}
-			e.SendToCoordinator <- msg
+			e.SendToCoordinator <- eMsg
 		}
 
 		tm.mu.Lock()

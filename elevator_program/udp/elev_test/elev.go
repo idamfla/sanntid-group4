@@ -11,10 +11,11 @@ import (
 )
 
 type Elev struct {
-	ID  string
-	ch  chan session.ElevatorPacket
-	srv *server.Server
-	wg  sync.WaitGroup
+	ID       string
+	isMaster bool
+	ch       chan session.ElevatorPacket
+	srv      *server.Server
+	wg       sync.WaitGroup
 }
 
 func NewElev(id string) *Elev {
@@ -31,14 +32,14 @@ func (e *Elev) StartServer(ip string, port int) error {
 	}
 
 	e.srv = srv
-	fmt.Println("Server", e.srv.ID, "is running...")
+	fmt.Println("Server", e.srv.ID, "is running ...")
 	return nil
 }
 
 func (e *Elev) listen() {
 	defer e.wg.Done()
 	for msg := range e.ch {
-		fmt.Println("Got elevator packet:", msg.Packet.Payload.Id)
+		fmt.Println("elev got elevator packet:", msg.EMsg)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
 		}
@@ -51,8 +52,8 @@ func (e *Elev) Start() {
 	go e.srv.Start()
 }
 
-func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
-	e.srv.QueueMessage(remoteAddr, protoPktType, msg)
+func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
+	e.srv.QueueMessage(remoteAddr, protoPktType, eMsg)
 
 }
 
@@ -63,4 +64,8 @@ func (e *Elev) Close() {
 	e.srv.Close()
 
 	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
+}
+
+func (e *Elev) IsMaster() bool {
+	return e.srv.IsMaster()
 }

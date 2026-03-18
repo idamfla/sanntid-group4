@@ -14,5 +14,5 @@ type incomingPacket struct {
 type outgoingMessage struct {
 	RemoteAddr *net.UDPAddr
 	PktType    packet.PacketType
-	Msg        message.ElevatorMessage
+	EMsg       message.ElevatorMessage
 }

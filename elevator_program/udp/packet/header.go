@@ -4,64 +4,54 @@ type PacketType int
 
 const (
 	PKT_T_Heartbeat PacketType = iota
+	PKT_T_IAmAlive
 	PKT_T_LostConn
-	PKT_T_Data
-	PKT_T_SlaveReport
-	PKT_T_RequestNewOrder
+
+	PKT_T_WhoIsMaster
+	PKT_T_IAmMaster
+	PKT_T_MasterAck
+
+	PKT_T_StateSnapshot
+	PKT_T_SnapshotAck
+
+	PKT_T_CatchupUpdate
+	PKT_T_CatchupAck
+	PKT_T_CatchupDone
+
 	PKT_T_BroadcastUpdate
-	PKT_T_StateSync
-	PKT_T_Ack
-	PKT_T_BroadcastUpdateAck
-	PKT_T_ReportAck
-	PKT_T_Commit
-	PKT_T_ElevatorFailed
+	PKT_T_BroadcastAck
 	PKT_T_BroadcastCommit
-	PKT_T_Done
 	PKT_T_BroadcastDone
+
+	PKT_T_SlaveUpdate
+	PKT_T_SlaveUpdateAck
+
+	PKT_T_RequestTaskExecution
+	PKT_T_RequestTaskExecutionAck
+
+	PKT_T_ElevatorFailed // todo do i need this?
 )
 
+// TODO combine all MasterDoSomethingRequest: slavereport,requestneworder, data. Dont need report and report ack
 /*
-Heartbeat
-LostConn
-Notify
-NotifyAck
-BroadcastData
-BroadcastAck
-BroadcastCommit
-BroadcastDone
-ElevatorFailed
+commit and done is redundant, ack closes one to one msg -> changes only happen when master broadcast. look at msg receiver field for who should do what
+- {this is me: ip, who is master} x3 -> (if someone is master) -> wait 5 sec -> one send {i am master, ip}
+											|-> sync -> who should be master (should new be master)
 */
 
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat       ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)       // broadcast
-	PROTO_PKT_T_LostConn        ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)        // broadcast
-	PROTO_PKT_T_Data            ProtocolPacketType = ProtocolPacketType(PKT_T_Data)            // master -> slave
-	PROTO_PKT_T_SlaveReport     ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveReport)     // slave -> master
-	PROTO_PKT_T_RequestNewOrder ProtocolPacketType = ProtocolPacketType(PKT_T_RequestNewOrder) // slave -> master
-	PROTO_PKT_T_BroadcastUpdate ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate) // master -> broadcast
-	PROTO_PKT_T_StateSync       ProtocolPacketType = ProtocolPacketType(PKT_T_StateSync)       // unknown -> broadcast
+	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
+	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
+	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)          //broadcast
+	PROTO_PKT_T_StateSnapshot        ProtocolPacketType = ProtocolPacketType(PKT_T_StateSnapshot)        // master -> slave
+	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
+	PROTO_PKT_T_CatchupDone          ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupDone)          // master -> slave
+	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
+	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)          // slave -> master
+	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
 )
-
-/*
-Heartbeat: broadcast: data -> ack
-LostConn: slave broadcast: data -> ack
-NotifyMaster: slave -> master: data -> ack
-UpdateSystem: master broadcast: data -> ack -> ack counter -> commit -> commit self -> done
-NewToChannel: unknown broadcast: data -> ack
-*/
-
-// TODO
-/*
-1. lost conn - broadcast
-2. master control - ask for new order, one-to-one
-3. button press - have master broadcast, one-to-one
-4. master assign task - one-to-one
-5. master broadcast - broadcast
-6. new to network - get id etc ..., boadcast
-7. heartbeat - master broadcast
-*/
 
 type Header struct {
 	Seq           uint32
@@ -75,34 +65,44 @@ func (p PacketType) String() string {
 	switch p {
 	case PKT_T_Heartbeat:
 		return "Heartbeat"
+	case PKT_T_IAmAlive:
+		return "I am alive"
 	case PKT_T_LostConn:
 		return "Lost connection ..."
-	case PKT_T_Data:
-		return "Data"
-	case PKT_T_SlaveReport:
-		return "Slave Report"
-	case PKT_T_RequestNewOrder:
-		return "Slave requested new order"
+	case PKT_T_WhoIsMaster:
+		return "Who is master"
+	case PKT_T_IAmMaster:
+		return "I am master"
+	case PKT_T_MasterAck:
+		return "Master Ack"
+	case PKT_T_StateSnapshot:
+		return "State Snapshot"
+	case PKT_T_SnapshotAck:
+		return "Snapshot Ack"
+	case PKT_T_CatchupUpdate:
+		return "Catch Up Update"
+	case PKT_T_CatchupAck:
+		return "Catch Up Ack"
+	case PKT_T_CatchupDone:
+		return "Catch Up Done"
 	case PKT_T_BroadcastUpdate:
 		return "Broadcast Update"
-	case PKT_T_StateSync:
-		return "New Node"
-	case PKT_T_Ack:
-		return "Ack"
-	case PKT_T_BroadcastUpdateAck:
-		return "Broadcast Update Ack"
-	case PKT_T_ReportAck:
-		return "Master Ack"
-	case PKT_T_Commit:
-		return "Commit"
-	case PKT_T_ElevatorFailed:
-		return "Elevator Failed"
+	case PKT_T_BroadcastAck:
+		return "Broadcast Ack"
 	case PKT_T_BroadcastCommit:
 		return "Broadcast Commit"
-	case PKT_T_Done:
-		return "Done"
 	case PKT_T_BroadcastDone:
 		return "Broadcast Done"
+	case PKT_T_SlaveUpdate:
+		return "Slave Update"
+	case PKT_T_SlaveUpdateAck:
+		return "Slave Update Ack"
+	case PKT_T_RequestTaskExecution:
+		return "Request Task Execution"
+	case PKT_T_RequestTaskExecutionAck:
+		return "Request Task Execution Ack"
+	case PKT_T_ElevatorFailed:
+		return "Elevator Failed"
 	default:
 		return "unknown"
 	}
