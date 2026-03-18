@@ -10,7 +10,7 @@ type DoorState int
 
 const (
 	DS_Closed DoorState = iota
-	DS_Closeing
+	DS_Closing
 	DS_Open
 	DS_Opening
 	DS_Obstruction
@@ -25,8 +25,11 @@ func (e *Elevator) updateDoorState() {
 	case DS_Opening:
 		elevio.SetDoorOpenLamp(true)
 
-		if e.atTargetFloor() {
-			e.clearCurrentFloor(e.currentFloor, e.System.Elevators[e.Id].Target.Button)
+		e.System.Mutex.RLock()
+		task := e.System.Elevators[e.Id].Target
+		e.System.Mutex.RUnlock()
+		if e.atTargetFloor(task.Floor) {
+			e.clearCurrentFloor(e.currentFloor, task.Button)
 		}
 
 		e.doorState = DS_Open
@@ -44,11 +47,11 @@ func (e *Elevator) updateDoorState() {
 		}
 
 		if time.Since(e.doorTimer) >= 3*time.Second {
-			e.doorState = DS_Closeing
+			e.doorState = DS_Closing
 			e.doorTimer = time.Time{}
 		}
 
-	case DS_Closeing:
+	case DS_Closing:
 		if e.obstruction {
 			e.doorState = DS_Obstruction
 			break
@@ -86,7 +89,7 @@ func (s DoorState) String() string {
 	// 		return "idle"
 	case DS_Closed:
 		return "closed"
-	case DS_Closeing:
+	case DS_Closing:
 		return "closeing"
 	case DS_Open:
 		return "open"

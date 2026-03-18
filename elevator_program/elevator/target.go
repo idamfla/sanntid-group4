@@ -2,7 +2,6 @@ package elevator
 
 import (
 	"elevator_program/elevio"
-	"elevator_program/system"
 	"elevator_program/types"
 	"elevator_program/utilities"
 	"fmt"
@@ -11,7 +10,7 @@ import (
 // TODO Sending a pointer should maybe not do that since we don't change the variable
 
 // called by master, e is master, all parameters come from the elevator it checks
-func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) { // TODO can remove task return
+func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) { // TODO can remove task return
 	/*
 		if dir == md_up && newTarget.Button == bt_down {return false, elevio.ButtonEvent{}}
 		else if dir == md_down && newTarget.Button == bt_up
@@ -26,7 +25,6 @@ func (e Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.Ele
 	if elev.State == types.ES_Idle {
 		return true, newTarget, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
-	fmt.Println("HALLLLLLLLLLALe \n\n\n\n\n ", newTarget, elev)
 
 	switch elev.Direction {
 	case elevio.MD_Up:
@@ -63,7 +61,7 @@ let them do the task. this to avoid the first elevator in the map to always take
 on the extra work if the new task is better for it but still another one is closer
 */
 
-func (e Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) (string, int, elevio.ButtonEvent) {
+func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) (string, int, elevio.ButtonEvent) {
 	minDistance := len(e.hallRequests) + 1
 	bestElevatorID := ""
 	isClosestIdle := false
@@ -86,20 +84,10 @@ func (e Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSta
 
 // when an elevator asks for a new target
 // Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
-func (e Elevator) ComputeNewTarget(id string, elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
-	// ruffly same as the basic scan_logic
-
-	// elevatorCopy.System.Elevators[id]
-	system := system.System{
-		HallRequests: hallRequests,
-		Elevators: map[string]types.ElevatorsStatus{
-			id: elevator,
-		},
-	}
-	fmt.Println("How is the state here \n\n\n\n\n ", system)
-
-	return e.getNextTargetFloor(system, id)
-}
+// func (e *Elevator) ComputeNewTarget(id string, elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
+// TODO don't need this function
+// return e.getNextTargetFloor(elevator, id)
+// }
 
 // TODO 'message_handler.go'
 /*
@@ -112,7 +100,7 @@ func (e Elevator) ComputeNewTarget(id string, elevator types.ElevatorsStatus, ha
 		elev := ClosesElevator()
 */
 
-func (e Elevator) IsNewTargetBetterCab(id string, target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
+func (e *Elevator) IsNewTargetBetterCab(id string, target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
 	fmt.Println("Need to debug here: ", e)
 	if elevatorStatus.State == types.ES_Idle {
 		return true

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 type Coordinator struct {
@@ -19,9 +20,10 @@ type Coordinator struct {
 	activePeers   int
 	portRegistery map[string]int
 	portSelf      int
+	TaskMonitor   TaskMonitor
 }
 
-func (c *Coordinator) InitProtocol() { // TODO how can I allways now excactly how many elevators we are going to use
+func (c *Coordinator) InitCoordinator() { // TODO how can I allways now excactly how many elevators we are going to use
 	c.msgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
 	c.msgSendCh = make(chan message.ElevatorMessage, 10)
 	c.activePeers = 1
@@ -29,6 +31,7 @@ func (c *Coordinator) InitProtocol() { // TODO how can I allways now excactly ho
 		"broadcast": 3000,
 		"master":    9000,
 	}
+	c.TaskMonitor = NewTaskMonitor(15 * time.Second) // TODO how long should we wait??
 }
 
 // For starting server

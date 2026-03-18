@@ -3,23 +3,15 @@ package system
 import (
 	"elevator_program/elevio"
 	"elevator_program/types"
+	"sync"
 )
 
 // Uses to add a new elevator to our system
 type System struct {
 	HallRequests [][2]types.ButtonStatus
 	Elevators    map[string]types.ElevatorsStatus
-	// mutex        sync.Mutex // Add a mutex to protect shared data
+	Mutex        sync.RWMutex // Add a mutex to protect shared data
 }
-
-// func (s *System) InitSystem(numFloors int) {
-// 	s.HallRequests = make([][2]types.ButtonStatus, numFloors)
-// 	s.Elevators = make(map[int]types.ElevatorsStatus)
-// 	s.Elevators[id] = types.ElevatorsStatus{
-// 		CabRequests: make([]types.ButtonStatus, numFloors),
-// 		Id:          id,
-// 	}
-// }
 
 func (s *System) InitSystem(id string, ip string, numFloors int) {
 	if s.Elevators == nil {
@@ -40,4 +32,17 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 		},
 		State: types.ES_Uninitialized,
 	}
+}
+
+func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]types.ElevatorsStatus) {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+	hall = make([][2]types.ButtonStatus, len(s.HallRequests))
+	copy(hall, s.HallRequests)
+
+	elevs = make(map[string]types.ElevatorsStatus)
+	for id, e := range s.Elevators {
+		elevs[id] = e
+	}
+	return
 }

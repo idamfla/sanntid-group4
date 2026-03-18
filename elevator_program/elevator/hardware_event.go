@@ -39,10 +39,11 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
 		e.emergencyStop = hwEvent.EmergencyStop
+		_, elevators := e.System.Snapshot()
 		msg := message.ElevatorMessage{
 			MsgType:   types.MSG_T_StatusReport,
 			Id:        e.Id,
-			Elevators: e.System.Elevators,
+			Elevators: elevators,
 		}
 		e.SendToProtocol <- msg
 
@@ -58,18 +59,19 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 
 		// Check if button press is already in system, no need to message master
 		if !e.System.IsRequestInSystem(e.Id, task) {
+			_, elevators := e.System.Snapshot()
 			msg := message.ElevatorMessage{
 				MsgType:   types.MSG_T_ButtonPress,
 				Id:        e.Id,
 				Task:      task,
 				BtnStatus: types.Pending,
 				Elevators: map[string]types.ElevatorsStatus{
-					e.Id: e.System.Elevators[e.Id],
+					e.Id: elevators[e.Id],
 				},
 			}
 
 			if e.IsMaster {
-				taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, task)
+				taskElevatorId, _, _ := e.ClosestToTarget(elevators, task)
 				if taskElevatorId != e.Id {
 					msg.BtnStatus = types.Running
 					msg.Id = taskElevatorId
@@ -86,6 +88,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
 
+			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Id]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
 			e.System.Elevators[e.Id] = elevatorCopy
@@ -95,6 +98,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				Elevators: e.System.Elevators,
 			}
 			e.SendToProtocol <- msg
+			e.System.Mutex.Unlock()
 		}
 
 	case HW_T_Obstruction:
@@ -113,7 +117,9 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 
 	case HW_T_ButtonPress:
 		if hwEvent.Button == elevio.BT_Cab {
+			e.System.Mutex.Lock()
 			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
+			e.System.Mutex.Unlock()
 		} else {
 			fmt.Println("Elevator is offline, can not accept order")
 			return

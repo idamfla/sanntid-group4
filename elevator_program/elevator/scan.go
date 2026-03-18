@@ -2,13 +2,14 @@ package elevator
 
 import (
 	"elevator_program/elevio"
-	"elevator_program/system"
 	"elevator_program/types"
 	"elevator_program/utilities"
-	"fmt"
 )
 
-func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
+func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
+	e.System.Mutex.RLock()
+	defer e.System.Mutex.RUnlock()
+
 	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 
 	// saturate bounds
@@ -54,15 +55,15 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 	return false, elevio.ButtonEvent{}
 }
 
-func (e Elevator) getClosestFloor(id string, system system.System) elevio.ButtonEvent {
-	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
+func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
+	numFloors := len(hallRequests)
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 	minDist := numFloors + 1 // initialize with something bigger than max possible distance
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - e.currentFloor)
 
-		if system.Elevators[id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
+		if elevator.CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab
@@ -72,7 +73,7 @@ func (e Elevator) getClosestFloor(id string, system system.System) elevio.Button
 		}
 
 		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
-			if e.System.HallRequests[f][b] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
+			if hallRequests[f][b] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
 				if closest.Floor == -1 || dist < minDist {
 					closest.Floor = f
 					closest.Button = b
@@ -84,19 +85,22 @@ func (e Elevator) getClosestFloor(id string, system system.System) elevio.Button
 	return closest
 }
 
-func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
+func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	if e.inBetweenFloors {
 		return false, elevio.ButtonEvent{}
 	}
-	return e.scanFloor(e.currentFloor, e.currentFloor, e.System.Elevators[e.Id].Direction)
+	e.System.Mutex.RLock()
+	direction := e.System.Elevators[e.Id].Direction
+	e.System.Mutex.RUnlock()
+
+	return e.scanFloor(e.currentFloor, e.currentFloor, direction)
 }
 
-func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEvent {
-	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
+func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
+
+	numFloors := len(hallRequests)
 	bottomFloor := 0
 	topFloor := numFloors - 1
-
-	fmt.Println("Help meeee \n\n\n\n\n ", s)
 
 	upScan := func() elevio.ButtonEvent {
 		if ok, ev := e.scanCurrentFloor(); ok && !e.inBetweenFloors {
@@ -104,7 +108,7 @@ func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEv
 		}
 
 		// phase 1: continue up
-		if ok, ev := e.scanFloor(s.Elevators[id].CurrentFloor+1, topFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
@@ -114,7 +118,7 @@ func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEv
 		}
 
 		// phase 3: nothing down, move up again
-		if ok, ev := e.scanFloor(bottomFloor, s.Elevators[id].CurrentFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
@@ -126,14 +130,14 @@ func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEv
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(s.Elevators[id].CurrentFloor-1, bottomFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor-1, bottomFloor, elevio.MD_Down); ok {
 			return ev
 		}
 		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(topFloor, s.Elevators[id].CurrentFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(topFloor, elevator.CurrentFloor, elevio.MD_Down); ok {
 			return ev
 		}
 
@@ -141,16 +145,12 @@ func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEv
 	}
 	// endregion
 
-	if s.Elevators[id].State == types.ES_Idle || s.Elevators[id].Direction == elevio.MD_Stop {
-		fmt.Println("POOOOOOOOO")
-		return e.getClosestFloor(id, s)
-	} else if s.Elevators[id].Direction == elevio.MD_Up {
-		fmt.Println("LOOOOOOOOOOO")
+	if elevator.State == types.ES_Idle || elevator.Direction == elevio.MD_Stop {
+		return e.getClosestFloor(elevator, hallRequests)
+	} else if elevator.Direction == elevio.MD_Up {
 		return upScan()
-	} else if s.Elevators[id].Direction == elevio.MD_Down { // TODO Can change these back to e.System later, need to have it like this since master is not updated
-		fmt.Println("YOYOYOYYOYYOYOYOY")
+	} else if elevator.Direction == elevio.MD_Down { // TODO Can change these back to e.System later, need to have it like this since master is not updated
 		return downScan()
 	}
-	fmt.Println("Hheheheheheheheeh")
 	return elevio.ButtonEvent{Floor: -1} // no requests
 }

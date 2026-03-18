@@ -39,7 +39,7 @@ func testElevator() {
 	e.RunElevatorProgram()
 
 	p := coordinator.Coordinator{}
-	p.InitProtocol()
+	p.InitCoordinator()
 	// p.StartServer(ip_address, 5000, id)
 	p.Start(&e)
 	// TODO MAybe the right spot to put it
@@ -122,7 +122,7 @@ func main() {
 	e1 := elevator.Elevator{}
 	e1.InitElevator("1", 4, 3, localIP, 9000)
 	p1 := coordinator.Coordinator{}
-	p1.InitProtocol()
+	p1.InitCoordinator()
 	err := p1.StartServer(localIP, 9000, "1")
 	if err != nil {
 		fmt.Println(err)
@@ -137,12 +137,18 @@ func main() {
 	e2 := elevator.Elevator{}
 	e2.InitElevator("2", 4, 3, localIP, 9001)
 	p2 := coordinator.Coordinator{}
-	p2.InitProtocol()
+	p2.InitCoordinator()
 	err = p2.StartServer(localIP, 9001, "2")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	p2.Start(&e2)
+
+	e2.RunElevatorProgram()
+
+	select {}
 
 	//TODO
 	/*
@@ -154,3 +160,5 @@ func main() {
 
 // 127.0.0.1 er lokal <- du kan bruke denne for en til en
 // 10.22.67.255 broadcast, broadcast har 255 som siste verdi
+
+// TODO test go run -race

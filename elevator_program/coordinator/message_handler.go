@@ -19,13 +19,16 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 
 	case types.MSG_T_TaskUpdate:
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
-			e.SetRequestAsTarget(msg.Task)
+			e.System.SetRequestAsTarget(msg.Id, msg.Task)
 		} else if msg.BtnStatus == types.NotActive { // Just update system
+			e.System.Mutex.Lock()
 			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
+			e.System.Mutex.Unlock()
 			e.ClearTarget()
-			fmt.Println("eeeeeeeeee \n\n\n\n\n\n ", e)
 		} else {
+			e.System.Mutex.Lock()
 			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
+			e.System.Mutex.Unlock()
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
 
@@ -65,7 +68,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 
 				c.activePeers++
 				// p.Server.UpdateActivePeers(p.activePeers)
-				msg.ActivePeers = c.activePeers
 
 				e.SendToProtocol <- msg
 				return
@@ -74,7 +76,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 				return // TODO is it possible the last number is the same?
 			}
 		}
-		c.activePeers = msg.ActivePeers
 		// p.Server.UpdateActivePeers(p.activePeers)
 	}
 }
@@ -96,8 +97,11 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 					msg.BtnStatus = types.Pending
 				}
 			} else {
-				fmt.Println("What does master see? ", e.Id, e.System)
-				taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, msg.Task) // TODO could be wrong here if master don't update system
+				fmt.Println("What does master see? ", e.Id)
+				e.System.Mutex.RLock()
+				elevatorsCopy := e.System.Elevators
+				e.System.Mutex.RUnlock()
+				taskElevatorId, _, _ := e.ClosestToTarget(elevatorsCopy, msg.Task) // TODO could be wrong here if master don't update system
 				if taskElevatorId != "" {
 					// Someone has a better task to do, we need to broadcast task_Update
 					msg.Id = taskElevatorId
@@ -111,10 +115,21 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 		e.SendToProtocol <- msg
 
 	case types.MSG_T_TaskUpdate:
-		fmt.Println("Is it here?") // TODO We need a way to get here!!!
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
-		// TODO Here we need to time if an request has been taking to long, if it is Running
+
+		taskKey := TaskKey{
+			Owner:  msg.Id,
+			TaskID: msg.Task,
+		}
+		switch msg.BtnStatus {
+		case types.Running:
+			c.TaskMonitor.StartTask(taskKey)
+		case types.NotActive:
+			c.TaskMonitor.FinishTask(taskKey)
+		default:
+			// TODO should i remove it? should not do anything here
+		}
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
@@ -122,7 +137,10 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 		// currentFloor := msg.Elevators[msg.Id].CurrentFloor
 		// direction := msg.Elevators[msg.Id].Direction
 		// fmt.Println("Coooooomputing new target \n\n\n\n\n ", cabRequestsTemp, currentFloor, direction)
-		task := e.ComputeNewTarget(msg.Id, msg.Elevators[msg.Id], msg.HallRequests)
+		e.System.Mutex.RLock()
+		hallRequests := e.System.HallRequests
+		e.System.Mutex.RUnlock()
+		task := e.GetNextTargetFloor(msg.Elevators[msg.Id], hallRequests)
 		fmt.Println("After computing \n\n ", task, msg.Elevators, msg.HallRequests, msg.Id)
 		if task.Floor != -1 {
 			// Broadcast new assignment if we found a new task
@@ -133,7 +151,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 
 	case types.MSG_T_NewToChannel:
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-		msg.ActivePeers = c.activePeers
 		e.IpRegistery[msg.Ip] = id
 		e.SendToProtocol <- msg
 	}
@@ -154,7 +171,7 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	for pktCtx := range c.msgRecieveCh {
 		msg := pktCtx.Packet.Payload
 		c.MessageHandler(e, msg)
-		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e.System)
+		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster)
 		if pktCtx.Done != nil {
 			pktCtx.Done <- struct{}{}
 		}

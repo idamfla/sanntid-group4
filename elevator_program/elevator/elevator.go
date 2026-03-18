@@ -108,7 +108,7 @@ func (e *Elevator) RunElevatorProgram() {
 }
 
 // region printing, for debugging
-func (e Elevator) String() string {
+func (e *Elevator) String() string {
 	s := fmt.Sprintf(
 		`Elevator
 	id: %s
