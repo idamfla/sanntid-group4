@@ -7,5 +7,5 @@ const (
 )
 
 func (srv *Server) getQuorum() int {
-	return int(math.Ceil(float64(srv.activePeers) * quorumPercent))
+	return int(math.Ceil(float64(srv.activePeerCount()) * quorumPercent))
 }

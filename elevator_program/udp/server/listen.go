@@ -80,12 +80,6 @@ func (srv *Server) routeToSession(incPkt incomingPacket) {
 	}
 
 	sessionID := incPkt.Packet.Header.SessionID
-	// senderAddr, err := net.ResolveUDPAddr("udp", incPkt.Packet.Header.SenderAddr)
-	// if err != nil {
-	// 	fmt.Printf("Invalid reply address %s\n", incPkt.Packet.Header.SenderAddr)
-	// 	return
-	// }
-
 	ses := srv.getOrCreateSession(senderAddr, sessionID)
 
 	fmt.Printf(

@@ -9,14 +9,15 @@ import (
 var emtpyMsg message.Message
 
 // helper
-func (ses *Session) send(pktType packet.PacketType, msg message.Message) error {
+func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
+	ses.lastOutPkt = outPkt
 	return ses.tx.Send(
 		ses.senderAddr,
 		ses.seq,
 		ses.ID,
-		pktType,
-		msg,
+		outPkt.PktType,
+		outPkt.Msg,
 	)
 }
 
@@ -67,13 +68,13 @@ func (ses *Session) sendDoneAck(pktType packet.PacketType) {
 	}
 }
 
-func (ses *Session) retry(pktType packet.PacketType, msg message.Message) error {
+func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 	return ses.tx.Send(
 		ses.senderAddr,
 		ses.seq,
 		ses.ID,
-		pktType,
-		msg)
+		outPkt.PktType,
+		outPkt.Msg)
 }
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
@@ -82,7 +83,7 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 	for {
 		select {
 		case outPkt := <-ses.outgoingMsgCh:
-			err := ses.send(outPkt.PktType, outPkt.Msg)
+			err := ses.send(outPkt)
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}

@@ -11,23 +11,21 @@ import (
 )
 
 type Elev struct {
-	ID    string
-	peers int
-	ch    chan session.ElevatorPacket
-	srv   *server.Server
-	wg    sync.WaitGroup
+	ID  string
+	ch  chan session.ElevatorPacket
+	srv *server.Server
+	wg  sync.WaitGroup
 }
 
-func NewElev(id string, totalNumOfElevators int) *Elev {
+func NewElev(id string) *Elev {
 	return &Elev{
-		ID:    id,
-		peers: totalNumOfElevators - 1,
-		ch:    make(chan session.ElevatorPacket),
+		ID: id,
+		ch: make(chan session.ElevatorPacket),
 	}
 }
 
 func (e *Elev) StartServer(ip string, port int) error {
-	srv, err := server.NewServer(ip, port, e.ID, e.peers, e.ch)
+	srv, err := server.NewServer(ip, port, e.ID, e.ch)
 	if err != nil {
 		return err
 	}
@@ -64,5 +62,5 @@ func (e *Elev) Close() {
 	e.srv.PrintSessions()
 	e.srv.Close()
 
-	fmt.Println("Elevator and server have shut down cleanly")
+	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
 }
