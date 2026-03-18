@@ -33,7 +33,7 @@ type Elevator struct {
 	ackCounterLostComs int
 
 	// TODO Maybe temp need to notify protocol to send something
-	SendToProtocol chan message.ElevatorMessage
+	SendToCoordinator chan message.ElevatorMessage
 
 	// elevatorState    types.ElevatorState
 	obstruction      bool
@@ -49,8 +49,6 @@ type Elevator struct {
 	IsOnline          bool
 
 	System system.System
-
-	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
 
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
@@ -74,8 +72,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.IpRegistery = make(map[string]string)
 
-	// TODO temp
-	e.SendToProtocol = make(chan message.ElevatorMessage, 10)
+	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
@@ -97,14 +94,6 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	e.StartHardwareEventsListeners()
-	// time.Sleep(10 * time.Second)
-
-	// Temp for testing msgHandler
-	// go e.TestMsgHandler(4)
-	// go e.TestMsgHandler_Master(4)
-	// go e.server.Listen() // TODO check that this work
-	// done := make(chan struct{})
-	// <-done
 }
 
 // region printing, for debugging

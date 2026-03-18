@@ -54,7 +54,7 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 				Task:      taskKey.TaskID,
 				BtnStatus: types.Pending,
 			}
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
 		}
 
 		tm.mu.Lock()

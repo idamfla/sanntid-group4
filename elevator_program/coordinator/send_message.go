@@ -11,7 +11,7 @@ import (
 
 func (c *Coordinator) sendListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE SENDER STARTED")
-	for msg := range e.SendToProtocol {
+	for msg := range e.SendToCoordinator {
 		c.routeOutgoingMessage(e, msg)
 		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
 	}

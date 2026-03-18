@@ -6,7 +6,6 @@ import (
 )
 
 func (e *Elevator) clearCabRequest(floor int) {
-	//e.System.Elevators[e.Id].CabRequests[floor] = types.NotActive // Changed to be compatible with system struct
 	e.System.Mutex.Lock()
 	defer e.System.Mutex.Unlock()
 	elevatorCopy := e.System.Elevators[e.Id]
@@ -15,7 +14,6 @@ func (e *Elevator) clearCabRequest(floor int) {
 }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
-	// e.System.HallRequests[floor][button] = types.NotActive // Changed to be compatible with system struct
 	e.System.Mutex.Lock()
 	defer e.System.Mutex.Unlock()
 	e.System.HallRequests[floor][button] = types.NotActive
@@ -23,7 +21,6 @@ func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
 
 // Clear current floor from hallRequests, and turn the lamps off
 func (e *Elevator) clearCurrentFloor(floor int, button elevio.ButtonType) {
-	// e.clearCabRequest(floor) // TODO don't clear floor before "master" tells the elevator to do so
 	if button == elevio.BT_Cab {
 		e.clearCabRequest(floor)
 		e.clearCabLamp(floor)

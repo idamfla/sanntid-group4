@@ -47,7 +47,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Id:        e.Id,
 			Elevators: elevators,
 		}
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 
 	case HW_T_ButtonPress:
 		if !e.connectedToMaster {
@@ -81,7 +81,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 					msg.Id = taskElevatorId
 				}
 			}
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
 		}
 
 	case HW_T_FloorSensor:
@@ -101,7 +101,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				Id:        e.Id,
 				Elevators: e.System.Elevators,
 			}
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
 			e.System.Mutex.Unlock()
 		}
 

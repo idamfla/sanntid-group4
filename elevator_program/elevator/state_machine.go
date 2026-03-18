@@ -124,7 +124,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 					e.Id: elevs[e.Id],
 				},
 			}
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
 		}
 
 	case types.ES_Idle:
@@ -176,7 +176,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			},
 		}
 		e.System.Mutex.Unlock()
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 	} else {
 		e.System.Mutex.Unlock()
 	}
@@ -297,7 +297,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	fmt.Println("Trying to send to network, ", e.Id)
 	e.System.Mutex.Unlock()
 
-	e.SendToProtocol <- msg
+	e.SendToCoordinator <- msg
 }
 
 func (e *Elevator) RunElevatorStateMachine() {
@@ -329,7 +329,7 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 		Task:      target, //e.System.Elevators[e.Id].Target,
 		BtnStatus: types.NotActive,
 	}
-	e.SendToProtocol <- msg
+	e.SendToCoordinator <- msg
 
 	// TODO We should clean this up
 	elevatorCopy := e.System.Elevators[e.Id]
@@ -344,5 +344,5 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	msg.Elevators = map[string]types.ElevatorsStatus{
 		e.Id: e.System.Elevators[e.Id],
 	}
-	e.SendToProtocol <- msg
+	e.SendToCoordinator <- msg
 }

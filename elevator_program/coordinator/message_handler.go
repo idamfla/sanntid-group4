@@ -9,8 +9,6 @@ import (
 	"strconv"
 )
 
-// TODO Ida thinks it could be a better way to structure it
-
 // TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMessage) {
 	switch msg.MsgType {
@@ -18,7 +16,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 
 	case types.MSG_T_TaskUpdate:
-		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
+		if e.Id == msg.Id && msg.BtnStatus == types.Running {
 			e.System.SetRequestAsTarget(msg.Id, msg.Task)
 		} else {
 			e.System.Mutex.Lock()
@@ -39,7 +37,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 			msg.Id = e.Id
 		}
 		msg.MsgType = types.MSG_T_LostComs
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 
 	case types.MSG_T_NewToChannel:
 		if e.ConnectedToMaster() {
@@ -59,20 +57,15 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 
 				msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 				fmt.Println("Do I get here?", msg)
-				// fmt.Println("Now i am going to send back that this one is connected to network: ", msg)
 				e.IpRegistery[msg.Ip] = id
 
-				c.activePeers++
-				// p.Server.UpdateActivePeers(p.activePeers)
-
-				e.SendToProtocol <- msg
+				e.SendToCoordinator <- msg
 				return
 			} else {
 				// You are not the master, continiue
-				return // TODO is it possible the last number is the same?
+				return
 			}
 		}
-		// p.Server.UpdateActivePeers(p.activePeers)
 	}
 }
 
@@ -81,7 +74,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
 		// TODO Send broadcast of status report
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 
 	case types.MSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
@@ -108,7 +101,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 				msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
 			}
 		}
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 
 	case types.MSG_T_TaskUpdate:
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
@@ -128,11 +121,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 		}
 
 	case types.MSG_T_TaskRequest:
-		// Scan for the next request and send it back
-		// cabRequestsTemp := msg.Elevators[msg.Id].CabRequests
-		// currentFloor := msg.Elevators[msg.Id].CurrentFloor
-		// direction := msg.Elevators[msg.Id].Direction
-		// fmt.Println("Coooooomputing new target \n\n\n\n\n ", cabRequestsTemp, currentFloor, direction)
 		e.System.Mutex.RLock()
 		hallRequests := e.System.HallRequests
 		e.System.Mutex.RUnlock()
@@ -142,13 +130,13 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 			// Broadcast new assignment if we found a new task
 			msg.Task = task
 			msg.BtnStatus = types.Running
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
 		}
 
 	case types.MSG_T_NewToChannel:
 		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
 		e.IpRegistery[msg.Ip] = id
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 	}
 }
 
@@ -174,45 +162,3 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 		}
 	}
 }
-
-/*
-------------------------------------------------------------------------------
-Applying protocol functions which is ment to split between the different roles
-------------------------------------------------------------------------------
-*/
-
-// func (p Protocol) applyStatusReport(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
-// }
-
-// func (p Protocol) applyTaskUpdate_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task) // TODO Should I use my own ID or msg Id??
-// 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
-// }
-
-// func (p Protocol) applyRemoteCabUpdate_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.System.UpdateRemoteCabBtn(msg.Id, msg.BtnStatus, msg.Task.Floor)
-// }
-
-// func (p Protocol) applyLostComsProtocol_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.HandleLostConnection(msg.Id)
-// }
-
-// func (p Protocol) applySystemSync_slave(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.System.InitializeFromSystemState(msg)
-// 	e.SetConnectionState(msg)
-// }
-
-// func (c *Coordinator) addNewRequestToSystem_master(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	// TODO Lets hope that we only get commit messages, or else we need to count ack
-// 	taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, *msg.Task)
-// 	if taskElevatorId != -1 {
-
-// 	}
-// 	e.System.SetRequestStatus(msg.Id, msg.BtnStatus, *msg.Task)
-// 	e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
-// }
-
-// func (c *Coordinator) applyRegisterAndSyncElevatorToServer(e *elevator.Elevator, msg message.ElevatorMessage) {
-// 	e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-// }

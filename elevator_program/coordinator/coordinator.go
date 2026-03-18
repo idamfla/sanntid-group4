@@ -13,8 +13,8 @@ import (
 )
 
 type Coordinator struct {
-	Server        *server.Server              // TODO be carefull with pass by value functions, locks
-	msgRecieveCh  chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
+	Server        *server.Server
+	msgRecieveCh  chan session.ElevatorPacket
 	msgSendCh     chan message.ElevatorMessage
 	wg            sync.WaitGroup
 	activePeers   int
@@ -23,8 +23,8 @@ type Coordinator struct {
 	TaskMonitor   TaskMonitor
 }
 
-func (c *Coordinator) InitCoordinator() { // TODO how can I allways now excactly how many elevators we are going to use
-	c.msgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
+func (c *Coordinator) InitCoordinator() {
+	c.msgRecieveCh = make(chan session.ElevatorPacket, 10)
 	c.msgSendCh = make(chan message.ElevatorMessage, 10)
 	c.activePeers = 1
 	c.portRegistery = map[string]int{
