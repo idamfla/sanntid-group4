@@ -1,9 +1,11 @@
 package session
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
+	"net"
 	"time"
 )
 
@@ -14,10 +16,12 @@ func (ses *Session) ReceivePacket(pkt packet.Packet) {
 func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
-	if h.Seq != ses.seq+1 {
-		fmt.Printf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
+	if h.Seq != ses.seq+1 { // TODO should i retry?
+		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
 			ses.ID, h.Seq, ses.seq+1)
-		return ses.sendRetry(*ses.lastOutPkt)
+		fmt.Println(err)
+		// return ses.sendRetry(ses.lastOutPkt)
+		return err
 
 	}
 
@@ -42,17 +46,32 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		fmt.Printf("%s lost connection ...", h.SenderAddr)
 		// TODO what to do now?
 
-	case packet.PKT_T_SlaveUpdate, packet.PKT_T_SyncRequest:
-		ses.handleWorkerRequest(&pkt, h.PktType)
+	case packet.PKT_T_SyncRequest:
+		ses.handleSyncRequest()
 
 	case packet.PKT_T_StateSnapshot:
 		ses.handleSnapshot()
 
+	case packet.PKT_T_SnapshotAck:
+		ses.startCatchup(ses.peerAddr)
+
+	case packet.PKT_T_CatchupUpdate:
+		ses.handleCatchup()
+
+	case packet.PKT_T_CatchupAck:
+		ses.requestClose()
+
+	case packet.PKT_T_CatchupDone:
+		ses.requestClose()
+
+	case packet.PKT_T_SlaveUpdate:
+		ses.handleSlaveUpdate()
+
 	case packet.PKT_T_BroadcastUpdate:
 		ses.SendReply(packet.PKT_T_BroadcastAck)
-		ses.QueueElevatorTask()
+		ses.QueueElevatorStateTask()
 
-	case packet.PKT_T_SyncAck, packet.PKT_T_SlaveUpdateAck, packet.PKT_T_SnapshotAck:
+	case packet.PKT_T_SyncAck, packet.PKT_T_SlaveUpdateAck:
 		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 	// TODO master must give it an id, send it all important updates
@@ -71,30 +90,52 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	return nil
 }
 
-func (ses *Session) handleWorkerRequest(pkt *packet.Packet, pktType packet.PacketType) {
-	ses.pendingPkt = pkt
-	switch pktType {
-	case packet.PKT_T_SyncRequest:
-		ses.SendReply(packet.PKT_T_SlaveUpdateAck)
-
-	case packet.PKT_T_SlaveUpdate:
-		ses.SendReply(packet.PKT_T_SlaveUpdateAck)
-	}
-
-	ses.QueueElevatorTask()
+// ask elevator for sync, get PKT_T_StateSnapshot back
+func (ses *Session) handleSyncRequest() {
+	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport)
+	ses.SendReply(packet.PKT_T_SyncAck)
 	ses.notifyTaskReady()
 	ses.scheduleSessionClose()
 }
 
 func (ses *Session) handleSnapshot() {
 	ses.SendReply(packet.PKT_T_SnapshotAck)
-	ses.QueueElevatorTask()
+	ses.QueueElevatorStateTask()
+	ses.notifyTaskReady()
+}
+
+func (ses *Session) handleCatchup() {
+	ses.SendReply(packet.PKT_T_CatchupAck)
+	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) QueueElevatorTask() {
-	ses.tx.QueueElevatorTask(*ses.pendingPkt, ses.elevDone, ses.taskReady)
+func (ses *Session) handleSlaveUpdate() {
+	ses.QueueBroadcastUpdateMsg(ses.pendingPkt.Payload)
+	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
+	ses.notifyTaskReady()
+	ses.scheduleSessionClose()
+}
+
+func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
+	ses.tx.StartPeerCatchup(peerAddr)
+}
+
+// queue order of having elevator change it's states, from master
+func (ses *Session) QueueElevatorStateTask() {
+	ses.tx.QueueElevatorTask(ses.pendingPkt.Payload, ses.elevDone, ses.taskReady)
+}
+
+// queue order of having master do some work and then send the result back
+func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType) {
+	eMsg := message.ElevatorMessage{
+		ID:       ses.peerID,
+		Addr:     ses.peerAddr.String(),
+		EMsgType: eMsgType,
+	}
+
+	ses.tx.QueueElevatorTask(eMsg, ses.elevDone, ses.taskReady)
 }
 
 func (ses *Session) handleBroadcastCommit() {

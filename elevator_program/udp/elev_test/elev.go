@@ -39,7 +39,7 @@ func (e *Elev) StartServer(ip string, port int) error {
 func (e *Elev) listen() {
 	defer e.wg.Done()
 	for msg := range e.ch {
-		fmt.Println("elev got elevator packet:", msg.Packet.Payload)
+		fmt.Println("elev got elevator packet:", msg.EMsg)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
 		}

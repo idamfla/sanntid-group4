@@ -1,7 +1,9 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/peerinfo"
 	"fmt"
 	"net"
 	"time"
@@ -20,14 +22,14 @@ func (srv *Server) activePeerCount() int {
 	return count
 }
 
-func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*PeerInfo, bool) {
+func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*peerinfo.PeerInfo, bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	key := addr.String()
 	peer, exists := srv.peers[key]
 	if !exists {
-		peer = NewPeer(addr)
+		peer = peerinfo.NewPeer(addr)
 		srv.peers[key] = peer
 		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)
 		return peer, true
@@ -53,26 +55,31 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
 	}
 }
 
-// func (srv *Server) syncPeer(key string) {
-// 	srv.mu.Lock()
-// 	peer := srv.peers[key]
-// 	srv.mu.Unlock()
-
-// 	srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_Data, message.Message{Content: "information to sync ..."}) // TODO what this should actually contain, should it be another type? sync this content kind of, snapshot or something
-// }
-
-func (srv *Server) isMasterKnown() bool {
+func (srv *Server) GetMasterPeer() *peerinfo.PeerInfo {
 	for _, p := range srv.peers {
 		if p.IsMaster {
-			return true
+			return p
 		}
 	}
-	return false
+	return nil
 }
 
-// func (srv *Server) getAliveUnsyncedPeers() []*PeerInfo {
+func (srv *Server) getPeerCount() int {
+	count := 0
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	for _, peer := range srv.peers {
+		if peer.Active {
+			count++
+		}
+	}
+	return count
+}
+
+// func (srv *Server) getAliveUnsyncedPeers() []*peerinfo.PeerInfo {
 // 	srv.mu.Lock()
-// 	peers := make([]*PeerInfo, 0, len(srv.peers))
+// 	peers := make([]*peerinfo.PeerInfo, 0, len(srv.peers))
 // 	for _, p := range srv.peers {
 // 		if p.Active && !p.IsSynced {
 // 			peers = append(peers, p)
@@ -83,16 +90,37 @@ func (srv *Server) isMasterKnown() bool {
 // 	return peers
 // }
 
-func (srv *Server) flushPeerPendingMsg(peer *PeerInfo) {
+func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
+	defer srv.wg.Done()
 	done := false
 	for !done {
 		select {
-		case msg := <-peer.eMsgQueue:
-			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_StateSnapshot, msg)
+		case msg := <-peer.EMsgQueue:
+			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupUpdate, msg)
 		default:
 			done = true // no more messages
+			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupDone, message.ElevatorMessage{})
+			peer.IsSynced = true
 		}
 	}
+}
+
+func (srv *Server) StartPeerCatchup(peerAddr *net.UDPAddr) {
+	srv.wg.Add(1)
+	peer, isNew := srv.getOrCreatePeer(peerAddr)
+	if isNew {
+		return
+	}
+	go srv.flushPeerPendingMsg(peer)
+}
+
+func (srv *Server) setMasterPeer(peerID string, isMaster bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if peer, exists := srv.peers[peerID]; exists {
+		peer.SetMaster(isMaster)
+	}
+
 }
 
 func (srv *Server) PrintPeers() {

@@ -1,9 +1,9 @@
 package server
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/peerinfo"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -28,7 +28,7 @@ type Server struct {
 	broadcastConn *net.UDPConn // Listening conn
 	broadcastAddr *net.UDPAddr // Broadcast sending addr
 	sessions      map[uint32]SessionHandler
-	peers         map[string]*PeerInfo
+	peers         map[string]*peerinfo.PeerInfo
 	bcSeq         uint32
 	mu            sync.Mutex
 	closeReq      chan uint32
@@ -84,7 +84,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		broadcastConn:     bcConn,
 		broadcastAddr:     bcAddr,
 		sessions:          make(map[uint32]SessionHandler),
-		peers:             make(map[string]*PeerInfo),
+		peers:             make(map[string]*peerinfo.PeerInfo),
 		closeReq:          make(chan uint32),
 		stop:              make(chan struct{}),
 		elevator:          toElevator,
@@ -106,13 +106,6 @@ func (srv *Server) Start() {
 
 	go srv.run()
 	go srv.sendTaskLoop()
-
-	// TODO add initial msg
-	srv.QueueMessage(
-		nil,
-		packet.PROTO_PKT_T_WhoIsMaster,
-		message.ElevatorMessage{},
-	)
 }
 
 func (srv *Server) run() {
@@ -154,9 +147,13 @@ func (srv *Server) Close() {
 }
 
 func (srv *Server) IsMaster() bool {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	return srv.isMaster
 }
 
-func (srv *Server) SetMaster(isMaster bool) {
+func (srv *Server) setSelfAsMaster(isMaster bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	srv.isMaster = isMaster
 }

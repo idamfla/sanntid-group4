@@ -1,4 +1,4 @@
-package server
+package peerinfo
 
 import (
 	"elevator_program/message"
@@ -12,7 +12,7 @@ type PeerInfo struct {
 	IsSynced  bool
 	Active    bool
 	IsMaster  bool
-	eMsgQueue chan message.ElevatorMessage
+	EMsgQueue chan message.ElevatorMessage
 }
 
 func NewPeer(addr *net.UDPAddr) *PeerInfo {
@@ -22,7 +22,7 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 		IsSynced:  false,
 		Active:    true,
 		IsMaster:  false,
-		eMsgQueue: make(chan message.ElevatorMessage, 10), // TODO make all channels bufferd ... how much?
+		EMsgQueue: make(chan message.ElevatorMessage, 10), // TODO make all channels bufferd ... how much?
 	}
 }
 
@@ -32,7 +32,7 @@ func (peer *PeerInfo) SetMaster(isMaster bool) {
 
 func (peer *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
 	select {
-	case peer.eMsgQueue <- msg:
+	case peer.EMsgQueue <- msg:
 	default:
 	}
 }

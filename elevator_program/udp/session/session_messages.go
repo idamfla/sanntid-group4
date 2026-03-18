@@ -7,8 +7,8 @@ import (
 
 // Session -> Elevator
 type ElevatorPacket struct {
-	Packet packet.Packet
-	Done   chan<- struct{}
+	EMsg message.ElevatorMessage
+	Done chan<- struct{}
 }
 
 // Session -> Session

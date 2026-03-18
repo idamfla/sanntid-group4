@@ -1,8 +1,8 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
-	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"time"
@@ -30,17 +30,11 @@ func (srv *Server) sendTaskLoop() {
 	fmt.Println(srv.ID, "task loop stopped ...")
 }
 
-//	func (srv *Server) QueueElevatorTask(msgType message.MessageType, pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{}) {
-//		pkt.Payload = message.Message{
-//			ID:      srv.ID,
-//			Adder:   srv.recvConn.LocalAddr().String(),
-//			MsgType: msgType,
-//		}
-func (srv *Server) QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{}) {
+func (srv *Server) QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{}) {
 	srv.elevatorTaskQueue <- ElevatorTask{
 		ElevPacket: session.ElevatorPacket{
-			Packet: pkt,
-			Done:   elevDone,
+			EMsg: eMsg,
+			Done: elevDone,
 		},
 		Ready: taskReady,
 	}
@@ -48,8 +42,8 @@ func (srv *Server) QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}
 
 func (srv *Server) sendToElevator(elevTask ElevatorTask) {
 	srv.elevator <- session.ElevatorPacket{
-		Packet: elevTask.ElevPacket.Packet,
-		Done:   elevTask.ElevPacket.Done,
+		EMsg: elevTask.ElevPacket.EMsg,
+		Done: elevTask.ElevPacket.Done,
 	}
 }
 

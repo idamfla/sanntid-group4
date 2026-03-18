@@ -41,41 +41,46 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
 		ses = srv.getOrCreateBroadcastSession(sessionID)
-		if srv.IsMaster() {
-			ses.SendReply(packet.PKT_T_IAmMaster)
-		}
 
 	case packet.PKT_T_IAmMaster:
 		key := incPkt.Packet.Header.SenderAddr
 		if peer, exists := srv.peers[key]; exists {
 			peer.SetMaster(true)
+			ses = srv.getOrCreateBroadcastSession(sessionID)
 		}
 
 		if !srv.IsMaster() {
-			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType)
-			srv.closeSession(incPkt.Packet.Header.SessionID)
-			// srv.PrintPeers()
-			return
+			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
 		}
 
+		srv.setMasterPeer(key, true)
+
 	default:
+		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
+			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+			return
+		}
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}
 
-	fmt.Printf(
-		`%s, Session %d:
+	if pktType == packet.PKT_T_MasterAck && !srv.isMaster {
+
+	} else {
+		fmt.Printf(
+			`%s, Session %d:
 	sent from : %s
 	to        : %s
 	reply sock: %s
 	pktType   : %s
 `,
-		srv.ID,
-		incPkt.Packet.Header.SessionID,
-		incPkt.Addr.String(),
-		incPkt.Packet.Header.RecipientAddr,
-		senderAddr.String(),
-		pktType,
-	)
+			srv.ID,
+			incPkt.Packet.Header.SessionID,
+			incPkt.Addr.String(),
+			incPkt.Packet.Header.RecipientAddr,
+			senderAddr.String(),
+			pktType,
+		)
+	}
 
 	ses.ReceivePacket(incPkt.Packet)
 }

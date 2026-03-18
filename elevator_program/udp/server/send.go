@@ -26,6 +26,10 @@ func (srv *Server) Send(
 		Payload: eMsg,
 	}
 
+	if pktType == packet.PKT_T_IAmMaster {
+		srv.setSelfAsMaster(true)
+	}
+
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
@@ -37,17 +41,17 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, eMsg message.ElevatorMe
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueSlaveUpdate(eMsg)
+	ses.QueueSlaveUpdateMsg(eMsg)
 	// srv.elevatorTaskQueue()
 	return nil
 }
 
 // Initiate the broadcast message chain
 func (srv *Server) startBroadcast(eMsg message.ElevatorMessage) {
-	quorum := srv.getQuorum()
+	quorum := srv.getPeerCount()
 	ses := srv.createBroadcastSession(nil, quorum)
 
-	ses.QueueBroadcastUpdate(eMsg)
+	ses.QueueBroadcastUpdateMsg(eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
@@ -56,15 +60,38 @@ func (srv *Server) startWhoIsMasterMsg() {
 	ses.QueueWhoIsMasterMsg()
 }
 
-// deciding how to output messages from the server, what type of session they belong to
+// deciding how to output messages from the server, what type of session should start
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_SlaveUpdate:
-		srv.startSession(outMsg.RemoteAddr, outMsg.EMsg)
+		mstr := srv.GetMasterPeer()
+		if mstr == nil {
+			fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
+			// srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsMaster, message.ElevatorMessage{}) // TODO fault tol, FAULT_T_LostMaster, queue who is master
+			return
+		}
+		srv.startSession(mstr.Addr, outMsg.EMsg)
+		// srv.startSession(outMsg.RemoteAddr, outMsg.EMsg)
 	case packet.PKT_T_BroadcastUpdate:
+		if !srv.IsMaster() {
+			fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
+		}
+
+		// if some peers are syncing
+		srv.mu.Lock()
+		for _, p := range srv.peers {
+			if p.Active && !p.IsSynced {
+				p.QueueMessage(outMsg.EMsg)
+			}
+		}
+		srv.mu.Unlock()
+
 		srv.startBroadcast(outMsg.EMsg)
 	case packet.PKT_T_WhoIsMaster:
+		if peer := srv.GetMasterPeer(); peer != nil {
+			peer.SetMaster(false)
+		}
 		srv.startWhoIsMasterMsg()
 	}
 

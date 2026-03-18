@@ -4,6 +4,7 @@ import (
 	// "fmt"
 	"elevator_program/elevator"
 	"elevator_program/message"
+	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -101,16 +102,16 @@ func main() {
 	eB.Start()
 	eC.Start()
 
-	// eB.QueueMessage(
-	// 	nil,
-	// 	packet.PROTO_PKT_T_WhoIsMaster,
-	// 	message.Message{},
-	// )
-	// eC.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_SlaveUpdate,
-	// 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	// )
+	eB.QueueMessage(
+		nil,
+		packet.PROTO_PKT_T_WhoIsMaster,
+		message.ElevatorMessage{},
+	)
+	eC.QueueMessage(
+		udp.MustUDPAddr(localIP, 9001),
+		packet.PROTO_PKT_T_SlaveUpdate,
+		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
+	)
 
 	closeProgram(eA, eB, eC)
 }

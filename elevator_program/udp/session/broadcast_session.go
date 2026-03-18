@@ -13,7 +13,6 @@ import (
 type BroadcastSession struct {
 	*Session // embed base Session
 
-	responsesReceived    int // how many elevators replied
 	expectedResponses    int // how many must reply before we commit
 	selfAddr             string
 	broadcastAckTimer    *timer.Timer
@@ -87,9 +86,11 @@ func (bs *BroadcastSession) Close() {
 func (bs *BroadcastSession) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
-
+		bs.startAckTimer()
+	case packet.PKT_T_IAmMaster:
+		bs.startAckTimer()
 	case packet.PKT_T_BroadcastUpdate:
-		bs.QueueElevatorTask()
+		bs.QueueElevatorStateTask()
 		bs.startAckTimer()
 	case packet.PKT_T_BroadcastCommit:
 		bs.startRemoteCommitTimer()
@@ -103,29 +104,27 @@ func (bs *BroadcastSession) ReceivePacket(pkt packet.Packet) {
 
 func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
+	peerID := pkt.Header.SenderAddr
 
-	bs.mu.Lock()
-	bs.responsesReceived++
-	quorumReached := bs.responsesReceived >= bs.expectedResponses // TODO is it okay that the quorum is not the same amount as active elevators??
-	bs.mu.Unlock()
+	bs.addResponder(peerID)
+	isQuorumReached := bs.countResponders() >= bs.expectedResponses
 
 	switch h.PktType {
 	case packet.PKT_T_IAmAlive:
-		bs.lastOutPkt = nil
-		bs.addResponder(pkt.Header.SenderAddr)
+		bs.hasLastPkt = false
 
 	case packet.PKT_T_WhoIsMaster:
 		fmt.Println("Collecting master responses ...")
 
-		bs.addResponder(pkt.Header.SenderAddr)
-
 		bs.SendReply(packet.PKT_T_IAmAlive)
 
+		bs.mu.Lock()
 		if !bs.electionStarted {
 			bs.electionStarted = true
 			bs.wg.Add(1)
 			go bs.electMaster()
 		}
+		bs.mu.Unlock()
 
 	case packet.PKT_T_IAmMaster:
 		select {
@@ -133,18 +132,26 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		default:
 		}
 
-	// 	fmt.Println(pkt.Header.SenderAddr, "was elected master")
+		bs.stopAckTimer()
 
-	// 	// send the broadcast-done reply
-	// 	bs.sendBroadcastDone()
+		bs.SendReply(packet.PKT_T_MasterAck)
+		bs.hasLastPkt = false
+		bs.scheduleSessionClose()
 
-	// 	// clean up the session
-	// 	bs.lastOutPkt = nil
-	// 	bs.scheduleSessionClose()
+	case packet.PKT_T_MasterAck:
+		if bs.tx.IsMaster() {
+			fmt.Printf("MstrAck: %d/%d\n", bs.countResponders(), bs.expectedResponses)
+			if isQuorumReached {
+				bs.seq++
+				bs.hasLastPkt = false
+				bs.stopAckTimer()
+				bs.requestClose()
+			}
+		}
 
 	case packet.PKT_T_BroadcastAck:
-		fmt.Printf("bcAck: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
-		if quorumReached {
+		fmt.Printf("bcAck: %d/%d\n", bs.countResponders(), bs.expectedResponses)
+		if isQuorumReached {
 			bs.seq++
 			bs.stopAckTimer()
 
@@ -152,13 +159,13 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 			bs.notifyTaskReady()
 
 			bs.SendReply(packet.PKT_T_BroadcastCommit)
-			bs.responsesReceived = 0
+			bs.resetResponders()
 		}
 	case packet.PKT_T_BroadcastDone:
-		fmt.Printf("bcDone: %d/%d\n", bs.responsesReceived, bs.expectedResponses)
-		if quorumReached {
+		fmt.Printf("bcDone: %d/%d\n", bs.countResponders(), bs.expectedResponses)
+		if isQuorumReached {
 			bs.seq++
-			bs.lastOutPkt = nil
+			bs.hasLastPkt = false
 			bs.stopRemoteCommitTimer()
 			bs.requestClose()
 		}
@@ -169,9 +176,10 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 
 func (bs *BroadcastSession) startAckTimer() {
 	bs.broadcastAckTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
-		fmt.Println("Not enought elevators received the data in time ...")
+		fmt.Println("Not enough elevators received the data in time ...")
 		// TODO what now??
 		// ses.closeReq <- ses.ID
+		bs.requestClose()
 	})
 }
 
@@ -181,9 +189,10 @@ func (bs *BroadcastSession) stopAckTimer() {
 
 func (bs *BroadcastSession) startRemoteCommitTimer() {
 	bs.broadcastCommitTimer.Restart(udp.BROADCAST_COMMIT_TIMEOUT, func() {
-		fmt.Println("Not enought elevators completed the task in time ...")
+		fmt.Println("Not enough elevators completed the task in time ...")
 		// TODO what now??
 		// ses.closeReq <- ses.ID
+		bs.requestClose()
 	})
 }
 
@@ -191,37 +200,50 @@ func (bs *BroadcastSession) stopRemoteCommitTimer() {
 	bs.broadcastCommitTimer.Stop()
 }
 
-func (bs *BroadcastSession) addResponder(addr string) {
+func (bs *BroadcastSession) addResponder(addr string) bool {
 	bs.mu.Lock()
-	bs.responders[addr] = true
-	bs.mu.Unlock()
+	defer bs.mu.Unlock()
+	if !bs.responders[addr] {
+		bs.responders[addr] = true
+		return true
+	}
+	return false
 }
 
 func (bs *BroadcastSession) resetResponders() {
 	bs.mu.Lock()
 	bs.responders = make(map[string]bool)
+	bs.responders[bs.selfAddr] = true
 	bs.mu.Unlock()
+}
+
+func (bs *BroadcastSession) countResponders() int {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	return len(bs.responders)
 }
 
 func (bs *BroadcastSession) electMaster() {
 	defer bs.wg.Done()
+
+	timer := time.NewTimer(udp.MASTER_ELECTION_TIMEOUT)
+	defer timer.Stop()
+
 	select {
 	case <-bs.masterFound:
 		fmt.Println("Master already exists, stopping election")
 		return
 
-	case <-time.After(udp.MASTER_ELECTION_TIMEOUT):
+	case <-timer.C:
 		fmt.Println("No master found, electing...")
 
 		bs.mu.Lock()
-		defer bs.mu.Unlock()
 
 		if len(bs.responders) == 0 {
-			fmt.Println("No responders")
+			bs.mu.Unlock()
 			return
 		}
 
-		// find lowest
 		lowest := ""
 		for addr := range bs.responders {
 			if lowest == "" || addr < lowest {
@@ -229,20 +251,19 @@ func (bs *BroadcastSession) electMaster() {
 			}
 		}
 
+		isMaster := lowest == bs.selfAddr
+
+		bs.mu.Unlock()
+
 		fmt.Println("Lowest:", lowest)
 
-		if lowest == bs.selfAddr {
+		if isMaster {
 			fmt.Println(bs.selfAddr, "is the new master")
 			bs.SendReply(packet.PKT_T_IAmMaster)
-			bs.setMaster(true)
-			bs.scheduleSessionClose()
+			bs.expectedResponses = bs.countResponders() - 1
 		}
 
 	case <-bs.stop:
 		return
 	}
-}
-
-func (bs *BroadcastSession) setMaster(isMaster bool) {
-	bs.tx.SetMaster(isMaster)
 }

@@ -22,11 +22,12 @@ func (ses *Session) listen(behavior SessionBehavior) {
 			retryCounter = 0
 			behavior.HandlePacket(pkt)
 		case <-time.After(udp.RETRY_INTERVAL):
-			if ses.lastOutPkt != nil {
-				ses.sendRetry(*ses.lastOutPkt)
+			if ses.hasLastPkt {
+				ses.sendRetry(ses.lastOutPkt)
 				retryCounter++
 				if retryCounter > udp.MAX_RETRIES {
 					fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
+					ses.requestClose() // TODO just have things close, fault tolerence
 					return
 				}
 			}

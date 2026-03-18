@@ -3,6 +3,7 @@ package session
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/peerinfo"
 	"elevator_program/udp/timer"
 	"fmt"
 	"net"
@@ -11,8 +12,10 @@ import (
 
 type PacketSender interface {
 	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
-	QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{})
-	SetMaster(isMaster bool)
+	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
+	IsMaster() bool
+	GetMasterPeer() *peerinfo.PeerInfo
+	StartPeerCatchup(peerAddr *net.UDPAddr)
 }
 
 type Session struct {
@@ -24,7 +27,8 @@ type Session struct {
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
-	lastOutPkt *outgoingMessage
+	lastOutPkt outgoingMessage
+	hasLastPkt bool
 
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
@@ -58,7 +62,8 @@ func NewSession(id uint32,
 		peerID:   peerAddr.String(),
 		// seq:                seq, // TODO have it set on init ...
 		pendingPkt:         &packet.Packet{},
-		lastOutPkt:         nil,
+		lastOutPkt:         outgoingMessage{},
+		hasLastPkt:         false,
 		packetInCh:         make(chan packet.Packet, 32),
 		outgoingMsgCh:      make(chan outgoingMessage, 32),
 		remoteCommitTimer:  timer.NewTimer(),
