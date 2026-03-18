@@ -87,33 +87,6 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	// eA := elevtest.NewElev("A", 2)
-
-	// err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eB := elevtest.NewElev("B", 2)
-
-	// err = eB.StartServer(localIP, 9001)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eA.Start()
-	// eB.Start()
-
-	// eA.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_BroadcastUpdate,
-	// 	message.ElevatorMessage{Content: "Hello A!"},
-	// )
-
-	// closeProgram(eA, eB)
-
 	ip_address := "localhost"
 	port := "15657"
 
@@ -165,3 +138,6 @@ func main() {
 // 10.22.67.255 broadcast, broadcast har 255 som siste verdi
 
 // TODO test go run -race
+
+// TODO it looks like the system gets multiple running hallrequest and forgets its own target
+// TODO ask if there is some logical errors in the scanning of requests, sorting them and delegating them

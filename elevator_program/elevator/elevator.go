@@ -48,7 +48,7 @@ type Elevator struct {
 	hardwareEventsCh         chan HardwareEvent
 	hardwareListenersStarted bool
 
-	faultMsg chan message.FaultMessage
+	FaultMsg chan message.FaultMessage
 
 	// MsgRecieveCh chan message.ElevatorMessage
 	// msgSendCh    chan message.ElevatorMessage
@@ -104,7 +104,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.IpRegistery = make(map[string]string)
 
 	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
-	e.faultMsg = make(chan message.FaultMessage, 20)
+	e.FaultMsg = make(chan message.FaultMessage, 20)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 

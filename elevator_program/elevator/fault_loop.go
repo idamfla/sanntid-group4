@@ -13,7 +13,7 @@ func (e *Elevator) fault_loop() {
 		select {
 		case <-e.stop:
 			return
-		case faultMsg := <-e.faultMsg:
+		case faultMsg := <-e.FaultMsg:
 			e.handleFaultMessage(faultMsg)
 		}
 	}

@@ -62,7 +62,7 @@ on the extra work if the new task is better for it but still another one is clos
 */
 
 func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) (string, int, elevio.ButtonEvent) {
-	minDistance := len(e.hallRequests) + 1
+	minDistance := len(e.System.HallRequests) + 1
 	bestElevatorID := ""
 	isClosestIdle := false
 

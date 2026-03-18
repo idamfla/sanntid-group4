@@ -105,7 +105,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 
 	case types.MSG_T_TaskUpdate:
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
-		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+		if !(msg.Id == e.Id && msg.Task.Button == elevio.BT_Cab) {
+			e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+		}
 
 		taskKey := TaskKey{
 			Owner:  msg.Id,
