@@ -130,17 +130,10 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	case types.ES_Idle:
 		e.System.Mutex.RLock()
 		targetFloor := e.System.Elevators[e.Id].Target.Floor
-		// requestAtFloor := false
 		e.System.Mutex.RUnlock()
 
 		if targetFloor != -1 {
-			// e.System.Mutex.RLock()
-			// if e.System.HallRequests[targetFloor][elevio.BT_HallDown] == types.Running || e.System.HallRequests[targetFloor][elevio.BT_HallUp] == types.Running || e.System.Elevators[e.Id].CabRequests[targetFloor] == types.Running {
-			// 	requestAtFloor = true
-			// }
-			// e.System.Mutex.RUnlock()
 			dir = e.getMotion(targetFloor)
-			fmt.Println("HALLLAALALALAL \n\n\n\n\n\n\n ", dir, e)
 			if dir != elevio.MD_Stop {
 				elevatorState.State = types.ES_Moving
 			} else {
@@ -325,10 +318,15 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	e.System.Mutex.Lock()
 	defer e.System.Mutex.Unlock()
 
+	target := e.System.Elevators[e.Id].Target
+	if target.Floor == -1 {
+		return
+	}
+
 	msg := message.ElevatorMessage{
 		MsgType:   types.MSG_T_ButtonPress,
 		Id:        e.Id,
-		Task:      e.System.Elevators[e.Id].Target,
+		Task:      target, //e.System.Elevators[e.Id].Target,
 		BtnStatus: types.NotActive,
 	}
 	e.SendToProtocol <- msg
@@ -336,8 +334,10 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	// TODO We should clean this up
 	elevatorCopy := e.System.Elevators[e.Id]
 	elevatorCopy.State = state
-	targetFloor := e.System.Elevators[e.Id].Target.Floor
-	elevatorCopy.CabRequests[targetFloor] = types.NotActive
+	// targetFloor := e.System.Elevators[e.Id].Target.Floor
+	// elevatorCopy.CabRequests[targetFloor] = types.NotActive
+	elevatorCopy.CabRequests[target.Floor] = types.NotActive
+	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 	e.System.Elevators[e.Id] = elevatorCopy
 
 	msg.MsgType = types.MSG_T_TaskRequest

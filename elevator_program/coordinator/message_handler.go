@@ -20,14 +20,9 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 	case types.MSG_T_TaskUpdate:
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
 			e.System.SetRequestAsTarget(msg.Id, msg.Task)
-		} else if msg.BtnStatus == types.NotActive { // Just update system
-			e.ClearTarget() // TODO This one makes the system loose its target if it reads late
-			e.System.Mutex.Lock()
-			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
-			e.System.Mutex.Unlock()
 		} else {
 			e.System.Mutex.Lock()
-			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
+			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
 			e.System.Mutex.Unlock()
 		}
 		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)

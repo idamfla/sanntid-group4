@@ -7,7 +7,6 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
-	"time"
 )
 
 func (c *Coordinator) sendListener(e *elevator.Elevator) {
@@ -55,7 +54,7 @@ func (c *Coordinator) sendAsSlave(msg message.ElevatorMessage) {
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_RequestNewOrder
 		fmt.Println("Trying to send Task request 1")
-		time.Sleep(2 * time.Second)
+		// time.Sleep(2 * time.Second) // TODO is you suddenly loose your task maybe you have to add this
 
 	case types.MSG_T_LostComs:
 		// msg.MsgType = types.MSG_T_ElevatorLost
