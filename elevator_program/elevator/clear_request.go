@@ -6,22 +6,29 @@ import (
 )
 
 func (e *Elevator) clearCabRequest(floor int) {
-	e.System.Elevators[e.Id].CabRequests[floor] = types.NotActive // Changed to be compatible with system struct
+	//e.System.Elevators[e.Id].CabRequests[floor] = types.NotActive // Changed to be compatible with system struct
+	e.System.Mutex.Lock()
+	defer e.System.Mutex.Unlock()
+	elevatorCopy := e.System.Elevators[e.Id]
+	elevatorCopy.CabRequests[floor] = types.NotActive
+	e.System.Elevators[e.Id] = elevatorCopy
 }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
-	e.System.HallRequests[floor][button] = types.NotActive // Changed to be compatible with system struct
+	// e.System.HallRequests[floor][button] = types.NotActive // Changed to be compatible with system struct
+	e.System.Mutex.Lock()
+	defer e.System.Mutex.Unlock()
+	e.System.HallRequests[floor][button] = types.NotActive
 }
 
 // Clear current floor from hallRequests, and turn the lamps off
 func (e *Elevator) clearCurrentFloor(floor int, button elevio.ButtonType) {
-	e.clearCabRequest(floor) // TODO don't clear floor before "master" tells the elevator to do so
-	e.clearCabLamp(floor)
-
+	// e.clearCabRequest(floor) // TODO don't clear floor before "master" tells the elevator to do so
 	if button == elevio.BT_Cab {
-		return
+		e.clearCabRequest(floor)
+		e.clearCabLamp(floor)
+	} else {
+		e.clearHallRequest(floor, button)
+		e.clearHallLamp(floor, button)
 	}
-
-	e.clearHallRequest(floor, button)
-	e.clearHallLamp(floor, button)
 }

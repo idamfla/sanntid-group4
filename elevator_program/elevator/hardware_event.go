@@ -39,7 +39,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
 		e.emergencyStop = hwEvent.EmergencyStop
+		e.System.Mutex.RLock()
 		_, elevators := e.System.Snapshot()
+		e.System.Mutex.RUnlock()
 		msg := message.ElevatorMessage{
 			MsgType:   types.MSG_T_StatusReport,
 			Id:        e.Id,
@@ -59,7 +61,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 
 		// Check if button press is already in system, no need to message master
 		if !e.System.IsRequestInSystem(e.Id, task) {
+			e.System.Mutex.RLock()
 			_, elevators := e.System.Snapshot()
+			e.System.Mutex.RUnlock()
 			msg := message.ElevatorMessage{
 				MsgType:   types.MSG_T_ButtonPress,
 				Id:        e.Id,

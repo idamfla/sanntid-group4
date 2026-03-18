@@ -109,6 +109,10 @@ func (e *Elevator) RunElevatorProgram() {
 
 // region printing, for debugging
 func (e *Elevator) String() string {
+	e.System.Mutex.RLock()
+	defer e.System.Mutex.RUnlock()
+
+	elevStatus := e.System.Elevators[e.Id]
 	s := fmt.Sprintf(
 		`Elevator
 	id: %s
@@ -120,11 +124,12 @@ func (e *Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
-
+		// e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
+		e.Id, e.inBetweenFloors, e.currentFloor, elevStatus.Target.Floor, elevStatus.Target.Button, e.initFloor, elevStatus.Direction, e.doorState, elevStatus.State)
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.System.HallRequests[f]
-		cab := e.System.Elevators[e.Id].CabRequests[f]
+		// cab := e.System.Elevators[e.Id].CabRequests[f]
+		cab := elevStatus.CabRequests[f]
 
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%s Down:%s Cab:%s]\n",

@@ -2,7 +2,10 @@ package coordinator
 
 import (
 	"context"
+	"elevator_program/elevator"
 	"elevator_program/elevio"
+	"elevator_program/message"
+	"elevator_program/types"
 	"fmt"
 	"sync"
 	"time"
@@ -26,7 +29,7 @@ func NewTaskMonitor(timeout time.Duration) TaskMonitor {
 	}
 }
 
-func (tm *TaskMonitor) StartTask(taskKey TaskKey) {
+func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
@@ -44,7 +47,14 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey) {
 		if ctx.Err() == context.DeadlineExceeded {
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
 			// TODO send fault to fault tolerance
-			// TODO update mission to pending
+
+			msg := message.ElevatorMessage{
+				MsgType:   types.MSG_T_TaskUpdate,
+				Id:        taskKey.Owner,
+				Task:      taskKey.TaskID,
+				BtnStatus: types.Pending,
+			}
+			e.SendToProtocol <- msg
 		}
 
 		tm.mu.Lock()

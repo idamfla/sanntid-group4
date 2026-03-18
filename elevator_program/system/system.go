@@ -35,8 +35,8 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 }
 
 func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]types.ElevatorsStatus) {
-	s.Mutex.RLock()
-	defer s.Mutex.RUnlock()
+	// s.Mutex.RLock()
+	// defer s.Mutex.RUnlock()
 	hall = make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hall, s.HallRequests)
 

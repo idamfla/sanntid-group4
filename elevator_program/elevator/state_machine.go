@@ -49,7 +49,9 @@ func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDi
 }
 
 func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.MotorDirection) {
+	e.System.Mutex.RLock()
 	hallRequests, elevs := e.System.Snapshot()
+	e.System.Mutex.RUnlock()
 	elevatorStatus := elevs[e.Id]
 
 	nextTarget := e.GetNextTargetFloor(elevatorStatus, hallRequests) // TODO This may be wrong
@@ -87,7 +89,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		return
 	}
 
+	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
+	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Id]
 
 	// TODO add doorstate switch, e.startTime = time.Now()
@@ -109,7 +113,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.doorState = DS_Opening
 			// fmt.Println(e)
 
+			e.System.Mutex.RLock()
 			_, elevs := e.System.Snapshot()
+			e.System.Mutex.RUnlock()
 
 			msg := message.ElevatorMessage{
 				MsgType: types.MSG_T_TaskRequest,
@@ -124,10 +130,17 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	case types.ES_Idle:
 		e.System.Mutex.RLock()
 		targetFloor := e.System.Elevators[e.Id].Target.Floor
+		// requestAtFloor := false
 		e.System.Mutex.RUnlock()
 
 		if targetFloor != -1 {
+			// e.System.Mutex.RLock()
+			// if e.System.HallRequests[targetFloor][elevio.BT_HallDown] == types.Running || e.System.HallRequests[targetFloor][elevio.BT_HallUp] == types.Running || e.System.Elevators[e.Id].CabRequests[targetFloor] == types.Running {
+			// 	requestAtFloor = true
+			// }
+			// e.System.Mutex.RUnlock()
 			dir = e.getMotion(targetFloor)
+			fmt.Println("HALLLAALALALAL \n\n\n\n\n\n\n ", dir, e)
 			if dir != elevio.MD_Stop {
 				elevatorState.State = types.ES_Moving
 			} else {
@@ -156,8 +169,8 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	elevio.SetMotorDirection(dir)
 
 	// If state has changed, notify
+	e.System.Mutex.Lock()
 	if elevatorState.State != e.System.Elevators[e.Id].State {
-		e.System.Mutex.Lock()
 		elevatorCopy := e.System.Elevators[e.Id]
 		elevatorCopy.State = elevatorState.State
 		e.System.Elevators[e.Id] = elevatorCopy
@@ -171,6 +184,8 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		}
 		e.System.Mutex.Unlock()
 		e.SendToProtocol <- msg
+	} else {
+		e.System.Mutex.Unlock()
 	}
 
 }
@@ -182,8 +197,10 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		return
 	}
 
+	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
 	elevatorStatus := elevs[e.Id]
+	e.System.Mutex.RUnlock()
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 

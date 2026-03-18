@@ -146,6 +146,9 @@ func main() {
 
 	p2.Start(&e2)
 
+	fmt.Println(&e1)
+	fmt.Println(&e2)
+
 	e2.RunElevatorProgram()
 
 	select {}

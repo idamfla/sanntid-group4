@@ -21,10 +21,10 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 		if e.Id == msg.Id && msg.BtnStatus == types.Running { // Assign new task
 			e.System.SetRequestAsTarget(msg.Id, msg.Task)
 		} else if msg.BtnStatus == types.NotActive { // Just update system
+			e.ClearTarget() // TODO This one makes the system loose its target if it reads late
 			e.System.Mutex.Lock()
 			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
 			e.System.Mutex.Unlock()
-			e.ClearTarget()
 		} else {
 			e.System.Mutex.Lock()
 			e.System.SetRequestStatus(e.Id, msg.BtnStatus, msg.Task)
@@ -63,6 +63,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 				c.portRegistery["master"] = c.portSelf
 
 				msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
+				fmt.Println("Do I get here?", msg)
 				// fmt.Println("Now i am going to send back that this one is connected to network: ", msg)
 				e.IpRegistery[msg.Ip] = id
 
@@ -124,7 +125,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 		}
 		switch msg.BtnStatus {
 		case types.Running:
-			c.TaskMonitor.StartTask(taskKey)
+			c.TaskMonitor.StartTask(taskKey, e)
 		case types.NotActive:
 			c.TaskMonitor.FinishTask(taskKey)
 		default:
@@ -167,11 +168,12 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 
 // Read new message from server when it appears on the channel
 func (c *Coordinator) MessageListener(e *elevator.Elevator) {
-	fmt.Println("MESSAGE LISTENER STARTED")
+	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
 	for pktCtx := range c.msgRecieveCh {
 		msg := pktCtx.Packet.Payload
+		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, msg)
 		c.MessageHandler(e, msg)
-		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster)
+		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, msg)
 		if pktCtx.Done != nil {
 			pktCtx.Done <- struct{}{}
 		}
