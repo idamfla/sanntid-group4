@@ -81,6 +81,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	}
 
 	elevatorStatus := e.System.Elevators[e.Id]
+	prevState := elevatorStatus.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -154,8 +155,12 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		}
 		e.SendToProtocol <- msg
 	}
-	e.System.Elevators[e.Id] = elevatorStatus
 
+    if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+	e.markRecoveryVerified()
+}
+
+	e.System.Elevators[e.Id] = elevatorStatus
 	elevio.SetMotorDirection(dir)
 }
 
@@ -163,11 +168,11 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change state and controls the motor
 	if e.emergencyStop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
-	    e.faultTolerance.SetMotorRunning(false)
 		return
 	}
 
 	elevatorStatus := e.System.Elevators[e.Id]
+	prevState := elevatorStatus.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -176,7 +181,6 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 
 	if elevatorStatus.State != types.ES_Uninitialized && e.doorState != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
-		e.faultTolerance.SetMotorRunning(false)
 
 		return
 	}
@@ -254,17 +258,15 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	case types.ES_EmergencyStop:
         elevio.SetMotorDirection(elevio.MD_Stop)
 
-        if e.faultTolerance != nil {
-            e.faultTolerance.SetMotorRunning(false)
-        }
         return
 	}
 
-
+    if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+        e.markRecoveryVerified()
+    }
 	elevio.SetMotorDirection(dir)
-    if e.faultTolerance != nil {
-        e.faultTolerance.SetMotorRunning(dir != elevio.MD_Stop)
-}
+
+
 
     e.checkOfflineRestart()
 
@@ -288,15 +290,23 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 }
 
 func (e *Elevator) RunElevatorStateMachine() {
+
+    defer e.wg.Done()
 	fmt.Println("ELEVATOR STATE MACHINE STARTED")
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if e.IsOnline {
-			e.updateElevatorStateOnline()
-		} else {
-			e.updateElevatorStateOffline()
-		}
-	}
+
+	for {
+	    select {
+	    case <- e.stop:
+            return
+	    case <-ticker.C:
+            if e.IsOnline {
+                e.updateElevatorStateOnline()
+            } else {
+                e.updateElevatorStateOffline()
+		    }
+	    }
+    }
 }

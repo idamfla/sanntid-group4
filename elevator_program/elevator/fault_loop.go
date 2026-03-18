@@ -1,20 +1,47 @@
 package elevator
 
+import (
+	"fmt"
+	"elevator_program/fault"
+)
+
+
 //nb
 // run as go routine
 func (e* Elevator) fault_loop() {
-    for faultMsg := range <-e.faultMsg {
-        switch faultMsg.FaultType {
-        case FAULT_T_LostConn:
-            // investigate
-            // faultTolerence.killServer(e.srv)
-            // e.NewServer()
-            // e.StartServer()
-            case FAULT_T_LostMaster:
-          case FAULT_T_ElevatorFailed:
-       case FAULT_T_BroadcastFailedToRespond:
-       }
-   }
+    defer e.wg.Done()
+    for {
+        select{
+        case <-e.stop:
+            return
+        case faultMsg := <- e.faultMsg:
+            e.handleFaultMessage(faultMsg)
+        }
+    }
 }
-             // manger
-func lostconn(srv*Server){srv.Close}
+
+func (e*Elevator) handleFaultMessage(faultMsg FaultMessage) {
+    switch faultMsg.FaultType {
+    case fault.FAULT_T_LostConn:
+        e.handleNetworkFault("lost connection")
+
+    case fault.FAULT_T_LostMaster:
+        e.handleMasterSuspected("lost master")
+
+    case fault.FAULT_T_ElevatorFailed:
+        e.handleMotorStopFault("elevator failed")
+
+    case fault.FAULT_T_BroadcastFailedToRespond:
+        if faultMsg.ID == "" {
+            fmt.Println("Received FAULT_T_BroadcastFailedToRespond without peer ID")
+            return
+        }
+        e.handlePeerDead(faultMsg.ID)
+
+    case fault.FAULT_T_TaskRunningErr:
+        e.handleMotorStopFault("task running too long")
+
+    default:
+        fmt.Printf("Unknown fault type: %v\n", faultMsg.FaultType)
+    }
+}

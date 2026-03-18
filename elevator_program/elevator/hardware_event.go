@@ -125,9 +125,7 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
-            if e.faultTolerance != nil {
-                e.faultTolerance.FloorEvent()
-		}
+
     }
 
 	case HW_T_Obstruction:
@@ -139,9 +137,16 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 }
 
 func (e *Elevator) RunHardwareEventLoop() {
+    defer e.wg.Done()
 	fmt.Println("EVENT LOOP STARTED")
-	for hwEvent := range e.hardwareEventsCh {
-		e.handleHardwareEvent(hwEvent)
-		fmt.Println(e) // DB
-	}
+	for {
+        select {
+        case <-e.stop:
+            return
+        case hwEvent := <- e.hardwareEventsCh:
+            e.handleHardwareEvent(hwEvent)
+            fmt.Println(e) // DB
+
+        }
+    }
 }

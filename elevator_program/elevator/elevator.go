@@ -3,6 +3,7 @@ package elevator
 import (
 	"fmt"
 	"time"
+	"sync"
 
 	"elevator_program/elevio"
 	"elevator_program/fault"
@@ -25,6 +26,8 @@ type Elevator struct {
 	nextTarget      elevio.ButtonEvent
 	direction       elevio.MotorDirection
 	initFloor       int
+	numFloors       int
+
 
 	hallRequests [][2]types.ButtonStatus // TODO Should remove these
 	cabRequests  []types.ButtonStatus    // TODO Should remove these
@@ -43,11 +46,13 @@ type Elevator struct {
 	obstruction      bool
 	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
 	hardwareEventsCh chan HardwareEvent
+	hardwareListenersStarted bool
+
+    faultMsg         chan FaultMessage
 
 	// MsgRecieveCh chan message.Message
 	// msgSendCh    chan message.Message
 
-	faultTolerance *fault.Manager
 	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
 
 	IsMaster          bool
@@ -55,6 +60,22 @@ type Elevator struct {
 	IsOnline          bool
 	currentMasterID   string
 	System            system.System
+
+	stop             chan struct{}
+	runningMu        sync.Mutex
+	isRunning        bool
+
+	wg sync.WaitGroup
+
+	recoveryCfg RecoveryConfig
+
+	softRestartInProgress bool
+	softRestartAttempts   int
+
+	recoveryAwaitingProof bool
+	recoveryVerified      bool
+	lastRecoveryAttempt   time.Time
+	recoveryMu sync.Mutex
 
 	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
@@ -68,10 +89,12 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
 	e.cabRequests = make([]types.ButtonStatus, numFloors)
+	e.numFloors = numFloors
+
 
 	e.IsMaster = false
 
-	e.System.InitSystem(id, "192.168.0.1", 4)
+	e.System.InitSystem(id, "192.168.0.1", numFloors)
 
 	// e.elevatorState = types.ES_Uninitialized
 
@@ -83,10 +106,12 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	// TODO temp
 	e.SendToProtocol = make(chan message.Message, 10)
+	e.faultMsg = make(chan FaultMessage, 20)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-	
+    e.recoveryCfg = DefaultRecoveryConfig
+
 	e.IsOnline = false
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -98,48 +123,108 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
-	//Magicnumber big nono
-	e.faultTolerance = fault.NewFaultManager(id, fault.Config{
-		StartupGrace:  3 * time.Second,
-		MasterTimeout: 1 * time.Second,
-		PeerTimeout:   1 * time.Second,
-		MotorTimeout:  4 * time.Second,
-		Tick:          50 * time.Millisecond,
-	})
+
+
 }
 
+
+
+
 func (e *Elevator) RunElevatorProgram() {
+
+    e.runningMu.Lock()
+	defer e.runningMu.Unlock()
+
+	if e.isRunning {
+		return
+	}
+
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
 
-	e.faultTolerance.OnGoOffline = func() { e.enterOfflineMode() }
-	e.faultTolerance.OnGoOnline = func() { e.exitOfflineMode() }
-	e.faultTolerance.OnMotorFault = func(reason string) { e.handleMotorStopFault(reason) }
-	e.faultTolerance.OnNetworkFault = func(reason string) { e.handleNetworkFault(reason) }
-	e.faultTolerance.OnPeerDead = func(peerID string) { e.handlePeerDead(peerID) }
-	e.faultTolerance.OnMasterSuspected = func(reason string) { e.handleMasterSuspected(reason) }
+    e.stop = make(chan struct{})
+    if !e.hardwareListenersStarted {
+		e.StartHardwareEventsListeners()
+		e.hardwareListenersStarted = true
+	}
 
+
+    e.wg.Add(4)
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
-	go e.faultTolerance.Run()
-
-	e.StartHardwareEventsListeners()
-	// time.Sleep(10 * time.Second)
-
-	// Temp for testing msgHandler
-	// go e.TestMsgHandler(4)
-	//// go e.TestMsgHandler_Master(4)
-
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		e.runElection("startup")
-	}()
+	go e.fault_loop()
 
 
-	// go e.server.Listen() // TODO check that this work
-	// done := make(chan struct{})
-	// <-done
+
+
+	e.isRunning = true
 }
+
+
+
+
+
+
+
+func (e *Elevator) resetRuntimeState(numFloors int) {
+	e.offline = false
+	e.scheduleRestart = false
+
+	e.inBetweenFloors = false
+	e.currentFloor = elevio.GetFloor()
+	e.nextTarget = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+	e.direction = elevio.MD_Stop
+
+	e.doorState = DS_Closed
+	e.doorTimer = time.Time{}
+
+	e.lostComsTimer = time.Time{}
+	e.ackCounterLostComs = 0
+
+	e.obstruction = false
+	e.emergencyStop = false
+
+	e.IsMaster = false
+	e.connectedToMaster = false
+	e.IsOnline = false
+	e.currentMasterID = ""
+
+	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
+	e.cabRequests = make([]types.ButtonStatus, numFloors)
+
+	e.System = system.System{}
+	e.System.InitSystem(e.Id, e.Ip, numFloors)
+
+	e.IpRegistery = make(map[string]string)
+
+	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
+	elevio.SetDoorOpenLamp(false)
+	elevio.SetStopLamp(false)
+	elevio.SetMotorDirection(elevio.MD_Stop)
+
+	if e.currentFloor >= 0 {
+		elevio.SetFloorIndicator(e.currentFloor)
+	}
+
+	e.SendToProtocol = make(chan message.Message, 10)
+
+}
+
+
+func (e *Elevator) stopRuntimeLoops() {
+	e.runningMu.Lock()
+	defer e.runningMu.Unlock()
+
+	if !e.isRunning {
+		return
+	}
+
+	close(e.stop)
+	e.wg.Wait()
+
+	e.isRunning = false
+}
+
 
 // region printing, for debugging
 func (e Elevator) String() string {

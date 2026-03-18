@@ -70,13 +70,19 @@ func (e *Elevator) updateDoorState() {
 }
 
 func (e *Elevator) RunDoorStateMachine() {
+    defer e.wg.Done()
 	fmt.Println("DOOR STATE MACHINE STARTED")
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		e.updateDoorState()
-	}
+	for {
+        select {
+        case <-e.stop:
+            return
+        case <-ticker.C:
+            e.updateDoorState()
+        }
+    }
 }
 
 // region printing
