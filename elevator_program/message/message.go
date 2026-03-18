@@ -8,7 +8,7 @@ import (
 // DTOs, data transfer objects
 
 // Hopefully a better struct
-type Message struct {
+type ElevatorMessage struct {
 	MsgType types.MessageType
 
 	Id string
@@ -16,7 +16,6 @@ type Message struct {
 
 	// Elevator state reporting
 	// Status *types.ElevatorsStatus // TODO Don't think we need this one, only need to use Elevator map
-	ActivePeers int
 	// Task / button updates
 	Task      elevio.ButtonEvent // TODO do we want it as a pointer? Gives us the option to not send Task on every message
 	BtnStatus types.ButtonStatus
@@ -24,4 +23,21 @@ type Message struct {
 	// System synchronization
 	HallRequests [][2]types.ButtonStatus
 	Elevators    map[string]types.ElevatorsStatus
+}
+
+func NewElevatorMsg(id string, ip string) ElevatorMessage {
+	return ElevatorMessage{
+		MsgType: types.MSG_T_NewToChannel,
+		Id:      id,
+		Ip:      ip,
+	}
+}
+
+func TaskUpdateCallback(id string, task elevio.ButtonEvent, btnStatus types.ButtonStatus) ElevatorMessage {
+	return ElevatorMessage{
+		MsgType:   types.MSG_T_TaskUpdate,
+		Id:        id,
+		Task:      task,
+		BtnStatus: btnStatus,
+	}
 }

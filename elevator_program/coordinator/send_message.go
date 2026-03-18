@@ -11,13 +11,13 @@ import (
 
 func (c *Coordinator) sendListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE SENDER STARTED")
-	for msg := range e.SendToProtocol {
+	for msg := range e.SendToCoordinator {
 		c.routeOutgoingMessage(e, msg)
 		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
 	}
 }
 
-func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Message) {
+func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if e.IsMaster {
 		c.sendAsMaster(msg)
 	} else {
@@ -26,10 +26,10 @@ func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Mes
 }
 
 // slave starting the session with master or someone ...
-func (c *Coordinator) sendAsSlave(msg message.Message) {
+func (c *Coordinator) sendAsSlave(msg message.ElevatorMessage) {
 	// var pktType packet.PacketType
 	var ip string
-	broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
+	// broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
 	// port := udp.BROADCAST_PORT
 	localIP := "127.0.0.1"
 	port := c.portRegistery["master"]
@@ -38,49 +38,41 @@ func (c *Coordinator) sendAsSlave(msg message.Message) {
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
-		// msg.MsgType = types.MSG_T_StatusReport // TODO Don't think we actually need to define it again, but nice to be sure
-		// msg.Id = e.Id
-		// msg.Elevators[e.Id] = e.System.Elevators[e.Id]
 		ip = localIP
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
 		fmt.Println("Trying to send status report")
 
 	case types.MSG_T_ButtonPress:
-		// msg.MsgType = types.MSG_T_ButtonPress
 		ip = localIP
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
 		fmt.Println("Trying to send button press")
 
 	case types.MSG_T_TaskRequest:
-		// msg.MsgType = types.MSG_T_TaskRequest
-		// msg.Id = e.Id
-		// msg.Elevators[e.Id] = e.System.Elevators[e.Id]
 		ip = localIP
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_RequestNewOrder
 		fmt.Println("Trying to send Task request 1")
+		// time.Sleep(2 * time.Second) // TODO is you suddenly loose your task maybe you have to add this
 
 	case types.MSG_T_LostComs:
-		msg.MsgType = types.MSG_T_ElevatorLost
-		ip = broadcastIp
+		// msg.MsgType = types.MSG_T_ElevatorLost
+		ip = localIP //broadcastIp
 		port = c.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_LostConn
 		fmt.Println("Trying to send lost coms")
 
 	case types.MSG_T_ElevatorLost:
-		msg.MsgType = types.MSG_T_LostComs
+		// msg.MsgType = types.MSG_T_LostComs
 		ip = localIP
 		port = c.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send elevator lost")
 
 	case types.MSG_T_NewToChannel:
-		// msg.MsgType = types.MSG_T_NewToChannel
-		// msg.Ip = e.Ip
-		ip = broadcastIp
-		port = 3000 //p.portRegistery["broadcast"]
+		ip = localIP // broadcastIp
+		port = 9000  //p.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data
 		fmt.Println("Trying to send new to channel")
 	}
@@ -88,7 +80,7 @@ func (c *Coordinator) sendAsSlave(msg message.Message) {
 }
 
 // TODO Is this a smart way to do it, seams kind of unneccesary
-func (c *Coordinator) sendAsMaster(msg message.Message) {
+func (c *Coordinator) sendAsMaster(msg message.ElevatorMessage) {
 	// port := udp.BROADCAST_PORT
 	var ip string
 	// broadcastIp := udp.NtnuBroadcastIP
@@ -98,7 +90,6 @@ func (c *Coordinator) sendAsMaster(msg message.Message) {
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
-		// msg.MsgType = types.MSG_T_StatusReport
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send status report")
 	case types.MSG_T_ButtonPress:
@@ -110,7 +101,6 @@ func (c *Coordinator) sendAsMaster(msg message.Message) {
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send task update 2")
 	case types.MSG_T_NewToChannel:
-		// msg.MsgType = types.MSG_T_NewToChannel
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send new to channel")
 	}

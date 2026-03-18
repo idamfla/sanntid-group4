@@ -10,7 +10,7 @@ import (
 )
 
 type PacketSender interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, msg message.Message) error
+	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, msg message.ElevatorMessage) error
 	QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{})
 }
 

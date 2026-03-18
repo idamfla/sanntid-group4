@@ -4,34 +4,32 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
-	"fmt"
 )
 
 // TODO Probably a bad name for the file
 
 func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
-	fmt.Println("System befor error: ", s)
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
 	s.Elevators[id] = elevator
 }
 
+// SetRequestStatus updates a button request status. Caller MUST hold s.Mutex.
 func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
-	f := btnEvent.Floor // TODO Is it wierd that i define b and f?
+	f := btnEvent.Floor
 	b := btnEvent.Button
 	if b == elevio.BT_Cab {
-		fmt.Println("System before error: ", s)
-		s.Elevators[id].CabRequests[f] = status
+		elevatorCopy := s.Elevators[id]
+		elevatorCopy.CabRequests[f] = status
+		s.Elevators[id] = elevatorCopy
 	} else {
 		s.HallRequests[f][b] = status
 	}
 }
 
-// func (s *System) UpdateRemoteCabBtn(id int, status types.ButtonStatus, floor int) {
-// 	s.Elevators[id].CabRequests[floor] = status
-// }
-
-func (s *System) InitializeFromSystemState(msg message.Message) {
-	// s.HallRequests = msg.HallRequests
-	// s.Elevators = msg.Elevators
+func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
 
 	s.HallRequests = make([][2]types.ButtonStatus, len(msg.HallRequests))
 	copy(s.HallRequests, msg.HallRequests)
@@ -45,12 +43,20 @@ func (s *System) InitializeFromSystemState(msg message.Message) {
 	}
 }
 
-func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[string]string) (message.Message, string) {
-	newMessage := message.Message{
+func (s *System) RegisterAndSyncElevator(
+	msg message.ElevatorMessage,
+	ipRegistery map[string]string,
+) (message.ElevatorMessage, string) {
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	newMessage := message.ElevatorMessage{
 		MsgType: types.MSG_T_NewToChannel,
 		Id:      msg.Id,
 		Ip:      msg.Ip,
 	}
+
 	newElevator := types.ElevatorsStatus{
 		Id:       msg.Id,
 		Ip:       msg.Ip,
@@ -62,40 +68,59 @@ func (s *System) RegisterAndSyncElevator(msg message.Message, ipRegistery map[st
 		CabRequests: make([]types.ButtonStatus, len(msg.Elevators[msg.Id].CabRequests)),
 	}
 
-	_, ok := ipRegistery[msg.Ip]
-	if ok {
-		for f, btnStatus := range s.Elevators[msg.Id].CabRequests {
-			if btnStatus != types.NotActive || msg.Elevators[msg.Id].CabRequests[f] != types.NotActive {
-				newElevator.CabRequests[f] = types.Pending
-			}
-		}
-	} else {
-		for f, btnStatus := range msg.Elevators[msg.Id].CabRequests {
-			if btnStatus != types.NotActive {
-				newElevator.CabRequests[f] = types.Pending
-			}
-		}
-		s.Elevators[msg.Id] = newElevator
+	if _, ok := ipRegistery[msg.Ip]; ok {
+		old := s.Elevators[msg.Id].CabRequests
+
+		newElevator.CabRequests = make([]types.ButtonStatus, len(old))
+		copy(newElevator.CabRequests, old)
 	}
-	newMessage.HallRequests = s.HallRequests
-	newMessage.Elevators = s.Elevators
+
+	s.Elevators[msg.Id] = newElevator
+
+	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
+	copy(hallCopy, s.HallRequests)
+
+	elevCopy := make(map[string]types.ElevatorsStatus)
+	for id, e := range s.Elevators {
+		elevCopy[id] = e
+	}
+
+	newMessage.HallRequests = hallCopy
+	newMessage.Elevators = elevCopy
+
 	return newMessage, msg.Id
 }
 
-// TODO Probably don't need only for testing
-func (s System) CopySystem() System {
-	// Create a new instance of System and copy the fields
-	newCopy := s
+func (s *System) IsRequestInSystem(id string, task elevio.ButtonEvent) bool {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
+	f := task.Floor
+	b := task.Button
+	if b == elevio.BT_Cab {
+		return s.Elevators[id].CabRequests[f] != types.NotActive
+	} else {
+		return s.HallRequests[f][b] != types.NotActive
+	}
+}
 
-	// Deep copy the map to ensure independence
-	newCopy.Elevators = make(map[string]types.ElevatorsStatus)
-	for id, elevator := range s.Elevators {
-		newCopy.Elevators[id] = elevator
+func (s *System) SetRequestAsTarget(id string, task elevio.ButtonEvent) {
+	// TODO I think it is wierd that I call system from here. The whole purpose of this was to seperate sytsem and elevator
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	if s.Elevators[id].Target.Floor != -1 {
+		s.SetRequestStatus(id, types.Pending, s.Elevators[id].Target)
 	}
 
-	// Deep copy the hallRequests slice
-	newCopy.HallRequests = make([][2]types.ButtonStatus, len(s.HallRequests))
-	copy(newCopy.HallRequests, s.HallRequests)
+	s.SetRequestStatus(id, types.Running, task)
 
-	return newCopy
+	elevatorCopy := s.Elevators[id]
+	elevatorCopy.Target = task
+
+	if task.Floor > s.Elevators[id].CurrentFloor {
+		elevatorCopy.Direction = elevio.MD_Up
+	} else if task.Floor < s.Elevators[id].CurrentFloor {
+		elevatorCopy.Direction = elevio.MD_Down
+	}
+	s.Elevators[id] = elevatorCopy
 }

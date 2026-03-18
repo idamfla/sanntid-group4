@@ -51,7 +51,7 @@ func (e *Elev) Start() {
 	go e.srv.Start()
 }
 
-func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.Message) {
+func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
 	e.srv.QueueMessage(remoteAddr, protoPktType, msg)
 
 }

@@ -14,6 +14,6 @@ type ElevatorPacket struct {
 // Session -> Session
 type outgoingMessage struct { // TODO rename OutgoingMessage
 	PktType packet.PacketType
-	Msg     message.Message
+	Msg     message.ElevatorMessage
 	Done    chan struct{} // TODO rename, Commited, or something
 }

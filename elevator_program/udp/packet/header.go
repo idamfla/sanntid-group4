@@ -20,6 +20,18 @@ const (
 	PKT_T_BroadcastDone
 )
 
+/*
+Heartbeat
+LostConn
+Notify
+NotifyAck
+BroadcastData
+BroadcastAck
+BroadcastCommit
+BroadcastDone
+ElevatorFailed
+*/
+
 type ProtocolPacketType PacketType
 
 const (
@@ -31,6 +43,14 @@ const (
 	PROTO_PKT_T_BroadcastUpdate ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate) // master -> broadcast
 	PROTO_PKT_T_StateSync       ProtocolPacketType = ProtocolPacketType(PKT_T_StateSync)       // unknown -> broadcast
 )
+
+/*
+Heartbeat: broadcast: data -> ack
+LostConn: slave broadcast: data -> ack
+NotifyMaster: slave -> master: data -> ack
+UpdateSystem: master broadcast: data -> ack -> ack counter -> commit -> commit self -> done
+NewToChannel: unknown broadcast: data -> ack
+*/
 
 // TODO
 /*

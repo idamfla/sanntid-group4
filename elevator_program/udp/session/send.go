@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-var emtpyMsg message.Message
+var emtpyMsg message.ElevatorMessage
 
 // helper
 func (ses *Session) send(outPkt outgoingMessage) error {
@@ -21,21 +21,21 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 	)
 }
 
-func (ses *Session) QueueDataMessage(msg message.Message) {
+func (ses *Session) QueueDataMessage(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_Data,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) QueueMasterMessage(msg message.Message) {
+func (ses *Session) QueueMasterMessage(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_SlaveReport,
 		Msg:     msg,
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdate(msg message.Message) {
+func (ses *Session) QueueBroadcastUpdate(msg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: packet.PKT_T_BroadcastUpdate,
 		Msg:     msg,

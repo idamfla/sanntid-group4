@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"elevator_program/elevio"
-	"elevator_program/fault"
 	"elevator_program/message"
 	"elevator_program/system"
 	"elevator_program/types"
@@ -23,6 +22,9 @@ type Elevator struct {
 
 	inBetweenFloors bool
 	currentFloor    int
+	// nextTarget      elevio.ButtonEvent
+	// direction elevio.MotorDirection
+	initFloor int
 	nextTarget      elevio.ButtonEvent
 	direction       elevio.MotorDirection
 	initFloor       int
@@ -40,7 +42,7 @@ type Elevator struct {
 	ackCounterLostComs int
 
 	// TODO Maybe temp need to notify protocol to send something
-	SendToProtocol chan message.Message
+	SendToCoordinator chan message.ElevatorMessage
 
 	// elevatorState    types.ElevatorState
 	obstruction      bool
@@ -50,14 +52,15 @@ type Elevator struct {
 
     faultMsg         chan FaultMessage
 
-	// MsgRecieveCh chan message.Message
-	// msgSendCh    chan message.Message
-
+	// MsgRecieveCh chan message.ElevatorMessage
+	// msgSendCh    chan message.ElevatorMessage
 	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
 
 	IsMaster          bool
 	connectedToMaster bool
 	IsOnline          bool
+
+	System system.System
 	currentMasterID   string
 	System            system.System
 
@@ -84,7 +87,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.Id = id
 	e.Ip = ip
 	e.currentFloor = -1
-	e.nextTarget = elevio.ButtonEvent{Floor: -1}
+	// e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
 	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
@@ -104,8 +107,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.IpRegistery = make(map[string]string)
 
-	// TODO temp
-	e.SendToProtocol = make(chan message.Message, 10)
+	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
 	e.faultMsg = make(chan FaultMessage, 20)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
@@ -119,7 +121,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	// e.MsgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
 
 	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	// e.MsgRecieveCh = make(chan message.Message, 10) // TODO Should have this in the code
+	// e.MsgRecieveCh = make(chan message.ElevatorMessage, 10) // TODO Should have this in the code
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
@@ -159,11 +161,6 @@ func (e *Elevator) RunElevatorProgram() {
 
 	e.isRunning = true
 }
-
-
-
-
-
 
 
 func (e *Elevator) resetRuntimeState(numFloors int) {
@@ -227,7 +224,11 @@ func (e *Elevator) stopRuntimeLoops() {
 
 
 // region printing, for debugging
-func (e Elevator) String() string {
+func (e *Elevator) String() string {
+	e.System.Mutex.RLock()
+	defer e.System.Mutex.RUnlock()
+
+	elevStatus := e.System.Elevators[e.Id]
 	s := fmt.Sprintf(
 		`Elevator
 	id: %s
@@ -239,11 +240,12 @@ func (e Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		e.Id, e.inBetweenFloors, e.currentFloor, e.nextTarget.Floor, e.nextTarget.Button, e.initFloor, e.direction, e.doorState, e.System.Elevators[e.Id].State)
-
+		// e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
+		e.Id, e.inBetweenFloors, e.currentFloor, elevStatus.Target.Floor, elevStatus.Target.Button, e.initFloor, elevStatus.Direction, e.doorState, elevStatus.State)
 	for f := 0; f < len(e.hallRequests); f++ {
 		req := e.System.HallRequests[f]
-		cab := e.System.Elevators[e.Id].CabRequests[f]
+		// cab := e.System.Elevators[e.Id].CabRequests[f]
+		cab := elevStatus.CabRequests[f]
 
 		s += fmt.Sprintf(
 			"	floor %d: [Up:%s Down:%s Cab:%s]\n",

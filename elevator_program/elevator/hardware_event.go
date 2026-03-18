@@ -39,12 +39,15 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
 		e.emergencyStop = hwEvent.EmergencyStop
-		msg := message.Message{
+		e.System.Mutex.RLock()
+		_, elevators := e.System.Snapshot()
+		e.System.Mutex.RUnlock()
+		msg := message.ElevatorMessage{
 			MsgType:   types.MSG_T_StatusReport,
 			Id:        e.Id,
-			Elevators: e.System.Elevators,
+			Elevators: elevators,
 		}
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 
 	case HW_T_ButtonPress:
 		if !e.connectedToMaster {
@@ -56,24 +59,30 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Button: hwEvent.Button,
 		}
 
-		msg := message.Message{
-			MsgType:   types.MSG_T_ButtonPress,
-			Id:        "",
-			Task:      task,
-			BtnStatus: types.Pending,
-			Elevators: map[string]types.ElevatorsStatus{
-				e.Id: e.System.Elevators[e.Id],
-			},
-		}
-
-		if e.IsMaster {
-			taskElevatorId, _, _ := e.ClosestToTarget(e.System.Elevators, task)
-			if taskElevatorId != "" {
-				msg.BtnStatus = types.Running
-				msg.Id = taskElevatorId
+		// Check if button press is already in system, no need to message master
+		if !e.System.IsRequestInSystem(e.Id, task) {
+			e.System.Mutex.RLock()
+			_, elevators := e.System.Snapshot()
+			e.System.Mutex.RUnlock()
+			msg := message.ElevatorMessage{
+				MsgType:   types.MSG_T_ButtonPress,
+				Id:        e.Id,
+				Task:      task,
+				BtnStatus: types.Pending,
+				Elevators: map[string]types.ElevatorsStatus{
+					e.Id: elevators[e.Id],
+				},
 			}
+
+			if e.IsMaster {
+				taskElevatorId, _, _ := e.ClosestToTarget(elevators, task)
+				if taskElevatorId != e.Id {
+					msg.BtnStatus = types.Running
+					msg.Id = taskElevatorId
+				}
+			}
+			e.SendToCoordinator <- msg
 		}
-		e.SendToProtocol <- msg
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
@@ -82,12 +91,18 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
-			msg := message.Message{
+
+			e.System.Mutex.Lock()
+			elevatorCopy := e.System.Elevators[e.Id]
+			elevatorCopy.CurrentFloor = hwEvent.Floor
+			e.System.Elevators[e.Id] = elevatorCopy
+			msg := message.ElevatorMessage{
 				MsgType:   types.MSG_T_StatusReport,
 				Id:        e.Id,
 				Elevators: e.System.Elevators,
 			}
-			e.SendToProtocol <- msg
+			e.SendToCoordinator <- msg
+			e.System.Mutex.Unlock()
 		}
 
 	case HW_T_Obstruction:
@@ -111,7 +126,9 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
             }
 
 		if hwEvent.Button == elevio.BT_Cab {
+			e.System.Mutex.Lock()
 			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
+			e.System.Mutex.Unlock()
 		} else {
 			fmt.Println("Elevator is offline, can not accept order")
 			return
