@@ -12,6 +12,9 @@ import (
 
 // TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.Message) {
+    if msg.Id != "" && msg.Id != e.Id {
+            e.ObservePeer(msg.Id)
+        }
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
 		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
@@ -137,6 +140,17 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED")
 	for pktCtx := range c.msgRecieveCh {
 		msg := pktCtx.Packet.Payload
+
+		if msg.Id != "" && msg.Id != e.Id {
+	        e.ObservePeer(msg.Id)
+	        fmt.Println("Calling ObservePeer with:", msg.Id)
+
+	        if !e.IsMaster {
+				e.ObserveMaster(msg.Id)
+			}
+
+        }
+
 		c.MessageHandler(e, msg)
 		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e.System)
 		if pktCtx.Done != nil {

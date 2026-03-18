@@ -18,7 +18,7 @@ type Elevator struct {
 	IpRegistery map[string]string
 
 	offline          bool
-	restartScheduled bool
+	scheduleRestart bool
 
 	inBetweenFloors bool
 	currentFloor    int
@@ -61,6 +61,7 @@ type Elevator struct {
 
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
 	e.Id = id
+	e.Ip = ip
 	e.currentFloor = -1
 	e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
@@ -99,7 +100,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	//Magicnumber big nono
 	e.faultTolerance = fault.NewFaultManager(id, fault.Config{
-		StartupGrace:  2 * time.Second,
+		StartupGrace:  3 * time.Second,
 		MasterTimeout: 1 * time.Second,
 		PeerTimeout:   1 * time.Second,
 		MotorTimeout:  4 * time.Second,

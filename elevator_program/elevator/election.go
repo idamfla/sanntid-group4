@@ -24,7 +24,7 @@ func (e *Elevator) chooseMasterID() string {
 func (e *Elevator) runElection(reason string) {
 	chosenMaster := e.chooseMasterID()
 
-	fmt.Printf("Elevator %d runs election (%s). Chosen master: %d\n", e.Id, reason, chosenMaster)
+	fmt.Printf("Elevator %s runs election (%s). Chosen master: %s\n", e.Id, reason, chosenMaster)
 
 	if chosenMaster == e.Id {
 		if !e.IsMaster {
@@ -42,9 +42,10 @@ func (e *Elevator) runElection(reason string) {
 }
 
 func (e *Elevator) BecameMaster() {
-	fmt.Printf("Elevator %d became MASTER\n", e.Id)
+	fmt.Printf("Elevator %s became MASTER\n", e.Id)
 
 	e.IsMaster = true
+	e.IsOnline = true
 	e.currentMasterID = e.Id
 	e.connectedToMaster = true
 
@@ -57,9 +58,10 @@ func (e *Elevator) BecameMaster() {
 }
 
 func (e *Elevator) BecameSlave(masterID string) {
-	fmt.Printf("Elevator %d became SLAVE. Master is %d\n", e.Id, masterID)
+	fmt.Printf("Elevator %s became SLAVE. Master is %s\n", e.Id, masterID)
 
 	e.IsMaster = false
+	e.IsOnline = true
 	e.currentMasterID = masterID
 	e.connectedToMaster = true
 
@@ -94,6 +96,7 @@ func (e *Elevator) ObserveMaster(masterID string) {
 
 	e.currentMasterID = masterID
 	e.connectedToMaster = true
+	e.IsOnline = true
 
 	if e.IsMaster && masterID < e.Id {
 		e.BecameSlave(masterID)

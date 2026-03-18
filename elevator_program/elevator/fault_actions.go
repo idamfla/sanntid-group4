@@ -9,6 +9,7 @@ import (	"fmt"
 
 // ------------------------- Utility helpers -------------------------- //
 
+/*
 func (e *Elevator) hasActiveCabRequests() bool {
 	for _, status := range e.System.Elevators[e.Id].CabRequests {
 		if status != types.NotActive {
@@ -17,15 +18,24 @@ func (e *Elevator) hasActiveCabRequests() bool {
 	}
 	return false
 }
+*/
+
 
 func (e *Elevator) shouldRestartAfterOffline() bool {
-    if !e.offline || !e.restartScheduled {
+    if !(e.offline && e.scheduleRestart) {
         return false
     }
-
+/*
     if e.hasActiveCabRequests() {
         return false
     }
+
+    if e.hasActiveHallRequests(){
+        return false
+        }
+*/
+
+
 
     if e.System.Elevators[e.Id].State == types.ES_Moving {
         return false
@@ -108,11 +118,7 @@ func (e *Elevator) enterOfflineMode() {
     fmt.Println("Entering offline mode (cab-only)")
     e.offline = true
 
-    for f := 0; f < len(e.System.HallRequests); f++ {
-        elevio.SetButtonLamp(elevio.BT_HallUp, f, false)
-        elevio.SetButtonLamp(elevio.BT_HallDown, f, false)
-    }
-}
+
 
 
 

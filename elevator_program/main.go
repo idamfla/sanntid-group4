@@ -1,3 +1,70 @@
+
+package main
+
+import (
+	"elevator_program/config"
+	"elevator_program/coordinator"
+	"elevator_program/elevator"
+	"elevator_program/elevio"
+	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+)
+
+const localIP = "127.0.0.1"
+
+func runOne(cfg config.Config) {
+	addr := fmt.Sprintf("%s:%s", cfg.IP, cfg.Port)
+	fmt.Println("Connecting to elevator at", addr)
+
+	elevio.Init(addr, cfg.Floors)
+	fmt.Println("elevio.Init finished")
+
+	var e elevator.Elevator
+	e.InitElevator(strconv.Itoa(cfg.ID), cfg.Floors, cfg.InitFloor, localIP, 9000+(cfg.ID-1))
+
+	var c coordinator.Coordinator
+	c.InitProtocol()
+
+	err := c.StartServer(localIP, 9000+(cfg.ID-1), strconv.Itoa(cfg.ID))
+	if err != nil {
+		fmt.Println("Could not start server:", err)
+		return
+	}
+
+	c.Start(&e)
+	e.RunElevatorProgram()
+
+	fmt.Printf("Started elevator %d\n", cfg.ID)
+	fmt.Printf("Simulator address: %s\n", addr)
+	fmt.Printf("Coordinator server: %s:%d\n", localIP, 9000+(cfg.ID-1))
+
+
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println("\nShutting down...")
+	c.Close()
+}
+
+func main() {
+	cfg := config.ParseFlags()
+
+	if cfg.ID == 0 {
+		fmt.Println("Launcher mode")
+		config.SpawnElevators(cfg)
+		return
+	}
+
+	runOne(cfg)
+}
+
+
+/*
 package main
 
 import (
@@ -54,7 +121,7 @@ func testElevator() {
 
 	/*
 		TODO, bug - when cab to floor 2, then cab to floor 1, if floor 3 is pressed after reaching floor 2, elevator will go up to floor 3
-	*/
+
 	select {}
 }
 

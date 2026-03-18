@@ -204,6 +204,8 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		if nextTarget.Floor != -1 {
 			e.nextTarget = nextTarget
 			e.updateDirection(nextTarget, dir)
+
+			if e.offline {e.scheduleRestart = true}
 		}
 
 		if e.atTargetFloor() { // TODO is it here bc if someone spams the button on the floor you're at?
