@@ -1,13 +1,14 @@
 package elevator
+
 import (
-	"fmt"
-	"time"
 	"elevator_program/message"
 	"elevator_program/types"
-
+	"fmt"
+	"time"
 )
+
 func (e *Elevator) InitMasterElevator() {
-    fmt.Printf("Elevator %s initializing master role\n", e.Id)
+	fmt.Printf("Elevator %s initializing master role\n", e.Id)
 	e.IsMaster = true
 	e.currentMasterID = e.Id
 	e.connectedToMaster = true
@@ -18,7 +19,7 @@ func (e *Elevator) InitMasterElevator() {
 }
 
 func (e *Elevator) RunMasterLoop() {
-    ticker := time.NewTicker(300 * time.Millisecond)
+	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -26,7 +27,7 @@ func (e *Elevator) RunMasterLoop() {
 			return
 		}
 
-		msg := message.Message{
+		msg := message.ElevatorMessage{
 			MsgType: types.MSG_T_StatusReport,
 			Id:      e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
@@ -34,7 +35,7 @@ func (e *Elevator) RunMasterLoop() {
 			},
 		}
 
-		e.SendToProtocol <- msg
+		e.SendToCoordinator <- msg
 	}
 }
 

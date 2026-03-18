@@ -1,7 +1,7 @@
 package session
 
 import (
-	"elevator_program/udp/message"
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/timer"
 	"fmt"

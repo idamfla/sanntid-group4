@@ -89,12 +89,11 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		return
 	}
 
-	elevatorStatus := e.System.Elevators[e.Id]
-	prevState := elevatorStatus.State
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Id]
+	prevState := elevatorState.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -183,12 +182,11 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		e.System.Mutex.Unlock()
 	}
 
+	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
+		e.markRecoveryVerified()
+	}
 
-    if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
-	e.markRecoveryVerified()
-}
-
-	e.System.Elevators[e.Id] = elevatorStatus
+	e.System.Elevators[e.Id] = elevatorState
 	elevio.SetMotorDirection(dir)
 }
 
@@ -199,12 +197,11 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		return
 	}
 
-	elevatorStatus := e.System.Elevators[e.Id]
-	prevState := elevatorStatus.State
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
 	elevatorStatus := elevs[e.Id]
 	e.System.Mutex.RUnlock()
+	prevState := elevatorStatus.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -241,7 +238,9 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			elevatorStatus.Target = nextTarget
 			e.updateDirection(nextTarget, dir)
 
-			if e.offline {e.scheduleRestart = true}
+			if e.offline {
+				e.scheduleRestart = true
+			}
 		}
 
 		if e.atTargetFloor(nextTarget.Floor) { // TODO is it here bc if someone spams the button on the floor you're at?
@@ -290,19 +289,17 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 		}
 	case types.ES_EmergencyStop:
-        elevio.SetMotorDirection(elevio.MD_Stop)
+		elevio.SetMotorDirection(elevio.MD_Stop)
 
-        return
+		return
 	}
 
-    if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
-        e.markRecoveryVerified()
-    }
+	if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+		e.markRecoveryVerified()
+	}
 	elevio.SetMotorDirection(dir)
 
-
-
-    e.checkOfflineRestart()
+	e.checkOfflineRestart()
 
 	e.System.Elevators[e.Id] = elevatorStatus
 	e.System.Mutex.Lock()
@@ -326,24 +323,23 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 
 func (e *Elevator) RunElevatorStateMachine() {
 
-    defer e.wg.Done()
+	defer e.wg.Done()
 	fmt.Println("ELEVATOR STATE MACHINE STARTED")
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
-
 	for {
-	    select {
-	    case <- e.stop:
-            return
-	    case <-ticker.C:
-            if e.IsOnline {
-                e.updateElevatorStateOnline()
-            } else {
-                e.updateElevatorStateOffline()
-		    }
-	    }
-    }
+		select {
+		case <-e.stop:
+			return
+		case <-ticker.C:
+			if e.IsOnline {
+				e.updateElevatorStateOnline()
+			} else {
+				e.updateElevatorStateOffline()
+			}
+		}
+	}
 }
 
 func (e *Elevator) finishedTask(state types.ElevatorState) {

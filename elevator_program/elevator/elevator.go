@@ -2,8 +2,8 @@ package elevator
 
 import (
 	"fmt"
-	"time"
 	"sync"
+	"time"
 
 	"elevator_program/elevio"
 	"elevator_program/message"
@@ -17,19 +17,17 @@ type Elevator struct {
 	// TODO temp need to know the ip using the id
 	IpRegistery map[string]string
 
-	offline          bool
+	offline         bool
 	scheduleRestart bool
 
 	inBetweenFloors bool
 	currentFloor    int
 	// nextTarget      elevio.ButtonEvent
 	// direction elevio.MotorDirection
-	initFloor int
-	nextTarget      elevio.ButtonEvent
-	direction       elevio.MotorDirection
-	initFloor       int
-	numFloors       int
-
+	initFloor  int
+	nextTarget elevio.ButtonEvent
+	direction  elevio.MotorDirection
+	numFloors  int
 
 	hallRequests [][2]types.ButtonStatus // TODO Should remove these
 	cabRequests  []types.ButtonStatus    // TODO Should remove these
@@ -45,12 +43,12 @@ type Elevator struct {
 	SendToCoordinator chan message.ElevatorMessage
 
 	// elevatorState    types.ElevatorState
-	obstruction      bool
-	emergencyStop    bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
-	hardwareEventsCh chan HardwareEvent
+	obstruction              bool
+	emergencyStop            bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
+	hardwareEventsCh         chan HardwareEvent
 	hardwareListenersStarted bool
 
-    faultMsg         chan FaultMessage
+	faultMsg chan message.FaultMessage
 
 	// MsgRecieveCh chan message.ElevatorMessage
 	// msgSendCh    chan message.ElevatorMessage
@@ -60,13 +58,12 @@ type Elevator struct {
 	connectedToMaster bool
 	IsOnline          bool
 
-	System system.System
-	currentMasterID   string
-	System            system.System
+	System          system.System
+	currentMasterID string
 
-	stop             chan struct{}
-	runningMu        sync.Mutex
-	isRunning        bool
+	stop      chan struct{}
+	runningMu sync.Mutex
+	isRunning bool
 
 	wg sync.WaitGroup
 
@@ -78,7 +75,7 @@ type Elevator struct {
 	recoveryAwaitingProof bool
 	recoveryVerified      bool
 	lastRecoveryAttempt   time.Time
-	recoveryMu sync.Mutex
+	recoveryMu            sync.Mutex
 
 	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
@@ -94,7 +91,6 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.cabRequests = make([]types.ButtonStatus, numFloors)
 	e.numFloors = numFloors
 
-
 	e.IsMaster = false
 
 	e.System.InitSystem(id, "192.168.0.1", numFloors)
@@ -108,11 +104,11 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.IpRegistery = make(map[string]string)
 
 	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
-	e.faultMsg = make(chan FaultMessage, 20)
+	e.faultMsg = make(chan message.FaultMessage, 20)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-    e.recoveryCfg = DefaultRecoveryConfig
+	e.recoveryCfg = DefaultRecoveryConfig
 
 	e.IsOnline = false
 	// e.StatusChan = statusChan
@@ -125,16 +121,11 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
-
-
 }
-
-
-
 
 func (e *Elevator) RunElevatorProgram() {
 
-    e.runningMu.Lock()
+	e.runningMu.Lock()
 	defer e.runningMu.Unlock()
 
 	if e.isRunning {
@@ -143,25 +134,20 @@ func (e *Elevator) RunElevatorProgram() {
 
 	fmt.Println("RUNNING ELEVATOR PROGRAM")
 
-    e.stop = make(chan struct{})
-    if !e.hardwareListenersStarted {
+	e.stop = make(chan struct{})
+	if !e.hardwareListenersStarted {
 		e.StartHardwareEventsListeners()
 		e.hardwareListenersStarted = true
 	}
 
-
-    e.wg.Add(4)
+	e.wg.Add(4)
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
 	go e.fault_loop()
 
-
-
-
 	e.isRunning = true
 }
-
 
 func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.offline = false
@@ -203,10 +189,9 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 		elevio.SetFloorIndicator(e.currentFloor)
 	}
 
-	e.SendToProtocol = make(chan message.Message, 10)
+	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
 
 }
-
 
 func (e *Elevator) stopRuntimeLoops() {
 	e.runningMu.Lock()
@@ -221,7 +206,6 @@ func (e *Elevator) stopRuntimeLoops() {
 
 	e.isRunning = false
 }
-
 
 // region printing, for debugging
 func (e *Elevator) String() string {
