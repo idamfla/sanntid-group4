@@ -29,49 +29,49 @@ func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Mes
 func (c *Coordinator) sendAsSlave(msg message.Message) {
 	// var pktType packet.PacketType
 	var ip string
-	// broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
+	broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
 	// port := udp.BROADCAST_PORT
-	localIP := "127.0.0.1"
+	// localIP := "127.0.0.1"
 	port := c.portRegistery["master"]
 
 	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
 	switch msg.MsgType {
 	case types.MSG_T_StatusReport:
-		ip = localIP
+		ip = broadcastIp // localIp
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
 		fmt.Println("Trying to send status report")
 
 	case types.MSG_T_ButtonPress:
-		ip = localIP
+		ip = broadcastIp // localIp
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_SlaveReport
 		fmt.Println("Trying to send button press")
 
 	case types.MSG_T_TaskRequest:
-		ip = localIP
+		ip = broadcastIp // localIp
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_RequestNewOrder
 		fmt.Println("Trying to send Task request 1")
 
 	case types.MSG_T_LostComs:
 		// msg.MsgType = types.MSG_T_ElevatorLost
-		ip = localIP //broadcastIp
+		ip = broadcastIp // localIp //broadcastIp
 		port = c.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_LostConn
 		fmt.Println("Trying to send lost coms")
 
 	case types.MSG_T_ElevatorLost:
 		// msg.MsgType = types.MSG_T_LostComs
-		ip = localIP
+		ip = broadcastIp // localIp
 		port = c.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send elevator lost")
 
 	case types.MSG_T_NewToChannel:
-		ip = localIP //broadcastIp
-		port = 9000  //p.portRegistery["broadcast"]
+		ip = broadcastIp
+		port = 9000 //p.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_Data
 		fmt.Println("Trying to send new to channel")
 	}
@@ -82,8 +82,8 @@ func (c *Coordinator) sendAsSlave(msg message.Message) {
 func (c *Coordinator) sendAsMaster(msg message.Message) {
 	// port := udp.BROADCAST_PORT
 	var ip string
-	// broadcastIp := udp.NtnuBroadcastIP
-	localIP := "127.0.0.1"
+	broadcastIp := udp.NtnuBroadcastIP
+	// localIP := "127.0.0.1"
 	port := 9001 //p.portRegistery["broadcast"]
 	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
@@ -103,6 +103,6 @@ func (c *Coordinator) sendAsMaster(msg message.Message) {
 		msgPacket = packet.PROTO_PKT_T_Data //PROTO_PKT_T_BroadcastUpdate
 		fmt.Println("Trying to send new to channel")
 	}
-	ip = localIP // broadcastIp
+	ip = broadcastIp // localIp // broadcastIp
 	c.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, msg)
 }

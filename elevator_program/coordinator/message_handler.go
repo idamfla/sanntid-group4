@@ -118,10 +118,12 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.Message) 
 
 	case types.MSG_T_TaskRequest:
 		// Scan for the next request and send it back
-		cabRequestsTemp := msg.Elevators[msg.Id].CabRequests
-		currentFloor := msg.Elevators[msg.Id].CurrentFloor
-		direction := msg.Elevators[msg.Id].Direction
-		task := e.ComputeNewTarget(currentFloor, cabRequestsTemp, direction)
+		// cabRequestsTemp := msg.Elevators[msg.Id].CabRequests
+		// currentFloor := msg.Elevators[msg.Id].CurrentFloor
+		// direction := msg.Elevators[msg.Id].Direction
+		// fmt.Println("Coooooomputing new target \n\n\n\n\n ", cabRequestsTemp, currentFloor, direction)
+		task := e.ComputeNewTarget(msg.Id, msg.Elevators[msg.Id], msg.HallRequests)
+		fmt.Println("After computing \n\n ", task, msg.Elevators, msg.HallRequests, msg.Id)
 		if task.Floor != -1 {
 			// Broadcast new assignment if we found a new task
 			msg.Task = task

@@ -47,7 +47,7 @@ func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDi
 }
 
 func (e Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.MotorDirection) {
-	nextTarget := getNextTargetFloor(e)
+	nextTarget := e.getNextTargetFloor(e.System, e.Id) // TODO This may be wrong
 	if nextTarget.Floor == -1 {
 		return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
 	}
@@ -118,8 +118,26 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			dir = e.getMotion(e.System.Elevators[e.Id].Target.Floor)
 			if dir != elevio.MD_Stop {
 				elevatorState.State = types.ES_Moving
+			} else {
+				e.doorState = DS_Opening
+				msg := message.Message{
+					MsgType:   types.MSG_T_ButtonPress,
+					Id:        e.Id,
+					Task:      e.System.Elevators[e.Id].Target,
+					BtnStatus: types.NotActive,
+				}
+				e.SendToProtocol <- msg
 			}
-		}
+		} //else {
+		// 	msg := message.Message{
+		// 		MsgType: types.MSG_T_TaskRequest,
+		// 		Id:      e.Id,
+		// 		Elevators: map[string]types.ElevatorsStatus{
+		// 			e.Id: e.System.Elevators[e.Id],
+		// 		},
+		// 	}
+		// 	e.SendToProtocol <- msg
+		// }
 
 	case types.ES_Moving:
 		dir = e.getMotion(e.System.Elevators[e.Id].Target.Floor)
@@ -138,6 +156,8 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			// TODO We should clean this up
 			elevatorCopy := e.System.Elevators[e.Id]
 			elevatorCopy.State = elevatorState.State
+			targetFloor := e.System.Elevators[e.Id].Target.Floor
+			elevatorCopy.CabRequests[targetFloor] = types.NotActive
 			e.System.Elevators[e.Id] = elevatorCopy
 
 			msg.MsgType = types.MSG_T_TaskRequest

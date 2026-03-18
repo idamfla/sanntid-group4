@@ -2,8 +2,10 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/system"
 	"elevator_program/types"
 	"elevator_program/utilities"
+	"fmt"
 )
 
 func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
@@ -52,7 +54,7 @@ func (e Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, 
 	return false, elevio.ButtonEvent{}
 }
 
-func (e Elevator) getClosestFloor() elevio.ButtonEvent {
+func (e Elevator) getClosestFloor(id string, system system.System) elevio.ButtonEvent {
 	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
@@ -60,7 +62,7 @@ func (e Elevator) getClosestFloor() elevio.ButtonEvent {
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - e.currentFloor)
 
-		if e.System.Elevators[e.Id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
+		if system.Elevators[id].CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab
@@ -89,10 +91,12 @@ func (e Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	return e.scanFloor(e.currentFloor, e.currentFloor, e.System.Elevators[e.Id].Direction)
 }
 
-func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
+func (e Elevator) getNextTargetFloor(s system.System, id string) elevio.ButtonEvent {
 	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
 	bottomFloor := 0
 	topFloor := numFloors - 1
+
+	fmt.Println("Help meeee \n\n\n\n\n ", s)
 
 	upScan := func() elevio.ButtonEvent {
 		if ok, ev := e.scanCurrentFloor(); ok && !e.inBetweenFloors {
@@ -100,7 +104,7 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 		}
 
 		// phase 1: continue up
-		if ok, ev := e.scanFloor(e.currentFloor+1, topFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(s.Elevators[id].CurrentFloor+1, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
@@ -110,7 +114,7 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 		}
 
 		// phase 3: nothing down, move up again
-		if ok, ev := e.scanFloor(bottomFloor, e.currentFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(bottomFloor, s.Elevators[id].CurrentFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
@@ -122,14 +126,14 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(e.currentFloor-1, bottomFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(s.Elevators[id].CurrentFloor-1, bottomFloor, elevio.MD_Down); ok {
 			return ev
 		}
 		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up); ok {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(topFloor, e.currentFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(topFloor, s.Elevators[id].CurrentFloor, elevio.MD_Down); ok {
 			return ev
 		}
 
@@ -137,13 +141,16 @@ func getNextTargetFloor(e Elevator) elevio.ButtonEvent {
 	}
 	// endregion
 
-	if e.System.Elevators[e.Id].State == types.ES_Idle || e.System.Elevators[e.Id].Direction == elevio.MD_Stop {
-		return e.getClosestFloor()
-	} else if e.System.Elevators[e.Id].Direction == elevio.MD_Up {
+	if s.Elevators[id].State == types.ES_Idle || s.Elevators[id].Direction == elevio.MD_Stop {
+		fmt.Println("POOOOOOOOO")
+		return e.getClosestFloor(id, s)
+	} else if s.Elevators[id].Direction == elevio.MD_Up {
+		fmt.Println("LOOOOOOOOOOO")
 		return upScan()
-	} else if e.System.Elevators[e.Id].Direction == elevio.MD_Down {
+	} else if s.Elevators[id].Direction == elevio.MD_Down { // TODO Can change these back to e.System later, need to have it like this since master is not updated
+		fmt.Println("YOYOYOYYOYYOYOYOY")
 		return downScan()
 	}
-
+	fmt.Println("Hheheheheheheheeh")
 	return elevio.ButtonEvent{Floor: -1} // no requests
 }

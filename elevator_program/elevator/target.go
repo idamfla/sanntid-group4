@@ -2,6 +2,7 @@ package elevator
 
 import (
 	"elevator_program/elevio"
+	"elevator_program/system"
 	"elevator_program/types"
 	"elevator_program/utilities"
 	"fmt"
@@ -85,12 +86,19 @@ func (e Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSta
 
 // when an elevator asks for a new target
 // Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
-func (e Elevator) ComputeNewTarget(currFloor int, cabRequests []types.ButtonStatus, dir elevio.MotorDirection) elevio.ButtonEvent {
+func (e Elevator) ComputeNewTarget(id string, elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
 	// ruffly same as the basic scan_logic
 
-	elevatorCopy := e
+	// elevatorCopy.System.Elevators[id]
+	system := system.System{
+		HallRequests: hallRequests,
+		Elevators: map[string]types.ElevatorsStatus{
+			id: elevator,
+		},
+	}
+	fmt.Println("How is the state here \n\n\n\n\n ", system)
 
-	return getNextTargetFloor(elevatorCopy)
+	return e.getNextTargetFloor(system, id)
 }
 
 // TODO 'message_handler.go'
