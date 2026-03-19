@@ -106,15 +106,19 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 	peerID := pkt.Header.SenderAddr
 
-	if h.Seq != bs.seq+1 { // TODO is it correct to always inc here?
-		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
-			bs.ID, h.Seq, bs.seq+1)
-		fmt.Println(err)
-		return err
+	switch h.PktType {
+	case packet.PKT_T_WhoIsMaster, packet.PKT_T_IAmAlive,
+		packet.PKT_T_IAmMaster, packet.PKT_T_MasterAck:
+	default:
+		if h.Seq != bs.seq+1 { // TODO is it correct to always inc here?
+			err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
+				bs.ID, h.Seq, bs.seq+1)
+			fmt.Println(err)
+			return err
 
+		}
+		bs.seq = pkt.Header.Seq
 	}
-
-	bs.seq = pkt.Header.Seq
 
 	bs.addResponder(peerID)
 	isQuorumReached := bs.countResponders() >= bs.expectedResponses
@@ -152,7 +156,6 @@ func (bs *BroadcastSession) HandlePacket(pkt packet.Packet) error {
 		if bs.tx.IsMaster() {
 			fmt.Printf("MstrAck: %d/%d\n", bs.countResponders(), bs.expectedResponses)
 			if isQuorumReached {
-				bs.seq++
 				bs.hasLastPkt = false
 				bs.stopAckTimer()
 				bs.requestClose()
@@ -268,7 +271,8 @@ func (bs *BroadcastSession) electMaster() {
 		if isMaster {
 			fmt.Println(bs.selfAddr, "is the new master")
 			bs.SendReply(packet.PKT_T_IAmMaster)
-			bs.expectedResponses = bs.countResponders() - 1
+			bs.expectedResponses = bs.countResponders()
+			bs.resetResponders()
 		}
 
 	case <-bs.stop:

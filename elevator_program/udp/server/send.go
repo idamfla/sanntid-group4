@@ -34,7 +34,7 @@ func (srv *Server) Send(
 	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, eMsg message.ElevatorMessage) error {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
@@ -42,7 +42,7 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, eMsg message.ElevatorMe
 	}
 
 	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueSlaveUpdateMsg(eMsg)
+	ses.QueueDirectMsg(pktType, eMsg)
 	// srv.elevatorTaskQueue()
 	return nil
 }
@@ -65,49 +65,59 @@ func (srv *Server) startWhoIsMasterMsg() {
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_SlaveUpdate:
-		mstr := srv.GetMasterPeer()
-		if mstr == nil {
-			fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
-			// srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsMaster, message.ElevatorMessage{}) // TODO fault tol, FAULT_T_LostMaster, queue who is master
-			return
-		}
-		srv.startSession(mstr.Addr, outMsg.EMsg)
-		// srv.startSession(outMsg.RemoteAddr, outMsg.EMsg)
+	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
+		srv.dispatchToMasterMsg(outMsg)
 	case packet.PKT_T_BroadcastUpdate:
-		if !srv.IsMaster() {
-			fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
-		}
-
-		// if some peers are syncing
-		srv.mu.Lock()
-		for _, p := range srv.peers {
-			if p.Active && !p.IsSynced {
-				p.QueueMessage(outMsg.EMsg)
-			}
-		}
-		srv.mu.Unlock()
-
-		srv.startBroadcast(outMsg.EMsg)
+		srv.dispatchBroadcastUpdate(outMsg)
 	case packet.PKT_T_WhoIsMaster:
-		srv.mu.Lock()
-		if srv.searchingForMaster {
-			srv.mu.Unlock()
-			return
-		}
-		srv.searchingForMaster = true
-		srv.mu.Unlock()
+		srv.dispatchWhoIsMaster()
+	}
+}
 
-		if peer := srv.GetMasterPeer(); peer != nil {
-			peer.SetMaster(false)
-		}
-		srv.startWhoIsMasterMsg()
+func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
+	srv.startSession(outMsg.RemoteAddr, outMsg.PktType, outMsg.EMsg)
+}
+
+func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
+	mstr := srv.GetMasterPeer()
+	if mstr == nil {
+		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
+		// srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsMaster, message.ElevatorMessage{}) // TODO fault tol, FAULT_T_LostMaster, queue who is master
+		return
+	}
+	srv.startSession(mstr.Addr, outMsg.PktType, outMsg.EMsg)
+}
+
+func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
+	if !srv.IsMaster() {
+		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
 	}
 
-	// peers := srv.getAliveUnsyncedPeers()
-	// for _, peer := range peers {
-	// 	peer.QueueMessage(outMsg.Msg)
-	// }
+	// if some peers are syncing
+	srv.mu.Lock()
+	for _, p := range srv.peers {
+		if p.Active && !p.IsSynced {
+			p.QueueMessage(outMsg.EMsg)
+		}
+	}
+	srv.mu.Unlock()
+
+	srv.startBroadcast(outMsg.EMsg)
+}
+
+func (srv *Server) dispatchWhoIsMaster() {
+	srv.mu.Lock()
+	if srv.searchingForMaster {
+		srv.mu.Unlock()
+		return
+	}
+	srv.searchingForMaster = true
+	srv.mu.Unlock()
+
+	if peer := srv.GetMasterPeer(); peer != nil {
+		peer.SetMaster(false)
+	}
+	srv.startWhoIsMasterMsg()
 }
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {

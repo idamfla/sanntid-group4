@@ -60,8 +60,10 @@ func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Protoco
 func (e *Elev) Close() {
 	close(e.ch)
 
-	e.srv.PrintSessions()
-	e.srv.Close()
+	if e.srv != nil {
+		e.srv.PrintSessions()
+		e.srv.Close()
+	}
 
 	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
 }

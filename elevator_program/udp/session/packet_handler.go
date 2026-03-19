@@ -122,12 +122,12 @@ func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
 	ses.tx.StartPeerCatchup(peerAddr)
 }
 
-// queue order of having elevator change it's states, from master
+// queue order of having elevator change its states, from master
 func (ses *Session) QueueElevatorStateTask() {
 	ses.tx.QueueElevatorTask(ses.pendingPkt.Payload, ses.elevDone, ses.taskReady)
 }
 
-// queue order of having master do some work and then send the result back
+// queue order of having master do some work, don't need to notify completion, just start a new session
 func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType) {
 	eMsg := message.ElevatorMessage{
 		ID:       ses.peerID,
@@ -135,7 +135,7 @@ func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType) 
 		EMsgType: eMsgType,
 	}
 
-	ses.tx.QueueElevatorTask(eMsg, ses.elevDone, ses.taskReady)
+	ses.tx.QueueElevatorTask(eMsg, nil, ses.taskReady)
 }
 
 func (ses *Session) handleBroadcastCommit() {
