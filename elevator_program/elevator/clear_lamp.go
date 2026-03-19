@@ -11,8 +11,7 @@ func (e *Elevator) clearHallLamp(floor int, button elevio.ButtonType) {
 }
 
 func (e *Elevator) clearAllLamps(buttons ...elevio.ButtonType) {
-	numFloors := len(e.hallRequests)
-	for f := 0; f < numFloors; f++ {
+	for f := 0; f < e.numFloors; f++ {
 		for _, b := range buttons {
 			elevio.SetButtonLamp(b, f, false)
 		}

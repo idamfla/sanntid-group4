@@ -46,13 +46,12 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 
 		if ctx.Err() == context.DeadlineExceeded {
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
-			// TODO send fault to fault tolerance
-			faultMsg := message.FaultMessage{
-				ID:        taskKey.Owner,
-				FaultType: message.FAULT_T_TaskRunningErr,
-				IsMaster:  true,
-			}
-			e.FaultMsg <- faultMsg
+			// faultMsg := message.FaultMessage{
+			// 	ID:        taskKey.Owner,
+			// 	FaultType: message.FAULT_T_TaskRunningErr,
+			// 	IsMaster:  true,
+			// }
+			// e.FaultMsg <- faultMsg // TODO maybe dont need we already have motorstop.
 
 			eMsg := message.ElevatorMessage{
 				EMsgType:  message.EMSG_T_TaskUpdate,

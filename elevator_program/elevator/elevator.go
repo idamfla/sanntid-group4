@@ -8,7 +8,6 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/system"
-	"elevator_program/types"
 )
 
 type Elevator struct {
@@ -29,9 +28,6 @@ type Elevator struct {
 	direction  elevio.MotorDirection
 	numFloors  int
 
-	hallRequests [][2]types.ButtonStatus // TODO Should remove these
-	cabRequests  []types.ButtonStatus    // TODO Should remove these
-
 	doorState DoorState
 	doorTimer time.Time
 
@@ -39,7 +35,6 @@ type Elevator struct {
 	lostComsTimer      time.Time
 	ackCounterLostComs int
 
-	// TODO Maybe temp need to notify protocol to send something
 	SendToCoordinator chan message.ElevatorMessage
 
 	// elevatorState    types.ElevatorState
@@ -76,19 +71,17 @@ type Elevator struct {
 	recoveryVerified      bool
 	lastRecoveryAttempt   time.Time
 	recoveryMu            sync.Mutex
-
-	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
 
-func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) { // TODO Changed port to string, hope everything works
+func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) {
 	e.Id = id
 	e.Ip = ip
 	e.currentFloor = -1
 	// e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
-	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
-	e.cabRequests = make([]types.ButtonStatus, numFloors)
+	// e.hallRequests = make([][2]types.ButtonStatus, numFloors)
+	// e.cabRequests = make([]types.ButtonStatus, numFloors)
 	e.numFloors = numFloors
 
 	e.IsMaster = false
@@ -172,8 +165,8 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.IsOnline = false
 	e.currentMasterID = ""
 
-	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
-	e.cabRequests = make([]types.ButtonStatus, numFloors)
+	// e.hallRequests = make([][2]types.ButtonStatus, numFloors)
+	// e.cabRequests = make([]types.ButtonStatus, numFloors)
 
 	e.System = system.System{}
 	e.System.InitSystem(e.Id, e.Ip, numFloors)
@@ -226,7 +219,7 @@ func (e *Elevator) String() string {
 `,
 		// e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
 		e.Id, e.inBetweenFloors, e.currentFloor, elevStatus.Target.Floor, elevStatus.Target.Button, e.initFloor, elevStatus.Direction, e.doorState, elevStatus.State)
-	for f := 0; f < len(e.hallRequests); f++ {
+	for f := 0; f < e.numFloors; f++ {
 		req := e.System.HallRequests[f]
 		// cab := e.System.Elevators[e.Id].CabRequests[f]
 		cab := elevStatus.CabRequests[f]

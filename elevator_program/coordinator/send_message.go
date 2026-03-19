@@ -12,7 +12,6 @@ func (c *Coordinator) sendListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE SENDER STARTED")
 	for msg := range e.SendToCoordinator {
 		c.routeOutgoingMessage(e, msg)
-		// pktCtx.Done <- struct{}{} // TODO Locks after the first message
 	}
 }
 
@@ -53,7 +52,6 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 		port = c.portRegistery["master"]
 		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution //PROTO_PKT_T_RequestNewOrder
 		fmt.Println("Trying to send Task request 1")
-		// time.Sleep(2 * time.Second) // TODO is you suddenly loose your task maybe you have to add this
 
 	case message.EMSG_T_LostComs:
 		// eMsg.EMsgType = message.EMSG_T_ElevatorLost

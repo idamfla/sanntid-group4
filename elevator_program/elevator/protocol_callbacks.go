@@ -52,19 +52,6 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.System.Mutex.RUnlock()
 }
 
-// TODO Probably don't need, just for testing
-// func (e *Elevator) ClearElevator(numFloors int) {
-// 	e.System.HallRequests = make([][2]types.ButtonStatus, numFloors)
-// 	e.System.Elevators = make(map[string]types.ElevatorsStatus)
-// 	// e.nextTarget = elevio.ButtonEvent{
-// 	// 	Floor:  -1,
-// 	// 	Button: elevio.BT_HallUp,
-// 	// }
-// 	elevio.SetMotorDirection(0)
-// 	// TODO if i want to test this one, have to change to systemstate
-// 	// e.elevatorState = types.ES_EmergencyStop
-// }
-
 func (e *Elevator) ClearTarget() {
 	clearedTarget := elevio.ButtonEvent{
 		Floor:  -1,

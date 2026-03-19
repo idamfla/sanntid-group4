@@ -9,7 +9,6 @@ import (
 	"fmt"
 )
 
-// TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
@@ -36,7 +35,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		} else {
 			eMsg.ID = e.Id
 		}
-		eMsg.EMsgType = message.EMSG_T_LostComs
+		eMsg.EMsgType = message.EMSG_T_LostComs // TODO Lost coms and Elevator lost should be deleted
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_NewToChannel:
@@ -73,11 +72,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
 		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
-		// TODO Send broadcast of status report
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_ButtonPress:
-		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
 		if eMsg.BtnStatus != types.NotActive {
 			e.System.Mutex.RLock()
 			_, elevs := e.System.Snapshot()
@@ -126,16 +123,13 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			c.TaskMonitor.StartTask(taskKey, e)
 		case types.NotActive:
 			c.TaskMonitor.FinishTask(taskKey)
-		default:
-			// TODO should i remove it? should not do anything here
 		}
 
 	case message.EMSG_T_TaskRequest:
 		e.System.Mutex.RLock()
-		hallRequests := e.System.HallRequests
+		hallRequests, elevs := e.System.Snapshot() // TODO changed to snapshot, did any new errors apear
 		e.System.Mutex.RUnlock()
-		task := e.GetNextTargetFloor(eMsg.Elevators[eMsg.ID], hallRequests)
-		fmt.Println("After computing \n\n ", task, eMsg.Elevators, eMsg.HallRequests, eMsg.ID)
+		task := e.GetNextTargetFloor(elevs[eMsg.ID], hallRequests)
 		if task.Floor != -1 {
 			// Broadcast new assignment if we found a new task
 			eMsg.Task = task

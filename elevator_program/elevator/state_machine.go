@@ -16,7 +16,7 @@ func (e *Elevator) atTargetFloor(targetFloor int) bool {
 }
 
 func (e *Elevator) isTargetValid(targetFloor int) bool {
-	return targetFloor >= 0 && targetFloor < e.numFloors // TODO It says e. hallrequests, system is the one updated
+	return targetFloor >= 0 && targetFloor < e.numFloors
 }
 
 func (e *Elevator) getMotion(target int) elevio.MotorDirection {
@@ -246,7 +246,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 		}
 
-		if e.atTargetFloor(elevatorStatus.Target.Floor) { // TODO is it here bc if someone spams the button on the floor you're at?
+		if e.atTargetFloor(elevatorStatus.Target.Floor) {
 			e.doorState = DS_Opening
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
@@ -333,35 +333,87 @@ func (e *Elevator) RunElevatorStateMachine() {
 	}
 }
 
-func (e *Elevator) finishedTask(state types.ElevatorState) {
+// func (e *Elevator) finishedTask(state types.ElevatorState) {
+// 	e.System.Mutex.Lock()
+// 	defer e.System.Mutex.Unlock()
+
+// 	target := e.System.Elevators[e.Id].Target
+// 	if target.Floor == -1 {
+// 		return
+// 	}
+
+// 	eMsg := message.ElevatorMessage{
+// 		EMsgType:  message.EMSG_T_ButtonPress,
+// 		ID:        e.Id,
+// 		Task:      target,
+// 		BtnStatus: types.NotActive,
+// 	}
+// 	e.SendToCoordinator <- eMsg
+
+// 	elevatorCopy := e.System.Elevators[e.Id]
+// 	elevatorCopy.State = state
+// 	elevatorCopy.CabRequests[target.Floor] = types.NotActive
+// 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp} // TODO this might screw me over
+// 	e.System.Elevators[e.Id] = elevatorCopy
+
+// 	eMsg.EMsgType = message.EMSG_T_TaskRequest
+// 	eMsg.Elevators = map[string]types.ElevatorsStatus{
+// 		e.Id: e.System.Elevators[e.Id],
+// 	}
+// 	e.SendToCoordinator <- eMsg
+// }
+
+func (e *Elevator) finishedTask(state types.ElevatorState) { // TODO as claude how to fix dependancy bug
 	e.System.Mutex.Lock()
-	defer e.System.Mutex.Unlock()
 
 	target := e.System.Elevators[e.Id].Target
 	if target.Floor == -1 {
+		e.System.Mutex.Unlock()
 		return
 	}
 
-	eMsg := message.ElevatorMessage{
-		EMsgType:  message.EMSG_T_ButtonPress,
-		ID:        e.Id,
-		Task:      target, //e.System.Elevators[e.Id].Target,
-		BtnStatus: types.NotActive,
-	}
-	e.SendToCoordinator <- eMsg
+	hallRequests, elevs := e.System.Snapshot()
 
-	// TODO We should clean this up
-	elevatorCopy := e.System.Elevators[e.Id]
+	elevatorCopy := elevs[e.Id]
 	elevatorCopy.State = state
-	// targetFloor := e.System.Elevators[e.Id].Target.Floor
-	// elevatorCopy.CabRequests[targetFloor] = types.NotActive
-	elevatorCopy.CabRequests[target.Floor] = types.NotActive
 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+	elevs[e.Id] = elevatorCopy
 	e.System.Elevators[e.Id] = elevatorCopy
 
-	eMsg.EMsgType = message.EMSG_T_TaskRequest
-	eMsg.Elevators = map[string]types.ElevatorsStatus{
-		e.Id: e.System.Elevators[e.Id],
+	e.System.Mutex.Unlock()
+
+	finishedMsg := message.ElevatorMessage{
+		EMsgType:  message.EMSG_T_ButtonPress,
+		ID:        e.Id,
+		Task:      target,
+		BtnStatus: types.NotActive,
 	}
-	e.SendToCoordinator <- eMsg
+
+	e.SendToCoordinator <- finishedMsg
+
+	if e.IsMaster {
+		task := e.GetNextTargetFloor(elevs[e.Id], hallRequests)
+
+		if task.Floor != -1 {
+			assignMsg := message.ElevatorMessage{
+				EMsgType:  message.EMSG_T_TaskUpdate,
+				ID:        e.Id,
+				Task:      task,
+				BtnStatus: types.Running,
+			}
+			e.SendToCoordinator <- assignMsg
+		}
+
+	} else {
+		requestMsg := message.ElevatorMessage{
+			EMsgType: message.EMSG_T_TaskRequest,
+			ID:       e.Id,
+			Task:     target,
+			Elevators: map[string]types.ElevatorsStatus{
+				e.Id: elevatorCopy,
+			},
+		}
+
+		e.SendToCoordinator <- requestMsg
+	}
 }

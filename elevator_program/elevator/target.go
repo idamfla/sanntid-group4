@@ -7,21 +7,7 @@ import (
 	"fmt"
 )
 
-// TODO Sending a pointer should maybe not do that since we don't change the variable
-
-// called by master, e is master, all parameters come from the elevator it checks
 func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, elevio.ButtonEvent, int) { // TODO can remove task return
-	/*
-		if dir == md_up && newTarget.Button == bt_down {return false, elevio.ButtonEvent{}}
-		else if dir == md_down && newTarget.Button == bt_up
-
-		distTarget int
-		distNewTarget int = abs(currFloor-newTarget.Floor)
-		if distNewtarget < distTarget {
-			return true, newTarget, distNewTarget
-		}
-	*/
-
 	if elev.State == types.ES_Idle {
 		return true, newTarget, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
@@ -29,7 +15,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 	switch elev.Direction {
 	case elevio.MD_Up:
 		if newTarget.Floor < elev.CurrentFloor+1 || newTarget.Button == elevio.BT_HallDown {
-			return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1
+			return false, elevio.ButtonEvent{}, e.numFloors + 1
 		}
 
 		// Todo maybe add some logic where we use inBetweenFloor to check if we have gone past currFloor or not??
@@ -41,7 +27,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 	case elevio.MD_Down:
 		if newTarget.Floor > elev.CurrentFloor-1 || newTarget.Button == elevio.BT_HallUp {
-			return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1
+			return false, elevio.ButtonEvent{}, e.numFloors + 1
 		}
 
 		distNewTarget := (elev.CurrentFloor) - newTarget.Floor
@@ -52,7 +38,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 	}
 
-	return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1 // Should I send just elevio.ButtonEvent since it does not matter
+	return false, elevio.ButtonEvent{}, e.numFloors + 1 // Should I send just elevio.ButtonEvent since it does not matter
 }
 
 /* have funciton that runs isNewTargetBetter on all elevators in the elevator
@@ -81,24 +67,6 @@ func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSt
 	}
 	return bestElevatorID, minDistance, newTarget
 }
-
-// when an elevator asks for a new target
-// Todo Do we need currTargetFloor, this one is called when we are looking for a new task??
-// func (e *Elevator) ComputeNewTarget(id string, elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
-// TODO don't need this function
-// return e.getNextTargetFloor(elevator, id)
-// }
-
-// TODO 'message_handler.go'
-/*
- *incomming button press*
-	if btn == cab
-		if (isNewTargetBetter())
-			notifier.nextTarget = newTarget
-
-	else
-		elev := ClosesElevator()
-*/
 
 func (e *Elevator) IsNewTargetBetterCab(id string, target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
 	fmt.Println("Need to debug here: ", e)

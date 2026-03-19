@@ -104,7 +104,6 @@ func (s *System) IsRequestInSystem(id string, task elevio.ButtonEvent) bool {
 }
 
 func (s *System) SetRequestAsTarget(id string, task elevio.ButtonEvent) {
-	// TODO I think it is wierd that I call system from here. The whole purpose of this was to seperate sytsem and elevator
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 

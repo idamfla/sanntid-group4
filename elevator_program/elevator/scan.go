@@ -6,11 +6,11 @@ import (
 	"elevator_program/utilities"
 )
 
-func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection) (bool, elevio.ButtonEvent) {
-	e.System.Mutex.RLock()
-	defer e.System.Mutex.RUnlock()
+func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, hallrequest [][2]types.ButtonStatus) (bool, elevio.ButtonEvent) {
+	// e.System.Mutex.RLock()
+	// defer e.System.Mutex.RUnlock()
 
-	numFloors := len(e.System.HallRequests) // Changed to be compatible with System struct
+	numFloors := e.numFloors // Changed to be compatible with System struct
 
 	// saturate bounds
 	if from >= numFloors {
@@ -100,9 +100,10 @@ func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	}
 	e.System.Mutex.RLock()
 	direction := e.System.Elevators[e.Id].Direction
+	hallRequest := e.System.HallRequests
 	e.System.Mutex.RUnlock()
 
-	return e.scanFloor(e.currentFloor, e.currentFloor, direction)
+	return e.scanFloor(e.currentFloor, e.currentFloor, direction, hallRequest)
 }
 
 func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
@@ -117,17 +118,17 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 		}
 
 		// phase 1: continue up
-		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up, hallRequests); ok {
 			return ev
 		}
 
 		// phase 2: nothing left up, go down
-		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down, hallRequests); ok {
 			return ev
 		}
 
 		// phase 3: nothing down, move up again
-		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up, hallRequests); ok {
 			return ev
 		}
 
@@ -139,14 +140,14 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(elevator.CurrentFloor-1, bottomFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor-1, bottomFloor, elevio.MD_Down, hallRequests); ok {
 			return ev
 		}
-		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up); ok {
+		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up, hallRequests); ok {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(topFloor, elevator.CurrentFloor, elevio.MD_Down); ok {
+		if ok, ev := e.scanFloor(topFloor, elevator.CurrentFloor, elevio.MD_Down, hallRequests); ok {
 			return ev
 		}
 

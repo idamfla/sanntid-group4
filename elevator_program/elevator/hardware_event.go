@@ -86,7 +86,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
-			e.inBetweenFloors = true // TODO maybe set inBetweenFloors true when the elevator moves, not when we arrive at correct floor
+			e.inBetweenFloors = true
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
@@ -133,11 +133,11 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			fmt.Println("Elevator is offline, can not accept order")
 			return
 		}
-		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true) // TODO don't turn on lamp before master says to do so
+		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true)
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
-			e.inBetweenFloors = true // TODO maybe set inBetweenFloors true when the elevator moves, not when we arrive at correct floor
+			e.inBetweenFloors = true
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
 			e.currentFloor = hwEvent.Floor
