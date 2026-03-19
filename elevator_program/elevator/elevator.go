@@ -16,7 +16,7 @@ type Elevator struct {
 	// TODO temp need to know the ip using the id
 	IpRegistery map[string]string
 
-	offline         bool
+	// offline         bool
 	scheduleRestart bool
 
 	inBetweenFloors bool
@@ -143,7 +143,7 @@ func (e *Elevator) RunElevatorProgram() {
 }
 
 func (e *Elevator) resetRuntimeState(numFloors int) {
-	e.offline = false
+	// e.offline = false
 	e.scheduleRestart = false
 
 	e.inBetweenFloors = false

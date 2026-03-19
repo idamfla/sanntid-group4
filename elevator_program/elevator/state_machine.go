@@ -112,7 +112,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorState.State = types.ES_Idle
 			e.doorState = DS_Opening
-			// fmt.Println(e)
+			fmt.Println(e)
 
 			e.System.Mutex.RLock()
 			_, elevs := e.System.Snapshot()
@@ -219,7 +219,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorStatus.State = types.ES_Idle
 			e.doorState = DS_Opening
-			// fmt.Println(e)
+			fmt.Println(e)
 		}
 
 	case types.ES_Idle:
@@ -230,12 +230,6 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 		}
 
-		// if elevatorStatus.Target.Floor == -1 {
-		// 	nextTarget, dir = e.computeNextTargetAndDirection()
-		// 	if nextTarget.Floor != -1 {
-		// 		elevatorStatus.Target = nextTarget
-		// 	}
-		// }
 		nextTarget, dir = e.computeNextTargetAndDirection()
 		if nextTarget.Floor != -1 {
 			elevatorStatus.Target = nextTarget
@@ -248,7 +242,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 			e.System.Mutex.Unlock()
 
-			if e.offline {
+			if !e.IsOnline {
 				e.scheduleRestart = true
 			}
 		}

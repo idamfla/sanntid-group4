@@ -44,7 +44,7 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.Id = eMsg.ID
 	e.IsMaster = false
 	e.connectedToMaster = true
-	e.IsOnline = true
+	e.exitOfflineMode()
 	e.System.Mutex.RLock()
 	for id, elevator := range e.System.Elevators {
 		e.IpRegistery[elevator.Ip] = id

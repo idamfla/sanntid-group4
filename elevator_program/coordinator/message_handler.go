@@ -9,6 +9,29 @@ import (
 	"fmt"
 )
 
+// Read new message from server when it appears on the channel
+func (c *Coordinator) MessageListener(e *elevator.Elevator) {
+	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
+	for ePkt := range c.msgRecieveCh {
+		eMsg := ePkt.EMsg
+		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, eMsg)
+		c.MessageHandler(e, eMsg)
+		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, eMsg)
+		if ePkt.Done != nil {
+			ePkt.Done <- struct{}{}
+		}
+	}
+}
+
+// Route the message to a handler
+func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
+	if e.IsMaster {
+		c.handleAsMaster(e, msg)
+	} else {
+		c.handleAsSlave(e, msg)
+	}
+}
+
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
@@ -141,28 +164,5 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
 		e.IpRegistery[eMsg.Addr] = id
 		e.SendToCoordinator <- eMsg
-	}
-}
-
-// Route the message to a handler
-func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
-	if e.IsMaster {
-		c.handleAsMaster(e, msg)
-	} else {
-		c.handleAsSlave(e, msg)
-	}
-}
-
-// Read new message from server when it appears on the channel
-func (c *Coordinator) MessageListener(e *elevator.Elevator) {
-	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
-	for ePkt := range c.msgRecieveCh {
-		eMsg := ePkt.EMsg
-		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, eMsg)
-		c.MessageHandler(e, eMsg)
-		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, eMsg)
-		if ePkt.Done != nil {
-			ePkt.Done <- struct{}{}
-		}
 	}
 }
