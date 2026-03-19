@@ -49,11 +49,11 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(eMsg message.ElevatorMessage) {
+func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	quorum := srv.getPeerCount()
 	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
 
-	bs.QueueBroadcastUpdateMsg(eMsg)
+	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
@@ -66,12 +66,20 @@ func (srv *Server) startWhoIsMasterMsg() {
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
-		srv.dispatchToMasterMsg(outMsg)
-	case packet.PKT_T_BroadcastUpdate:
-		srv.dispatchBroadcastUpdate(outMsg)
 	case packet.PKT_T_WhoIsMaster:
 		srv.dispatchWhoIsMaster()
+
+	case packet.PKT_T_BroadcastUpdate:
+		srv.dispatchBroadcastUpdate(outMsg)
+
+	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
+		srv.dispatchToMasterMsg(outMsg)
+
+	case packet.PKT_T_CatchupUpdate, packet.PKT_T_Snapshot:
+		srv.dispatchToSlaveMsg(outMsg)
+
+	case packet.PKT_T_SyncComplete:
+		srv.dispatchCatchupDone(outMsg)
 	}
 }
 
@@ -108,7 +116,15 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startStateBroadcast(outMsg.EMsg)
+	srv.startStateBroadcast(packet.PKT_T_BroadcastUpdate, outMsg.EMsg)
+}
+
+func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
+	if !srv.IsMaster() {
+		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
+	}
+
+	srv.startStateBroadcast(packet.PKT_T_SyncComplete, outMsg.EMsg)
 }
 
 func (srv *Server) dispatchWhoIsMaster() {
@@ -132,10 +148,15 @@ func (srv *Server) dispatchWhoIsMaster() {
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
-	srv.outgoingMsgCh <- outgoingMessage{
+
+	select {
+	case srv.outgoingMsgCh <- outgoingMessage{
 		RemoteAddr: remoteAddr,
 		PktType:    pktType,
 		EMsg:       eMsg,
+	}:
+	default:
+		fmt.Println("Can't queue message, servers messageQueue is full")
 	}
 }
 

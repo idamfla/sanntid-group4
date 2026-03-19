@@ -9,8 +9,6 @@ import (
 	"elevator_program/udp/server"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	// "elevator_program/utilities"
@@ -69,13 +67,14 @@ func testBroadcast_send(srv *server.Server) {
 }
 
 // just to get some prints after i "shut down"
-func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
+func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	// signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Wait for Ctrl+C
 	<-sigChan
+	// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 
 	fmt.Println("\nCtrl+C pressed")
 	fmt.Println("Is A master", e1.IsMaster())
@@ -83,7 +82,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	// Graceful shutdown
 	e1.Close()
 	e2.Close()
-	// e3.Close()
+	e3.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
