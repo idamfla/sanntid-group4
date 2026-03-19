@@ -3,26 +3,41 @@ package session
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/peerinfo"
 	"elevator_program/udp/timer"
 	"fmt"
 	"net"
 	"sync"
 )
 
+const (
+	CHANNEL_BUF = 32
+)
+
 type PacketSender interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, msg message.ElevatorMessage) error
-	QueueElevatorTask(pkt packet.Packet, elevDone chan<- struct{}, taskReady <-chan struct{})
+	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
+	QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
+	IsMaster() bool
+	GetMasterPeer() *peerinfo.PeerInfo
+}
+
+type SessionBehavior interface {
+	HandlePacket(pkt packet.Packet) error
+	OnSend(pktType packet.PacketType)
 }
 
 type Session struct {
-	ID         uint32
-	senderAddr *net.UDPAddr // addr of original sender
+	ID       uint32
+	peerAddr *net.UDPAddr // addr of original sender
+	peerID   string
 
 	seq uint32 // TODO remove
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
 	lastOutPkt outgoingMessage
+	hasLastPkt bool
 
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
@@ -46,30 +61,30 @@ type Session struct {
 }
 
 func NewSession(id uint32,
-	addr *net.UDPAddr,
+	peerAddr *net.UDPAddr,
 	closeReq chan<- uint32,
 	transmitter PacketSender,
 ) *Session {
 	ses := &Session{
-		ID:         id,
-		senderAddr: addr,
-		// seq:                seq, // TODO do session even need to look at seq?
+		ID:       id,
+		peerAddr: peerAddr,
+		peerID:   peerAddr.String(),
+		// seq:                seq, // TODO have it set on init ...
 		pendingPkt:         &packet.Packet{},
 		lastOutPkt:         outgoingMessage{},
-		packetInCh:         make(chan packet.Packet, 32),
-		outgoingMsgCh:      make(chan outgoingMessage, 32),
+		hasLastPkt:         false,
+		packetInCh:         make(chan packet.Packet, CHANNEL_BUF),
+		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
 		remoteCommitTimer:  timer.NewTimer(),
 		shutdownDelayTimer: timer.NewTimer(),
 
-		elevDone:  make(chan struct{}),
-		taskReady: make(chan struct{}),
+		elevDone:  make(chan struct{}, 1),
+		taskReady: make(chan struct{}, 1),
 		tx:        transmitter,
 
-		stop:     make(chan struct{}),
+		stop:     make(chan struct{}, CHANNEL_BUF),
 		closeReq: closeReq,
 	}
-
-	fmt.Println("New session created:", id)
 
 	return ses
 }
@@ -78,16 +93,16 @@ func (ses *Session) Start() {
 	ses.wg.Add(2)
 	go ses.listen(ses)
 	go ses.sendLoop(ses)
-	fmt.Printf("Session %d started\n", ses.ID)
+	// fmt.Printf("Session %d started\n", ses.ID)
 }
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		// Stop normal session timers
+		// stop normal session timers
 		ses.remoteCommitTimer.Stop()
 		ses.shutdownDelayTimer.Stop()
 
-		// Stop base session goroutines
+		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
 

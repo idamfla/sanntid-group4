@@ -28,8 +28,8 @@ func (e *Elevator) RunMasterLoop() {
 		}
 
 		msg := message.ElevatorMessage{
-			MsgType: types.MSG_T_StatusReport,
-			Id:      e.Id,
+			EMsgType: message.EMSG_T_StatusReport,
+			ID:       e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
 				e.Id: e.System.Elevators[e.Id],
 			},

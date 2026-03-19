@@ -41,3 +41,14 @@ func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, pck Packet) error {
 
 	return nil
 }
+
+func IsBroadcastPkt(t PacketType) bool {
+	switch t {
+	case PKT_T_BroadcastUpdate,
+		PKT_T_BroadcastAck,
+		PKT_T_BroadcastCommit,
+		PKT_T_BroadcastDone:
+		return true
+	}
+	return false
+}

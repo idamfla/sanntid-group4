@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// ------------------------- Config ------------------------- //
+// ------------------------- Configs -------------------------- //
 
 type RecoveryConfig struct {
 	SoftRestartTimeout     time.Duration
@@ -106,17 +106,19 @@ func (e *Elevator) shouldRestartAfterOffline() bool {
 		return false
 	}
 
-	isOffline := e.offline
+	e.System.Mutex.Lock()
+	isOnline := e.IsOnline
 	restartScheduled := e.scheduleRestart
 	isMoving := elev.State == types.ES_Moving
 	doorClosed := e.doorState == DS_Closed
 	isNetworkRecovery := e.restartReason == RestartReasonNetwork
 	hasCabRequests := e.hasActiveCabRequests()
 
-	canRestartNow := isOffline &&
+	canRestartNow := !isOnline &&
 		restartScheduled &&
 		!isMoving &&
 		doorClosed
+	e.System.Mutex.Unlock()
 
 	if !canRestartNow {
 		return false
@@ -129,7 +131,17 @@ func (e *Elevator) shouldRestartAfterOffline() bool {
 	return true
 }
 
-// ------------------------- Fault handlers ------------------------- //
+func (e *Elevator) checkOfflineRestart() {
+	if !e.shouldRestartAfterOffline() {
+		return
+	}
+	fmt.Printf("Elevator %s: orders finished while offline, attempting recovery\n", e.Id)
+	e.scheduleRestart = false
+	e.attemptRecovery()
+
+}
+
+// ------------------------- Fault handlers -------------------------- //
 
 func (e *Elevator) handleMotorStopFault(reason string) {
 	fmt.Printf("Motor stop fault in elevator %s: %s\n", e.Id, reason)
@@ -137,7 +149,9 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 	e.restartReason = RestartReasonMotor
 	e.stopLocally()
 	e.enterOfflineMode()
+	e.mu.Lock()
 	e.scheduleRestart = true
+	e.mu.Unlock()
 }
 
 func (e *Elevator) handleMasterSuspected(reason string) {
@@ -148,7 +162,6 @@ func (e *Elevator) handleMasterSuspected(reason string) {
 func (e *Elevator) handleNetworkFault(reason string) {
 	fmt.Printf("Network fault in elevator %s: %s\n", e.Id, reason)
 
-	e.restartReason = RestartReasonNetwork
 	e.enterOfflineMode()
 	e.scheduleRestart = true
 }
@@ -156,55 +169,15 @@ func (e *Elevator) handleNetworkFault(reason string) {
 func (e *Elevator) handlePeerDead(peerID string) {
 	fmt.Println("Peer dead:", peerID)
 
-	e.System.Mutex.Lock()
-	defer e.System.Mutex.Unlock()
-
 	delete(e.System.Elevators, peerID)
+
+	//if peerID == e.currentMasterID || peerID < e.Id || e.IsMaster {
+	//e.runElection("peer dead")
+	//}
+
+	// TODO senere: reassign hall calls
+	// Midlertidig: marker peer dead i elevatorRegistry / fjern den
 }
-
-// ------------------------- Mode helpers ------------------------- //
-
-func (e *Elevator) enterOfflineMode() {
-	if e.offline {
-		return
-	}
-
-	fmt.Println("Entering offline mode (cab-only)")
-	e.offline = true
-}
-
-func (e *Elevator) setLocalState(state types.ElevatorState) {
-	e.System.Mutex.Lock()
-	defer e.System.Mutex.Unlock()
-
-	elev, ok := e.System.Elevators[e.Id]
-	if !ok {
-		return
-	}
-
-	elev.State = state
-	e.System.Elevators[e.Id] = elev
-}
-
-func (e *Elevator) stopLocally() {
-	elevio.SetMotorDirection(elevio.MD_Stop)
-	e.direction = elevio.MD_Stop
-
-	e.setLocalState(types.ES_Idle)
-}
-
-// ------------------------- Recovery flow helpers ------------------------- //
-
-func (e *Elevator) checkOfflineRestart() {
-	if !e.shouldRestartAfterOffline() {
-		return
-	}
-
-	fmt.Printf("Elevator %s: orders finished while offline, attempting recovery\n", e.Id)
-	e.scheduleRestart = false
-	e.attemptRecovery()
-}
-
 func (e *Elevator) startRecoveryAttempt() {
 	e.softRestartInProgress = true
 	e.softRestartAttempts++
@@ -228,15 +201,6 @@ func (e *Elevator) waitForRecoveryProof(deadline time.Time) bool {
 	return false
 }
 
-func (e *Elevator) markRecoveryVerified() {
-	e.recoveryMu.Lock()
-	defer e.recoveryMu.Unlock()
-
-	if e.recoveryAwaitingProof {
-		e.recoveryVerified = true
-	}
-}
-
 func (e *Elevator) finishSuccessfulRecovery() {
 	fmt.Printf("Elevator %s: soft restart succeeded\n", e.Id)
 
@@ -248,7 +212,37 @@ func (e *Elevator) finishSuccessfulRecovery() {
 	e.recoveryMu.Unlock()
 }
 
-// ------------------------- Recovery actions ------------------------- //
+// ------------------------- Mode helpers ------------------------- //
+
+func (e *Elevator) enterOfflineMode() {
+
+	if !e.IsOnline {
+		return
+	}
+
+	fmt.Println("Entering offline mode (cab-only)")
+	e.IsOnline = false
+
+}
+
+func (e *Elevator) exitOfflineMode() {
+
+	if e.IsOnline {
+		return
+	}
+
+	fmt.Println("Exiting offline mode (back online)")
+	e.IsOnline = true
+}
+
+func (e *Elevator) stopLocally() {
+	elevio.SetMotorDirection(elevio.MD_Stop)
+	e.direction = elevio.MD_Stop
+	tempElevator := e.System.Elevators[e.Id]
+	tempElevator.State = types.ES_Idle
+	e.System.Elevators[e.Id] = tempElevator
+
+}
 
 func (e *Elevator) SoftRestart() {
 	fmt.Printf("Elevator %s: soft restart starting\n", e.Id)
@@ -305,4 +299,12 @@ func (e *Elevator) attemptRecovery() {
 		fmt.Printf("Elevator %s: recovery proof not received, hard restart\n", e.Id)
 		fault.RestartSelf()
 	}()
+}
+
+func (e *Elevator) markRecoveryVerified() {
+	e.recoveryMu.Lock()
+	defer e.recoveryMu.Unlock()
+	if e.recoveryAwaitingProof {
+		e.recoveryVerified = true
+	}
 }

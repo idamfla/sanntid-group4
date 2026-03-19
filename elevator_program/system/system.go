@@ -6,11 +6,10 @@ import (
 	"sync"
 )
 
-// Uses to add a new elevator to our system
 type System struct {
 	HallRequests [][2]types.ButtonStatus
 	Elevators    map[string]types.ElevatorsStatus
-	Mutex        sync.RWMutex // Add a mutex to protect shared data
+	Mutex        sync.RWMutex
 }
 
 func (s *System) InitSystem(id string, ip string, numFloors int) {
@@ -34,9 +33,8 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 	}
 }
 
+// Snapshot returns a deep copy of the system state. Caller MUST hold s.Mutex (RLock or Lock).
 func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]types.ElevatorsStatus) {
-	// s.Mutex.RLock()
-	// defer s.Mutex.RUnlock()
 	hall = make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hall, s.HallRequests)
 

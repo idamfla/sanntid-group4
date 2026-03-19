@@ -1,0 +1,1263 @@
+diff --git a/elevator_program/SOFTWARE_DESIGN.md b/elevator_program/SOFTWARE_DESIGN.md
+new file mode 100644
+index 0000000..6bb0a92
+--- /dev/null
++++ b/elevator_program/SOFTWARE_DESIGN.md
+@@ -0,0 +1,400 @@
++# Software Design Document - Elevator Program
++
++## What is this?
++
++This is a distributed elevator system written in Go. Multiple elevators talk to each other over UDP, figure out who's in charge (master election), split up work, and keep running even when things go wrong. If an elevator loses network, it finishes its cab orders offline and tries to rejoin.
++
++---
++
++## High-level architecture
++
++The system is layered like this:
++
++```
++┌─────────────────────────────────────────────┐
++│                 main / config               │
++│          Parse flags, spawn processes       │
++├─────────────────────────────────────────────┤
++│               Coordinator                   │
++│     Glue between elevator and network       │
++├──────────────────────┬──────────────────────┤
++│      Elevator        │     UDP layer        │
++│  State machines,     │  Server, sessions,   │
++│  hardware, faults    │  packets, peers      │
++├──────────────────────┴──────────────────────┤
++│           System  (shared state)            │
++├─────────────────────────────────────────────┤
++│         elevio  (hardware driver)           │
++└─────────────────────────────────────────────┘
++```
++
++**Elevator** owns the physical control: motors, doors, buttons, and sensors.
++**Coordinator** routes messages between the elevator logic and the network.
++**System** is the shared world-view: who is where, which buttons are pressed, who is doing what.
++
++---
++
++## Project layout
++
++```
++elevator_program/
++├── main.go                     Entry point
++├── config/config.go            CLI flags, child-process spawning
++│
++├── coordinator/
++│   ├── coordinator.go          Init, start, close
++│   ├── message_handler.go      Master/slave message dispatch
++│   ├── send_message.go         Outgoing message routing
++│   └── task_monitor.go         Per-task timeout watchdog
++│
++├── elevator/
++│   ├── elevator.go             Core struct, init, lifecycle
++│   ├── state_machine.go        Online & offline state machines
++│   ├── door.go                 Door open/close/obstruction FSM
++│   ├── hardware_event.go       Button press, floor sensor, e-stop
++│   ├── scan.go                 SCAN algorithm for next target
++│   ├── target.go               "Who should take this task?" logic
++│   ├── clear_request.go        Mark requests as done
++│   ├── fault_loop.go           Fault dispatcher goroutine
++│   ├── fault_actions.go        Recovery: soft restart, hard restart
++│   ├── protocol_callbacks.go   Network event hooks
++│   ├── master_logic.go         Periodic master broadcasts
++│   └── clear_lamp.go           Lamp control helpers
++│
++├── system/
++│   ├── system.go               System struct, Snapshot(), init
++│   └── update_System.go        Mutating helpers (set status, assign, register)
++│
++├── message/
++│   ├── elevator_message.go     ElevatorMessage + message types enum
++│   └── fault_message.go        FaultMessage + fault types enum
++│
++├── types/
++│   ├── types.go                ElevatorState, ButtonStatus enums
++│   └── elevator_status.go      ElevatorsStatus (per-elevator snapshot)
++│
++├── elevio/                     Hardware abstraction (TCP to simulator)
++│
++├── udp/
++│   ├── server/                 UDP server, session lifecycle, peer tracking
++│   ├── session/                Point-to-point & broadcast sessions
++│   ├── packet/                 Encode/decode, packet type enum
++│   ├── peerinfo/               Peer metadata
++│   └── timer/                  Reusable timer wrapper
++│
++├── fault/                      Hard restart (re-exec the binary)
++└── utilities/                  Small helpers (Abs, etc.)
++```
++
++---
++
++## How it starts up
++
++### Running the program
++
++```bash
++# Option 1 -- Launcher mode (spawns N simulator elevators in separate terminals)
++go run . --n 3 --baseport 15657 --floors 4 --initfloor 3
++
++# Option 2 -- Single elevator (e.g. started by the launcher)
++go run . --id 1 --ip localhost --port 15657 --floors 4 --initfloor 3
++
++# Option 3 -- Explicit addresses for physical elevators
++go run . --addrs "192.168.0.1:15657,192.168.0.2:15657"
++```
++
++When `--id` is 0 (the default), the process acts as a **launcher**: it spawns `--n` child processes, each in its own terminal window. When `--id` is non-zero, the process runs a single elevator.
++
++### Boot sequence
++
++The order matters -- each step depends on the previous one.
++
++```
++1.  elevio.Init(addr, numFloors)
++    Connect to elevator hardware (TCP socket to simulator or real controller).
++
++2.  elevator.InitElevator(id, numFloors, initFloor, ip, port)
++    Create channels, initialize System, clear all lamps.
++
++3.  coordinator.InitCoordinator()
++    Create message channels, port registry, TaskMonitor (15 s timeout).
++
++4.  coordinator.StartServer(ip, port, id)
++    Open two UDP sockets: one for unicast (ip:port), one for broadcast (:3000).
++
++5.  coordinator.Start(&elevator)
++    Launch three goroutines:
++      - MessageListener   reads from network → handles messages
++      - sendListener      reads from elevator → sends over network
++      - Server.Start      the UDP server main loop
++
++6.  elevator.RunElevatorProgram()
++    Launch four goroutines:
++      - RunHardwareEventLoop      buttons, sensors, e-stop
++      - RunDoorStateMachine       door FSM (50 ms tick)
++      - RunElevatorStateMachine   motor control FSM (50 ms tick)
++      - fault_loop                listens for fault messages
++```
++
++Once the state machine starts, the elevator drives to `initFloor`, transitions to `Idle`, and asks the master for work.
++
++---
++
++## Master / slave model
++
++One elevator is the **master**. It owns the authoritative copy of the system state, decides who handles which hall call, and broadcasts updates. Everyone else is a **slave**: they report button presses and status changes, execute assigned tasks, and request new work when idle.
++
++### How a master is elected
++
++When an elevator starts (or loses its master), it broadcasts a `WhoIsMaster` packet. If no one answers within 500 ms, an election happens: all peers that responded are compared, and the one with the **lowest network address** wins. The winner announces itself with `IAmMaster`, and peers ACK.
++
++---
++
++## The elevator state machine
++
++Each elevator runs one of two state machines depending on whether it has network connectivity.
++
++### Online mode
++
++The elevator trusts the master for task assignments.
++
++```
++ ┌──────────────────┐
++ │ ES_Uninitialized │  Drive to initFloor
++ └────────┬─────────┘
++          │  arrived
++          v
++ ┌──────────────────┐
++ │     ES_Idle      │◄──────────────┐
++ │  waiting for     │               │
++ │  target from     │               │  arrived at target
++ │  master          │               │  → open door
++ └────────┬─────────┘               │  → finishedTask()
++          │  target assigned        │  → ask for new task
++          v                         │
++ ┌──────────────────┐               │
++ │    ES_Moving     │───────────────┘
++ │  driving towards │
++ │  target floor    │
++ └──────────────────┘
++```
++
++When the elevator reaches its target it calls `finishedTask()`, which:
++1. Sends `ButtonPress(NotActive)` -- "I'm done with this task"
++2. Clears the target locally
++3. Sends `TaskRequest` -- "give me something new"
++
++### Offline mode
++
++If the elevator loses the network, it switches to offline mode and only handles **cab requests** (no hall calls). It scans its own cab request list, picks the closest one, drives there, and repeats. Once all cab orders are done and the door is closed, it tries to reconnect (soft restart → hard restart if that fails).
++
++### Door FSM
++
++The door has its own state machine running on a 50 ms tick:
++
++```
++DS_Closed ↔ DS_Opening → DS_Open → DS_Closing → DS_Closed
++                            ↓
++                       DS_Obstruction  (while sensor active)
++```
++
++The door stays open for a fixed timer. If the obstruction sensor fires while the door is open, it waits until the obstruction clears before closing.
++
++---
++
++## Message flow
++
++### Message types at a glance
++
++| Message | What it means | Direction |
++|---|---|---|
++| `StatusReport` | "Here's my current floor/state/direction" | Both ways |
++| `ButtonPress` | "Someone pressed a button" | Slave → Master |
++| `TaskUpdate` | "This task is now assigned / completed / timed out" | Master → Slaves |
++| `TaskRequest` | "I'm free, give me work" | Slave → Master |
++| `LostComs` | "I can't reach someone" | Broadcast |
++| `ElevatorLost` | "This elevator disappeared" | Broadcast |
++| `NewToChannel` | "I just joined, sync me up" | Broadcast |
++
++### What the master does with each message
++
++**ButtonPress** -- A slave noticed a new button press.
++- If it's a cab button: check whether it's on the requester's current path (`IsNewTargetBetterCab`). Mark it `Running` or `Pending`.
++- If it's a hall button: run `ClosestToTarget` over all elevators, assign the winner, broadcast the assignment as a `TaskUpdate`.
++
++**TaskRequest** -- An elevator finished its task and wants more work.
++- Take a snapshot of the current hall requests.
++- Run `GetNextTargetFloor` for the requesting elevator.
++- If a task is found, broadcast it as a `TaskUpdate(Running)`.
++
++**TaskUpdate** -- Comes back through the system (master processes its own broadcasts too).
++- `Running`: start a 15-second watchdog timer via `TaskMonitor`.
++- `NotActive`: cancel the timer, the task is done.
++- If the timer fires before the task completes, the task is reset to `Pending` so someone else can pick it up.
++
++**StatusReport** -- Just update the system state and re-broadcast to slaves.
++
++**NewToChannel** -- A new elevator appeared. Register it, send a full system snapshot back.
++
++### What a slave does with each message
++
++**TaskUpdate** -- If `Running` and addressed to me: set it as my target (`SetRequestAsTarget`). Otherwise just update the local system copy.
++
++**StatusReport** -- Update local system state.
++
++**NewToChannel** -- If it's about me: initialize my state from the master's snapshot. Otherwise just note the new peer.
++
++---
++
++## Task assignment logic
++
++### The SCAN algorithm (`scan.go`)
++
++When the master needs to find the next task for an elevator, it uses `GetNextTargetFloor`:
++
++- **Elevator is idle**: pick the closest floor with a `Pending` request (cab or hall).
++- **Elevator is moving up**: scan current floor → continue up → sweep down → sweep back up. This is the classic disk-scheduling SCAN algorithm.
++- **Elevator is moving down**: mirror of the above.
++
++The scan skips hall requests marked `Running` that belong to another elevator (anti-stealing).
++
++### Choosing which elevator gets a hall call (`target.go`)
++
++`ClosestToTarget` loops over all elevators and asks: "can this elevator take the new task, and how far away is it?"
++
++- Idle elevators are always preferred over moving ones.
++- A moving elevator can only take a task if it's **on the way** (between current position and current target, in the right direction).
++- The elevator with the shortest distance wins.
++
++---
++
++## Network layer (UDP)
++
++### Packet types
++
++The protocol uses these packet types:
++
++| Packet | Purpose |
++|---|---|
++| `WhoIsMaster` | Broadcast discovery |
++| `IAmMaster` / `MasterAck` | Master announcement handshake |
++| `BroadcastUpdate` / `BroadcastAck` / `BroadcastCommit` / `BroadcastDone` | 2-phase state broadcast |
++| `SlaveUpdate` | Slave → master point-to-point |
++| `RequestTaskExecution` | Slave → master task request |
++
++### 2-phase broadcast
++
++The master doesn't just fire-and-forget state updates. It uses a simple 2-phase protocol:
++
++```
++  Master                          Slaves
++    │                               │
++    ├── BroadcastUpdate ───────────→│
++    │                               │
++    │←─────── BroadcastAck ─────────┤   wait for all peers to ACK
++    │                               │
++    ├── BroadcastCommit ───────────→│   "ok, apply this update"
++    │                               │
++    │←─────── BroadcastDone ────────┤   "done"
++```
++
++This ensures all elevators see the same state before anyone acts on it.
++
++### Timeouts
++
++| Name | Value | What happens when it fires |
++|---|---|---|
++| Packet retry | 500 ms, max 10 tries | Resend the packet |
++| Broadcast ACK | 2 s | Peer considered unresponsive |
++| Broadcast commit | 3 s | Commit phase aborted |
++| Master election | 500 ms | Start election |
++| Task watchdog | 15 s | Reset task to Pending |
++
++---
++
++## Fault tolerance
++
++### What can go wrong and what happens
++
++| Fault | How it's detected | What the system does |
++|---|---|---|
++| Network loss | UDP timeouts | Elevator goes offline, finishes cab orders, then tries to recover |
++| Master gone | No response to messages | `connectedToMaster = false`, triggers new election |
++| Elevator died | Broadcast ACK missing | Remove peer from system, reassign tasks later |
++| Task stuck | 15 s watchdog fires | Reset task to `Pending` so another elevator picks it up |
++| Motor failure | Task timeout / no floor sensor | Stop motor, go offline, schedule restart |
++
++### Recovery: soft restart → hard restart
++
++When an offline elevator has finished all its cab orders:
++
++1. **Soft restart**: stop all goroutines, reset state, re-launch `RunElevatorProgram()`. Then wait 3 seconds for proof that the elevator actually works (it must transition to `Moving`).
++2. If proof arrives: success, reset the attempt counter.
++3. If no proof after 3 seconds, or max attempts reached (1 by default): **hard restart** -- the process re-executes itself (`os.Exec`).
++
++---
++
++## Shared state and synchronization
++
++All shared state lives in the `System` struct, protected by a `sync.RWMutex`.
++
++```go
++type System struct {
++    HallRequests [][2]ButtonStatus           // [floor][up/down]
++    Elevators    map[string]ElevatorsStatus   // elevatorID → status
++    Mutex        sync.RWMutex
++}
++```
++
++The key mutation methods:
++
++- **`SetStatusReport(id, status)`** -- update one elevator's status (floor, direction, state).
++- **`SetRequestStatus(id, status, task)`** -- mark a button as NotActive / Pending / Running.
++- **`SetRequestAsTarget(id, task)`** -- assign a task to an elevator. If it already had a target, that one goes back to Pending.
++- **`RegisterAndSyncElevator(msg)`** -- a new elevator joined; add it to the map and return a full snapshot.
++- **`Snapshot()`** -- deep-copy the entire system for safe reading without holding the lock.
++
++---
++
++## Goroutines and channels
++
++Each elevator instance runs **7 goroutines** (4 elevator + 3 coordinator):
++
++```
++ Hardware pollers (buttons, floor sensor, obstruction, stop)
++        │
++        v
++ hardwareEventsCh ──→ RunHardwareEventLoop ──┐
++                                              │
++ (50ms tick) ────────→ RunElevatorStateMachine ──→ SendToCoordinator
++                                              │         │
++ (50ms tick) ────────→ RunDoorStateMachine     │         v
++                                              │    sendListener
++ FaultMsg ───────────→ fault_loop              │     │         │
++                                              │  sendAsMaster  sendAsSlave
++                                              │     │              │
++                                              │     v              v
++                                              │       UDP network
++                                              │           │
++                                              │           v
++                                              │     msgRecieveCh
++                                              │           │
++                                              │     MessageListener
++                                              │           │
++                                              │     MessageHandler
++                                              │     ├─ handleAsMaster
++                                              │     └─ handleAsSlave
++                                              │           │
++                                              └───────────┘
++                                             (updates System, may send replies)
++```
++
++### Channel summary
++
++| Channel | Buffer | From → To | Carries |
++|---|---|---|---|
++| `hardwareEventsCh` | 20 | HW pollers → event loop | Button presses, floor arrivals, e-stop |
++| `SendToCoordinator` | 10 | Elevator logic → coordinator | Outgoing ElevatorMessages |
++| `FaultMsg` | 20 | Network / watchdogs → fault loop | Fault events |
++| `msgRecieveCh` | 10 | UDP server → message listener | Incoming ElevatorPackets |
++| `stop` | 0 | Lifecycle → all goroutines | Shutdown signal (close to broadcast) |
+diff --git a/elevator_program/coordinator/message_handler.go b/elevator_program/coordinator/message_handler.go
+index 7d7b057..9305f13 100644
+--- a/elevator_program/coordinator/message_handler.go
++++ b/elevator_program/coordinator/message_handler.go
+@@ -132,7 +132,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
+ 		c.msgRecieveCh <- packet
+ 
+ 	case message.EMSG_T_TaskUpdate:
++		e.System.Mutex.Lock()
+ 		e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
++		e.System.Mutex.Unlock()
+ 		if !(eMsg.ID == e.Id && eMsg.Task.Button == elevio.BT_Cab) {
+ 			e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+ 		}
+diff --git a/elevator_program/elevator/doors.go b/elevator_program/elevator/doors.go
+index 08deb54..77f5e26 100644
+--- a/elevator_program/elevator/doors.go
++++ b/elevator_program/elevator/doors.go
+@@ -18,7 +18,12 @@ const (
+ )
+ 
+ func (e *Elevator) updateDoorState() {
+-	switch e.doorState {
++	e.mu.Lock()
++	ds := e.doorState
++	obs := e.obstruction
++	e.mu.Unlock()
++
++	switch ds {
+ 	case DS_Closed:
+ 		return
+ 
+@@ -28,17 +33,24 @@ func (e *Elevator) updateDoorState() {
+ 		e.System.Mutex.RLock()
+ 		task := e.System.Elevators[e.Id].Target
+ 		e.System.Mutex.RUnlock()
++		e.mu.Lock()
++		floor := e.currentFloor
++		e.mu.Unlock()
+ 		if e.atTargetFloor(task.Floor) {
+-			e.clearCurrentFloor(e.currentFloor, task.Button)
++			e.clearCurrentFloor(floor, task.Button)
+ 		}
+ 
++		e.mu.Lock()
+ 		e.doorState = DS_Open
++		e.mu.Unlock()
+ 		e.doorTimer = time.Time{}
+ 
+ 	case DS_Open:
+-		if e.obstruction {
++		if obs {
++			e.mu.Lock()
+ 			e.doorState = DS_Obstruction
+-			e.doorTimer = time.Time{} // reset timer
++			e.mu.Unlock()
++			e.doorTimer = time.Time{}
+ 			break
+ 		}
+ 
+@@ -47,24 +59,32 @@ func (e *Elevator) updateDoorState() {
+ 		}
+ 
+ 		if time.Since(e.doorTimer) >= 3*time.Second {
++			e.mu.Lock()
+ 			e.doorState = DS_Closing
++			e.mu.Unlock()
+ 			e.doorTimer = time.Time{}
+ 		}
+ 
+ 	case DS_Closing:
+-		if e.obstruction {
++		if obs {
++			e.mu.Lock()
+ 			e.doorState = DS_Obstruction
++			e.mu.Unlock()
+ 			break
+ 		}
+ 
+ 		elevio.SetDoorOpenLamp(false)
++		e.mu.Lock()
+ 		e.doorState = DS_Closed
++		e.mu.Unlock()
+ 
+ 	case DS_Obstruction:
+ 		elevio.SetDoorOpenLamp(true)
+ 
+-		if !e.obstruction {
++		if !obs {
++			e.mu.Lock()
+ 			e.doorState = DS_Open
++			e.mu.Unlock()
+ 			e.doorTimer = time.Now()
+ 		}
+ 
+diff --git a/elevator_program/elevator/elevator.go b/elevator_program/elevator/elevator.go
+index d197c12..4235586 100644
+--- a/elevator_program/elevator/elevator.go
++++ b/elevator_program/elevator/elevator.go
+@@ -31,6 +31,11 @@ type Elevator struct {
+ 	doorState DoorState
+ 	doorTimer time.Time
+ 
++	// mu protects fields accessed from multiple goroutines:
++	// doorState, currentFloor, inBetweenFloors, emergencyStop, obstruction,
++	// IsOnline, IsMaster, connectedToMaster, scheduleRestart
++	mu sync.Mutex
++
+ 	//temp Need to time how long you have lost communiction
+ 	lostComsTimer      time.Time
+ 	ackCounterLostComs int
+@@ -39,16 +44,12 @@ type Elevator struct {
+ 
+ 	// elevatorState    types.ElevatorState
+ 	obstruction              bool
+-	emergencyStop            bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
++	emergencyStop            bool
+ 	hardwareEventsCh         chan HardwareEvent
+ 	hardwareListenersStarted bool
+ 
+ 	FaultMsg chan message.FaultMessage
+ 
+-	// MsgRecieveCh chan message.ElevatorMessage
+-	// msgSendCh    chan message.ElevatorMessage
+-	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
+-
+ 	IsMaster          bool
+ 	connectedToMaster bool
+ 	IsOnline          bool
+@@ -182,8 +183,17 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
+ 		elevio.SetFloorIndicator(e.currentFloor)
+ 	}
+ 
+-	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
+-
++	// NOTE: Do NOT recreate SendToCoordinator here.
++	// The coordinator's sendListener is still reading from the original channel.
++	// Drain any stale messages instead.
++	for {
++		select {
++		case <-e.SendToCoordinator:
++		default:
++			goto drained
++		}
++	}
++drained:
+ }
+ 
+ func (e *Elevator) stopRuntimeLoops() {
+diff --git a/elevator_program/elevator/fault_actions.go b/elevator_program/elevator/fault_actions.go
+index de5c28a..ca8d3c8 100644
+--- a/elevator_program/elevator/fault_actions.go
++++ b/elevator_program/elevator/fault_actions.go
+@@ -36,15 +36,25 @@ func (e *Elevator) hasActiveCabRequests() bool {
+ */
+ 
+ func (e *Elevator) shouldRestartAfterOffline() bool {
+-	if e.IsOnline && !e.scheduleRestart {
++	e.mu.Lock()
++	online := e.IsOnline
++	restart := e.scheduleRestart
++	ds := e.doorState
++	e.mu.Unlock()
++
++	if online && !restart {
+ 		return false
+ 	}
+ 
+-	if e.System.Elevators[e.Id].State == types.ES_Moving {
++	e.System.Mutex.RLock()
++	state := e.System.Elevators[e.Id].State
++	e.System.Mutex.RUnlock()
++
++	if state == types.ES_Moving {
+ 		return false
+ 	}
+ 
+-	if e.doorState != DS_Closed {
++	if ds != DS_Closed {
+ 		return false
+ 	}
+ 
+@@ -56,9 +66,10 @@ func (e *Elevator) checkOfflineRestart() {
+ 		return
+ 	}
+ 	fmt.Printf("Elevator %s: orders finished while offline, attempting recovery\n", e.Id)
++	e.mu.Lock()
+ 	e.scheduleRestart = false
++	e.mu.Unlock()
+ 	e.attemptRecovery()
+-
+ }
+ 
+ // ------------------------- Fault handlers -------------------------- //
+@@ -68,26 +79,33 @@ func (e *Elevator) handleMotorStopFault(reason string) {
+ 
+ 	e.stopLocally()
+ 	e.enterOfflineMode()
++	e.mu.Lock()
+ 	e.scheduleRestart = true
+-
++	e.mu.Unlock()
+ }
+ 
+ func (e *Elevator) handleMasterSuspected(reason string) {
+ 	fmt.Printf("Elevator %s suspects master failure: %s\n", e.Id, reason)
++	e.mu.Lock()
+ 	e.connectedToMaster = false
++	e.mu.Unlock()
+ }
+ 
+ func (e *Elevator) handleNetworkFault(reason string) {
+ 	fmt.Printf("Network fault in elevator %s: %s\n", e.Id, reason)
+ 
+ 	e.enterOfflineMode()
++	e.mu.Lock()
+ 	e.scheduleRestart = true
++	e.mu.Unlock()
+ }
+ 
+ func (e *Elevator) handlePeerDead(peerID string) {
+ 	fmt.Println("Peer dead:", peerID)
+ 
++	e.System.Mutex.Lock()
+ 	delete(e.System.Elevators, peerID)
++	e.System.Mutex.Unlock()
+ 
+ 	//if peerID == e.currentMasterID || peerID < e.Id || e.IsMaster {
+ 	//e.runElection("peer dead")
+@@ -99,6 +117,8 @@ func (e *Elevator) handlePeerDead(peerID string) {
+ 
+ // ------------------------- Mode helpers -------------------------- //
+ func (e *Elevator) enterOfflineMode() {
++	e.mu.Lock()
++	defer e.mu.Unlock()
+ 
+ 	if !e.IsOnline {
+ 		return
+@@ -106,10 +126,11 @@ func (e *Elevator) enterOfflineMode() {
+ 
+ 	fmt.Println("Entering offline mode (cab-only)")
+ 	e.IsOnline = false
+-
+ }
+ 
+ func (e *Elevator) exitOfflineMode() {
++	e.mu.Lock()
++	defer e.mu.Unlock()
+ 
+ 	if e.IsOnline {
+ 		return
+@@ -122,10 +143,11 @@ func (e *Elevator) exitOfflineMode() {
+ func (e *Elevator) stopLocally() {
+ 	elevio.SetMotorDirection(elevio.MD_Stop)
+ 	e.direction = elevio.MD_Stop
++	e.System.Mutex.Lock()
+ 	tempElevator := e.System.Elevators[e.Id]
+ 	tempElevator.State = types.ES_Idle
+ 	e.System.Elevators[e.Id] = tempElevator
+-
++	e.System.Mutex.Unlock()
+ }
+ 
+ func (e *Elevator) SoftRestart() {
+diff --git a/elevator_program/elevator/hardware_event.go b/elevator_program/elevator/hardware_event.go
+index 7086fc5..db0f282 100644
+--- a/elevator_program/elevator/hardware_event.go
++++ b/elevator_program/elevator/hardware_event.go
+@@ -25,9 +25,14 @@ type HardwareEvent struct {
+ }
+ 
+ func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
+-	if e.IsOnline {
+-		// TODO Temp for debugging
++	e.mu.Lock()
++	online := e.IsOnline
++	if online {
+ 		e.connectedToMaster = true
++	}
++	e.mu.Unlock()
++
++	if online {
+ 		e.handleHardwareEventOnline(hwEvent)
+ 	} else {
+ 		e.handleHardwareEventOffline(hwEvent)
+@@ -38,7 +43,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
+ 	switch hwEvent.Type {
+ 	case HW_T_EmergencyStop:
+ 		elevio.SetStopLamp(hwEvent.EmergencyStop)
++		e.mu.Lock()
+ 		e.emergencyStop = hwEvent.EmergencyStop
++		e.mu.Unlock()
+ 		e.System.Mutex.RLock()
+ 		_, elevators := e.System.Snapshot()
+ 		e.System.Mutex.RUnlock()
+@@ -50,7 +57,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
+ 		e.SendToCoordinator <- eMsg
+ 
+ 	case HW_T_ButtonPress:
+-		if !e.connectedToMaster {
++		e.mu.Lock()
++		connected := e.connectedToMaster
++		e.mu.Unlock()
++		if !connected {
+ 			println("Not connected to master, cannot accept buttonpress")
+ 			return
+ 		}
+@@ -86,30 +96,41 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
+ 
+ 	case HW_T_FloorSensor:
+ 		if hwEvent.Floor == -1 {
++			e.mu.Lock()
+ 			e.inBetweenFloors = true
++			e.mu.Unlock()
+ 		} else {
+ 			elevio.SetFloorIndicator(hwEvent.Floor)
++			e.mu.Lock()
+ 			e.currentFloor = hwEvent.Floor
+ 			e.inBetweenFloors = false
++			e.mu.Unlock()
+ 
+ 			e.System.Mutex.Lock()
+ 			elevatorCopy := e.System.Elevators[e.Id]
+ 			elevatorCopy.CurrentFloor = hwEvent.Floor
+ 			e.System.Elevators[e.Id] = elevatorCopy
++			_, elevs := e.System.Snapshot()
++			e.System.Mutex.Unlock()
++
+ 			eMsg := message.ElevatorMessage{
+ 				EMsgType:  message.EMSG_T_StatusReport,
+ 				ID:        e.Id,
+-				Elevators: e.System.Elevators,
++				Elevators: elevs,
+ 			}
+ 			e.SendToCoordinator <- eMsg
+-			e.System.Mutex.Unlock()
+ 		}
+ 
+ 	case HW_T_Obstruction:
+-		if e.doorState == DS_Closed {
++		e.mu.Lock()
++		closed := e.doorState == DS_Closed
++		e.mu.Unlock()
++		if closed {
+ 			return
+ 		}
+-		e.obstruction = hwEvent.Obstruction // TODO should i notify master, probably not right?
++		e.mu.Lock()
++		e.obstruction = hwEvent.Obstruction
++		e.mu.Unlock()
+ 	}
+ }
+ 
+@@ -117,7 +138,9 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
+ 	switch hwEvent.Type {
+ 	case HW_T_EmergencyStop:
+ 		elevio.SetStopLamp(hwEvent.EmergencyStop)
++		e.mu.Lock()
+ 		e.emergencyStop = hwEvent.EmergencyStop
++		e.mu.Unlock()
+ 
+ 	case HW_T_ButtonPress:
+ 		if hwEvent.Button == elevio.BT_Cab {
+@@ -132,11 +155,15 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
+ 
+ 	case HW_T_FloorSensor:
+ 		if hwEvent.Floor == -1 {
++			e.mu.Lock()
+ 			e.inBetweenFloors = true
++			e.mu.Unlock()
+ 		} else {
+ 			elevio.SetFloorIndicator(hwEvent.Floor)
++			e.mu.Lock()
+ 			e.currentFloor = hwEvent.Floor
+ 			e.inBetweenFloors = false
++			e.mu.Unlock()
+ 
+ 			e.System.Mutex.Lock()
+ 			elevatorCopy := e.System.Elevators[e.Id]
+@@ -146,10 +173,15 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
+ 		}
+ 
+ 	case HW_T_Obstruction:
+-		if e.doorState == DS_Closed {
++		e.mu.Lock()
++		closed := e.doorState == DS_Closed
++		e.mu.Unlock()
++		if closed {
+ 			return
+ 		}
++		e.mu.Lock()
+ 		e.obstruction = hwEvent.Obstruction
++		e.mu.Unlock()
+ 	}
+ }
+ 
+diff --git a/elevator_program/elevator/protocol_callbacks.go b/elevator_program/elevator/protocol_callbacks.go
+index f186964..2e26e71 100644
+--- a/elevator_program/elevator/protocol_callbacks.go
++++ b/elevator_program/elevator/protocol_callbacks.go
+@@ -8,8 +8,10 @@ import (
+ 
+ // TODO This function is wierd, either we need to have it as e or something else if it is eMsg sending
+ func (e *Elevator) HandleLostConnection(senderId string) {
+-	if senderId == "" { //|| time.Since(e.lostComsTimer) > 4*time.Second
++	if senderId == "" {
++		e.mu.Lock()
+ 		e.IsOnline = false
++		e.mu.Unlock()
+ 		// Need to schedule a restart
+ 		// TODO It is fault tolerance that should take the time maybe
+ 	} else {
+@@ -24,6 +26,8 @@ func (e *Elevator) HandleLostConnection(senderId string) {
+ }
+ 
+ func (e *Elevator) ConnectedToMaster() bool {
++	e.mu.Lock()
++	defer e.mu.Unlock()
+ 	return e.connectedToMaster
+ }
+ 
+@@ -41,9 +45,11 @@ func (e *Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button
+ }
+ 
+ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
++	e.mu.Lock()
+ 	e.Id = eMsg.ID
+ 	e.IsMaster = false
+ 	e.connectedToMaster = true
++	e.mu.Unlock()
+ 	e.exitOfflineMode()
+ 	e.System.Mutex.RLock()
+ 	for id, elevator := range e.System.Elevators {
+@@ -65,7 +71,9 @@ func (e *Elevator) ClearTarget() {
+ }
+ 
+ func (e *Elevator) TurnToMaster() {
++	e.mu.Lock()
+ 	e.IsOnline = true
+ 	e.IsMaster = true
+ 	e.connectedToMaster = true
++	e.mu.Unlock()
+ }
+diff --git a/elevator_program/elevator/scan.go b/elevator_program/elevator/scan.go
+index fda2b56..2f5d1af 100644
+--- a/elevator_program/elevator/scan.go
++++ b/elevator_program/elevator/scan.go
+@@ -66,12 +66,16 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target
+ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
+ 	numFloors := len(hallRequests)
+ 
++	e.mu.Lock()
++	floor := e.currentFloor
++	e.mu.Unlock()
++
+ 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+ 	minDist := numFloors + 1 // initialize with something bigger than max possible distance
+ 	for f := 0; f < numFloors; f++ {
+-		dist := utilities.Abs(f - e.currentFloor)
++		dist := utilities.Abs(f - floor)
+ 
+-		if elevator.CabRequests[f] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
++		if elevator.CabRequests[f] != types.NotActive {
+ 			if closest.Floor == -1 || dist < minDist {
+ 				closest.Floor = f
+ 				closest.Button = elevio.BT_Cab
+@@ -81,7 +85,7 @@ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests
+ 		}
+ 
+ 		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
+-			if hallRequests[f][b] == types.Pending { // Changed to be compatible with System struct, be carefull these might cause error later if emergency stop changes
++			if hallRequests[f][b] != types.NotActive {
+ 				if closest.Floor == -1 || dist < minDist {
+ 					closest.Floor = f
+ 					closest.Button = b
+@@ -95,7 +99,10 @@ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests
+ }
+ 
+ func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
+-	if e.inBetweenFloors {
++	e.mu.Lock()
++	between := e.inBetweenFloors
++	e.mu.Unlock()
++	if between {
+ 		return false, elevio.ButtonEvent{}
+ 	}
+ 	e.System.Mutex.RLock()
+@@ -105,7 +112,10 @@ func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
+ 	target := e.System.Elevators[e.Id].Target
+ 	e.System.Mutex.RUnlock()
+ 
+-	return e.scanFloor(e.currentFloor, e.currentFloor, direction, target, hallRequest, cabRequests)
++	e.mu.Lock()
++	floor := e.currentFloor
++	e.mu.Unlock()
++	return e.scanFloor(floor, floor, direction, target, hallRequest, cabRequests)
+ }
+ 
+ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
+@@ -117,7 +127,10 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
+ 	target := elevator.Target
+ 
+ 	upScan := func() elevio.ButtonEvent {
+-		if ok, ev := e.scanCurrentFloor(); ok && !e.inBetweenFloors {
++		e.mu.Lock()
++		between := e.inBetweenFloors
++		e.mu.Unlock()
++		if ok, ev := e.scanCurrentFloor(); ok && !between {
+ 			return ev
+ 		}
+ 
+@@ -140,7 +153,10 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
+ 	}
+ 
+ 	downScan := func() elevio.ButtonEvent {
+-		if ok, ev := e.scanCurrentFloor(); ok && !e.inBetweenFloors {
++		e.mu.Lock()
++		between := e.inBetweenFloors
++		e.mu.Unlock()
++		if ok, ev := e.scanCurrentFloor(); ok && !between {
+ 			return ev
+ 		}
+ 
+diff --git a/elevator_program/elevator/state_machine.go b/elevator_program/elevator/state_machine.go
+index 6fc70f4..27f051b 100644
+--- a/elevator_program/elevator/state_machine.go
++++ b/elevator_program/elevator/state_machine.go
+@@ -12,7 +12,11 @@ import (
+ // Motion helper functions
+ // ------------------------
+ func (e *Elevator) atTargetFloor(targetFloor int) bool {
+-	return e.currentFloor == targetFloor && !e.inBetweenFloors && e.currentFloor != -1
++	e.mu.Lock()
++	floor := e.currentFloor
++	between := e.inBetweenFloors
++	e.mu.Unlock()
++	return floor == targetFloor && !between && floor != -1
+ }
+ 
+ func (e *Elevator) isTargetValid(targetFloor int) bool {
+@@ -20,9 +24,13 @@ func (e *Elevator) isTargetValid(targetFloor int) bool {
+ }
+ 
+ func (e *Elevator) getMotion(target int) elevio.MotorDirection {
+-	if e.atTargetFloor(target) || e.emergencyStop || !e.isTargetValid(target) {
++	e.mu.Lock()
++	estop := e.emergencyStop
++	floor := e.currentFloor
++	e.mu.Unlock()
++	if e.atTargetFloor(target) || estop || !e.isTargetValid(target) {
+ 		return elevio.MD_Stop
+-	} else if e.currentFloor < target {
++	} else if floor < target {
+ 		return elevio.MD_Up
+ 	} else {
+ 		return elevio.MD_Down
+@@ -30,7 +38,10 @@ func (e *Elevator) getMotion(target int) elevio.MotorDirection {
+ }
+ 
+ func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDirection) {
+-	if dir == elevio.MD_Stop && target.Floor == e.currentFloor {
++	e.mu.Lock()
++	floor := e.currentFloor
++	e.mu.Unlock()
++	if dir == elevio.MD_Stop && target.Floor == floor {
+ 		switch target.Button {
+ 		case elevio.BT_HallUp:
+ 			dir = elevio.MD_Up
+@@ -64,18 +75,19 @@ func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.M
+ }
+ 
+ func (e *Elevator) uninitializedAction() elevio.MotorDirection {
+-	if e.currentFloor == -1 {
++	e.mu.Lock()
++	floor := e.currentFloor
++	e.mu.Unlock()
++
++	if floor == -1 {
+ 		return elevio.MD_Down
+ 	}
+-
+-	if e.currentFloor < e.initFloor {
++	if floor < e.initFloor {
+ 		return elevio.MD_Up
+ 	}
+-
+-	if e.currentFloor > e.initFloor {
++	if floor > e.initFloor {
+ 		return elevio.MD_Down
+ 	}
+-
+ 	return elevio.MD_Stop
+ }
+ 
+@@ -83,9 +95,20 @@ func (e *Elevator) uninitializedAction() elevio.MotorDirection {
+ // State Machine
+ // ------------------------
+ // Updates elevator state when connected to the network
+-func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change state and controls the motor
+-	if e.emergencyStop {
++func (e *Elevator) updateElevatorStateOnline() {
++	e.mu.Lock()
++	estop := e.emergencyStop
++	ds := e.doorState
++	e.mu.Unlock()
++
++	if estop {
+ 		elevio.SetMotorDirection(elevio.MD_Stop)
++		// Update system state to reflect emergency stop
++		e.System.Mutex.Lock()
++		elevatorCopy := e.System.Elevators[e.Id]
++		elevatorCopy.State = types.ES_EmergencyStop
++		e.System.Elevators[e.Id] = elevatorCopy
++		e.System.Mutex.Unlock()
+ 		return
+ 	}
+ 
+@@ -95,11 +118,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ 	elevatorState := elevs[e.Id]
+ 	prevState := elevatorState.State
+ 
+-	// TODO add doorstate switch, e.startTime = time.Now()
+-
+ 	var dir elevio.MotorDirection = elevio.MD_Stop
+ 
+-	if elevatorState.State != types.ES_Uninitialized && e.doorState != DS_Closed {
++	if elevatorState.State != types.ES_Uninitialized && ds != DS_Closed {
+ 		elevio.SetMotorDirection(elevio.MD_Stop)
+ 		return
+ 	}
+@@ -111,7 +132,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ 		if dir == elevio.MD_Stop {
+ 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
+ 			elevatorState.State = types.ES_Idle
++			e.mu.Lock()
+ 			e.doorState = DS_Opening
++			e.mu.Unlock()
+ 			fmt.Println(e)
+ 
+ 			e.System.Mutex.RLock()
+@@ -138,7 +161,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ 			if dir != elevio.MD_Stop {
+ 				elevatorState.State = types.ES_Moving
+ 			} else {
++				e.mu.Lock()
+ 				e.doorState = DS_Opening
++				e.mu.Unlock()
+ 				e.finishedTask(elevatorState.State)
+ 			}
+ 		}
+@@ -151,7 +176,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ 		dir = e.getMotion(targetFloor)
+ 
+ 		if dir == elevio.MD_Stop {
++			e.mu.Lock()
+ 			e.doorState = DS_Opening
++			e.mu.Unlock()
+ 			elevatorState.State = types.ES_Idle
+ 			e.finishedTask(elevatorState.State)
+ 		}
+@@ -163,23 +190,24 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ 	elevio.SetMotorDirection(dir)
+ 
+ 	// If state has changed, notify
++	var statusMsg *message.ElevatorMessage
+ 	e.System.Mutex.Lock()
+ 	if elevatorState.State != e.System.Elevators[e.Id].State {
+ 		elevatorCopy := e.System.Elevators[e.Id]
+ 		elevatorCopy.State = elevatorState.State
+ 		e.System.Elevators[e.Id] = elevatorCopy
+ 
+-		eMsg := message.ElevatorMessage{
++		statusMsg = &message.ElevatorMessage{
+ 			EMsgType: message.EMSG_T_StatusReport,
+ 			ID:       e.Id,
+ 			Elevators: map[string]types.ElevatorsStatus{
+-				e.Id: e.System.Elevators[e.Id],
++				e.Id: elevatorCopy,
+ 			},
+ 		}
+-		e.System.Mutex.Unlock()
+-		e.SendToCoordinator <- eMsg
+-	} else {
+-		e.System.Mutex.Unlock()
++	}
++	e.System.Mutex.Unlock()
++	if statusMsg != nil {
++		e.SendToCoordinator <- *statusMsg
+ 	}
+ 
+ 	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
+@@ -188,8 +216,13 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
+ }
+ 
+ // Updates the elevator state when not connected to the network
+-func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change state and controls the motor
+-	if e.emergencyStop {
++func (e *Elevator) updateElevatorStateOffline() {
++	e.mu.Lock()
++	estop := e.emergencyStop
++	ds := e.doorState
++	e.mu.Unlock()
++
++	if estop {
+ 		elevio.SetMotorDirection(elevio.MD_Stop)
+ 		return
+ 	}
+@@ -200,14 +233,11 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
+ 	e.System.Mutex.RUnlock()
+ 	prevState := elevatorStatus.State
+ 
+-	// TODO add doorstate switch, e.startTime = time.Now()
+-
+ 	var dir elevio.MotorDirection = elevio.MD_Stop
+ 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+ 
+-	if elevatorStatus.State != types.ES_Uninitialized && e.doorState != DS_Closed {
++	if elevatorStatus.State != types.ES_Uninitialized && ds != DS_Closed {
+ 		elevio.SetMotorDirection(elevio.MD_Stop)
+-
+ 		return
+ 	}
+ 
+@@ -218,7 +248,9 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
+ 		if dir == elevio.MD_Stop {
+ 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
+ 			elevatorStatus.State = types.ES_Idle
++			e.mu.Lock()
+ 			e.doorState = DS_Opening
++			e.mu.Unlock()
+ 			fmt.Println(e)
+ 		}
+ 
+@@ -242,13 +274,17 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
+ 			}
+ 			e.System.Mutex.Unlock()
+ 
++			e.mu.Lock()
+ 			if !e.IsOnline {
+ 				e.scheduleRestart = true
+ 			}
++			e.mu.Unlock()
+ 		}
+ 
+ 		if e.atTargetFloor(elevatorStatus.Target.Floor) {
++			e.mu.Lock()
+ 			e.doorState = DS_Opening
++			e.mu.Unlock()
+ 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
+ 		}
+ 
+@@ -261,7 +297,9 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
+ 		dir = e.getMotion(elevatorStatus.Target.Floor)
+ 
+ 		if dir == elevio.MD_Stop {
++			e.mu.Lock()
+ 			e.doorState = DS_Opening
++			e.mu.Unlock()
+ 			elevatorStatus.State = types.ES_Idle
+ 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
+ 		}
+@@ -296,7 +334,10 @@ func (e *Elevator) RunElevatorStateMachine() {
+ 		case <-e.stop:
+ 			return
+ 		case <-ticker.C:
+-			if e.IsOnline {
++			e.mu.Lock()
++			online := e.IsOnline
++			e.mu.Unlock()
++			if online {
+ 				e.updateElevatorStateOnline()
+ 			} else {
+ 				e.updateElevatorStateOffline()
+@@ -363,7 +404,10 @@ func (e *Elevator) finishedTask(state types.ElevatorState) { // TODO as claude h
+ 
+ 	e.SendToCoordinator <- finishedMsg
+ 
+-	if e.IsMaster {
++	e.mu.Lock()
++	isMaster := e.IsMaster
++	e.mu.Unlock()
++	if isMaster {
+ 		task := e.GetNextTargetFloor(elevs[e.Id], hallRequests)
+ 
+ 		if task.Floor != -1 {
+diff --git a/elevator_program/system/system.go b/elevator_program/system/system.go
+index 6d11f30..21d69d6 100644
+--- a/elevator_program/system/system.go
++++ b/elevator_program/system/system.go
+@@ -34,9 +34,8 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
+ 	}
+ }
+ 
++// Snapshot returns a deep copy of the system state. Caller MUST hold s.Mutex (RLock or Lock).
+ func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]types.ElevatorsStatus) {
+-	// s.Mutex.RLock()
+-	// defer s.Mutex.RUnlock()
+ 	hall = make([][2]types.ButtonStatus, len(s.HallRequests))
+ 	copy(hall, s.HallRequests)
+ 
+diff --git a/elevator_program/udp/server/elevator_tasks.go b/elevator_program/udp/server/elevator_tasks.go
+index 9ca2c93..5fb236f 100644
+--- a/elevator_program/udp/server/elevator_tasks.go
++++ b/elevator_program/udp/server/elevator_tasks.go
+@@ -24,7 +24,7 @@ func (srv *Server) sendTaskLoop() {
+ 			srv.sendToElevator(task)
+ 		case <-time.After(udp.TASK_READY_TIMEOUT):
+ 			fmt.Println(srv.ID, "task never became ready, skipping")
+-			return
++			continue
+ 		}
+ 	}
+ 	fmt.Println(srv.ID, "task loop stopped ...")
+diff --git a/elevator_program/udp/server/peer_manager.go b/elevator_program/udp/server/peer_manager.go
+index 45b0075..70c4b04 100644
+--- a/elevator_program/udp/server/peer_manager.go
++++ b/elevator_program/udp/server/peer_manager.go
+@@ -56,6 +56,8 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
+ }
+ 
+ func (srv *Server) GetMasterPeer() *peerinfo.PeerInfo {
++	srv.mu.Lock()
++	defer srv.mu.Unlock()
+ 	for _, p := range srv.peers {
+ 		if p.IsMaster {
+ 			return p
+diff --git a/elevator_program/udp/server/server.go b/elevator_program/udp/server/server.go
+index 23d216b..167db19 100644
+--- a/elevator_program/udp/server/server.go
++++ b/elevator_program/udp/server/server.go
+@@ -139,6 +139,13 @@ func (srv *Server) run() {
+ 
+ func (srv *Server) Close() {
+ 	srv.closeOnce.Do(func() {
++		// Close sessions first to unblock any goroutines waiting on session channels
++		srv.mu.Lock()
++		for sesID := range srv.sessions {
++			srv.closeSessionLocked(sesID)
++		}
++		srv.mu.Unlock()
++
+ 		close(srv.stop) // signal shutdown
+ 		close(srv.elevatorTaskQueue)
+ 		srv.recvConn.Close() // unblock ReadFromUDP
+@@ -146,12 +153,6 @@ func (srv *Server) Close() {
+ 		srv.broadcastConn.Close()
+ 
+ 		srv.wg.Wait() // wait for goroutines
+-
+-		srv.mu.Lock()
+-		for sesID := range srv.sessions {
+-			srv.closeSessionLocked(sesID)
+-		}
+-		srv.mu.Unlock()
+ 	})
+ }
+ 

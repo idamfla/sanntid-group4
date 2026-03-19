@@ -12,23 +12,22 @@ import (
 	"time"
 )
 
+// Delegating tasks to own elevator and preparing and queueing messages to be sent over udp
 type Coordinator struct {
 	Server        *server.Server
 	msgRecieveCh  chan session.ElevatorPacket
 	msgSendCh     chan message.ElevatorMessage
 	wg            sync.WaitGroup
-	activePeers   int
 	portRegistery map[string]int
-	portSelf      int
 	TaskMonitor   TaskMonitor
 }
 
+// Initialize the coordinator struct
 func (c *Coordinator) InitCoordinator() {
 	c.msgRecieveCh = make(chan session.ElevatorPacket, 10)
 	c.msgSendCh = make(chan message.ElevatorMessage, 10)
-	c.activePeers = 1
 	c.portRegistery = map[string]int{
-		"broadcast": 3000,
+		"broadcast": 3000, // TODO change this
 		"master":    9000,
 	}
 	c.TaskMonitor = NewTaskMonitor(15 * time.Second) // TODO how long should we wait??
@@ -46,6 +45,7 @@ func (c *Coordinator) StartServer(ip string, port int, id string) error {
 	return nil
 }
 
+// Start necessary gorutines for the coordinator
 func (c *Coordinator) Start(e *elevator.Elevator) {
 	c.wg.Add(1)
 	go c.MessageListener(e)
@@ -53,16 +53,19 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	go c.Server.Start()
 }
 
+// For queueing messages to send with udp
 func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
 	c.Server.QueueMessage(remoteAddr, protoPktType, msg)
-
 }
 
+// Closes the server
 func (c *Coordinator) Close() {
 	close(c.msgRecieveCh)
 
-	c.Server.PrintSessions()
-	c.Server.Close()
+	if c.Server != nil {
+		c.Server.PrintSessions()
+		c.Server.Close()
+	}
 
 	fmt.Println("Elevator and server have shut down cleanly")
 }

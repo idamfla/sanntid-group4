@@ -5,24 +5,26 @@ import (
 	"encoding/binary"
 )
 
-func generateSessionID() uint32 {
+func generateSessionID() (uint32, error) {
 	var b [4]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(err) // TODO i dont want panic, just something that makes it try again
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
 	}
-	return binary.LittleEndian.Uint32(b[:])
+	return binary.LittleEndian.Uint32(b[:]), nil
 }
 
 // generates a unique session id,the called must mutex lock srv
 func (srv *Server) generateSessionIDLocked() uint32 {
-	var id uint32
 	for {
-		id = generateSessionID()
+		id, err := generateSessionID()
+		if err != nil {
+			continue
+		}
 
 		if _, exists := srv.sessions[id]; !exists {
-			break
+			return id
 		}
 	}
 
-	return id
 }

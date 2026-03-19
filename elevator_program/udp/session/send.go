@@ -6,75 +6,53 @@ import (
 	"fmt"
 )
 
-var emtpyMsg message.ElevatorMessage
-
 // helper
 func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
+	fmt.Println(outPkt.EMsg.ID, outPkt.PktType, "sent msg with seq", ses.seq) // TODO db remove later
 	return ses.tx.Send(
-		ses.senderAddr,
+		ses.peerAddr,
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
-		outPkt.Msg,
+		outPkt.EMsg,
 	)
 }
 
-func (ses *Session) QueueDataMessage(msg message.ElevatorMessage) {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_Data,
-		Msg:     msg,
-	}
-}
-
-func (ses *Session) QueueMasterMessage(msg message.ElevatorMessage) {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_SlaveReport,
-		Msg:     msg,
-	}
-}
-
-func (ses *Session) QueueBroadcastUpdate(msg message.ElevatorMessage) {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_BroadcastUpdate,
-		Msg:     msg,
-	}
-}
-
-func (ses *Session) QueueStateSync() {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_StateSync,
-		Msg:     emtpyMsg,
-	}
-}
-
-func (ses *Session) sendReply(pktType packet.PacketType) {
-	done := make(chan struct{})
+func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
-		Msg:     emtpyMsg,
-		Done:    done, // new field in Outgoing
+		EMsg:    eMsg,
 	}
-	<-done // wait until SendLoop actually sends it
 }
 
-func (ses *Session) sendDoneAck(pktType packet.PacketType) {
-	switch pktType {
-	case packet.PKT_T_BroadcastCommit:
-		ses.sendReply(packet.PKT_T_BroadcastDone)
+func (ses *Session) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
+
+func (ses *Session) QueueWhoIsMasterMsg() {}
+
+func (ses *Session) SendReply(pktType packet.PacketType) {
+	select {
+	case ses.outgoingMsgCh <- outgoingMessage{
+		PktType: pktType,
+		EMsg:    message.ElevatorMessage{},
+	}:
 	default:
-		ses.sendReply(packet.PKT_T_Done)
+		fmt.Println("Session", ses.ID, "outgoingMsgCh full, dropping packet")
 	}
+}
+
+func (ses *Session) sendBroadcastDone() {
+	ses.SendReply(packet.PKT_T_BroadcastDone)
 }
 
 func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 	return ses.tx.Send(
-		ses.senderAddr,
+		ses.peerAddr,
 		ses.seq,
 		ses.ID,
 		outPkt.PktType,
-		outPkt.Msg)
+		outPkt.EMsg)
 }
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
@@ -87,13 +65,12 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}
-
 			behavior.OnSend(outPkt.PktType)
 
-			if outPkt.Done != nil {
-				close(outPkt.Done) // signal sender
+			// if outPkt.Done != nil {
+			// 	close(outPkt.Done) // signal sender
 
-			}
+			// }
 		case <-ses.stop:
 			return
 		}

@@ -60,7 +60,7 @@ func testBroadcast_send(srv *server.Server) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	bcMsg := message.ElevatorMessage{Ip: "Hello, broadcast from " + srv.ID}
+	bcMsg := message.ElevatorMessage{ActivePeers: 80085}
 
 	for range ticker.C {
 		srv.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, bcMsg)
@@ -78,40 +78,89 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	<-sigChan
 
 	fmt.Println("\nCtrl+C pressed")
+	fmt.Println("Is A master", e1.IsMaster())
 
 	// Graceful shutdown
 	e1.Close()
 	e2.Close()
+	// e3.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
 
 func main() {
+	// eA := elevtest.NewElev("A")
+
+	// err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// eB := elevtest.NewElev("B")
+
+	// err = eB.StartServer(localIP, 9001)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// eC := elevtest.NewElev("C")
+
+	// err = eC.StartServer(localIP, 9002)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// eA.Start()
+	// eB.Start()
+	// eC.Start()
+
+	// time.Sleep(3 * time.Second)
+	// eB.QueueMessage(
+	// 	nil,
+	// 	packet.PROTO_PKT_T_WhoIsMaster,
+	// 	message.ElevatorMessage{},
+	// )
+	// // eC.QueueMessage(
+	// // 	udp.MustUDPAddr(localIP, 9001),
+	// // 	packet.PROTO_PKT_T_SlaveUpdate,
+	// // 	message.ElevatorMessage{ActivePeers: 380085},
+	// // )
+	// time.Sleep(5 * time.Second)
+
+	// eB.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9000),
+	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+	// 	message.ElevatorMessage{},
+	// )
+
+	// closeProgram(eA, eB, eC)
+
 	ip_address := "localhost"
 	port := "15657"
 
 	elevio.Init(ip_address+":"+port, 4)
 
-	//e1 := elevator.Elevator{}
-	//e1.InitElevator("1", 4, 3, receiver, 9005)
-	//p1 := coordinator.Coordinator{}
-	//p1.InitCoordinator()
-	//err := p1.StartServer(receiver, 9005, "1")
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	//p1.Start(&e1)
-	//
-	//// fmt.Println("eeeee: ", e1)
-	//
-	//fmt.Println("Created e1 and p1")
+	e1 := elevator.Elevator{}
+	e1.InitElevator("1", 4, 3, localIP, 9000)
+	p1 := coordinator.Coordinator{}
+	p1.InitCoordinator()
+	err := p1.StartServer(localIP, 9000, "1")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	p1.Start(&e1)
+
+	fmt.Println("Created e1 and p1")
 
 	e2 := elevator.Elevator{}
 	e2.InitElevator("2", 4, 3, receiver, 9001)
 	p2 := coordinator.Coordinator{}
 	p2.InitCoordinator()
-	err := p2.StartServer(receiver, 9001, "2")
+	err = p2.StartServer(receiver, 9001, "2")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -121,33 +170,28 @@ func main() {
 
 	//fmt.Println(&e1)
 	fmt.Println(&e2)
-	fmt.Println("Am i stuck")
 
 	e2.RunElevatorProgram()
 
-	// go func() {
-	// 	time.Sleep(15 * time.Second)
+	// time.Sleep(2 * time.Second)
+	// msg := message.ElevatorMessage{
+	// 	EMsgType: message.EMSG_T_NewToChannel,
+	// 	ID:       e2.Id,
+	// }
+	// e2.SendToCoordinator <- msg
 
-	// 	fmt.Println("\n=== TEST 3: Elevator failed / motor stop ===")
-	// 	e1.FaultMsg <- message.FaultMessage{
-	// 		FaultType: message.FAULT_T_ElevatorFailed,
-	// 	}
-
-	// }()
 	select {}
-
-	//TODO
-	/*
-		make sure elevator_task sendElevatorTaskLoop works correctly ...
-		there is an issue after the quorum is reached in the broadcast_session, it stops there
-		fix, the one that broadcasts has no content inside the task ...
-	*/
 }
 
-// 127.0.0.1 er lokal <- du kan bruke denne for en til en
-// 10.22.67.255 broadcast, broadcast har 255 som siste verdi
-
-// TODO test go run -race
-
-// TODO it looks like the system gets multiple running hallrequest and forgets its own target
-// TODO ask if there is some logical errors in the scanning of requests, sorting them and delegating them
+// TODO
+/*
+- make peer sync
+- send snapshot msg
+- make peer track seq number
+- make sure all is orginized enough, folder-vise etc.
+- handle new msg, nb some only send forth ack and then do work before starting completely new session
+	- check if it is only stopping because it uses old logic, it does send the whole exchange before crashing
+- remove master
+- should "I am master" prompt you to remove old master if there are any?
+- start server with start seq
+*/
