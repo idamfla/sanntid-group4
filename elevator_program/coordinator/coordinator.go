@@ -61,8 +61,10 @@ func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.
 func (c *Coordinator) Close() {
 	close(c.msgRecieveCh)
 
-	c.Server.PrintSessions()
-	c.Server.Close()
+	if c.Server != nil {
+		c.Server.PrintSessions()
+		c.Server.Close()
+	}
 
 	fmt.Println("Elevator and server have shut down cleanly")
 }

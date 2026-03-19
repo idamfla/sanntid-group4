@@ -4,7 +4,6 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -118,23 +117,24 @@ func main() {
 	eB.Start()
 	eC.Start()
 
+	time.Sleep(3 * time.Second)
 	eB.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	eC.QueueMessage(
-		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_SlaveUpdate,
-		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	)
-	time.Sleep(5 * time.Second)
+	// eC.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_SlaveUpdate,
+	// 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
+	// )
+	// time.Sleep(5 * time.Second)
 
-	eB.QueueMessage(
-		udp.MustUDPAddr(localIP, 9000),
-		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-		message.ElevatorMessage{},
-	)
+	// eB.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9000),
+	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+	// 	message.ElevatorMessage{},
+	// )
 
 	closeProgram(eA, eB, eC)
 }
