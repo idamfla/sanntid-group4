@@ -27,7 +27,8 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.Eleva
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
+func (ses *Session) QueueBroadcastUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+}
 
 func (ses *Session) QueueWhoIsMasterMsg() {}
 

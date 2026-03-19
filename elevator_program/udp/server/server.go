@@ -21,7 +21,7 @@ type SessionHandler interface {
 	SendReply(pkt packet.PacketType)
 	ReceivePacket(pkt packet.Packet)
 	QueueWhoIsMasterMsg()
-	QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage)
+	QueueBroadcastUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage)
 }
 
 type Server struct {
@@ -143,10 +143,12 @@ func (srv *Server) run() {
 func (srv *Server) Close() {
 	srv.closeOnce.Do(func() {
 		close(srv.stop) // signal shutdown
-		close(srv.elevatorTaskQueue)
+
 		srv.recvConn.Close() // unblock ReadFromUDP
 		srv.sendConn.Close()
 		srv.broadcastConn.Close()
+
+		close(srv.elevatorTaskQueue)
 
 		srv.wg.Wait() // wait for goroutines
 

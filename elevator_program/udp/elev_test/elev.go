@@ -17,12 +17,14 @@ type Elev struct {
 	ch       chan session.ElevatorPacket
 	srv      *server.Server
 	wg       sync.WaitGroup
+	stop     chan struct{}
 }
 
 func NewElev(id string) *Elev {
 	return &Elev{
-		ID: id,
-		ch: make(chan session.ElevatorPacket),
+		ID:   id,
+		ch:   make(chan session.ElevatorPacket),
+		stop: make(chan struct{}),
 	}
 }
 
@@ -39,20 +41,25 @@ func (e *Elev) StartServer(ip string, port int) error {
 
 func (e *Elev) listen() {
 	defer e.wg.Done()
-	for msg := range e.ch {
-		fmt.Println("elev got elevator packet:", msg.EMsg)
-		if msg.Done != nil {
-			msg.Done <- struct{}{}
-		}
-
-		if msg.EMsg.EMsgType == message.EMSG_T_NewToChannel {
-			fmt.Println(e.srv.ID, "took screenshot")
-			udpAddr, err := udp.StringAddrToUDPAddr(msg.EMsg.Addr)
-			if err != nil {
-				continue
+	for {
+		select {
+		case msg := <-e.ch:
+			fmt.Println("elev got elevator packet:", msg.EMsg)
+			if msg.Done != nil {
+				msg.Done <- struct{}{}
 			}
-			e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_CatchupUpdate, message.ElevatorMessage{})
-			e.srv.StartPeerCatchup(udpAddr)
+
+			if msg.EMsg.EMsgType == message.EMSG_T_NewToChannel {
+				fmt.Println(e.srv.ID, "took screenshot")
+				udpAddr, err := udp.StringAddrToUDPAddr(msg.EMsg.Addr)
+				if err != nil {
+					continue
+				}
+				e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_CatchupUpdate, message.ElevatorMessage{})
+				e.srv.StartPeerCatchup(udpAddr)
+			}
+		case <-e.stop:
+			return
 		}
 	}
 }
@@ -69,12 +76,20 @@ func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Protoco
 }
 
 func (e *Elev) Close() {
-	close(e.ch)
-
 	if e.srv != nil {
 		e.srv.PrintSessions()
-		e.srv.Close()
+		e.wg.Add(1)
+		go func() {
+			defer e.wg.Done()
+			e.srv.Close()
+		}()
 	}
+
+	close(e.stop)
+
+	e.wg.Wait()
+
+	close(e.ch)
 
 	fmt.Printf("Elevator %s and server have shut down cleanly\n", e.ID)
 }

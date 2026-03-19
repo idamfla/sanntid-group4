@@ -60,13 +60,13 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_CatchupAck:
 		ses.requestClose()
 
-	case packet.PKT_T_CatchupDone:
-		ses.requestClose()
+	// case packet.PKT_T_SyncComplete:
+	// 	ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
 		ses.handleSlaveUpdate(pkt.Payload)
 
-	case packet.PKT_T_BroadcastUpdate:
+	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete: // CatchupDone signifies that someone has rejoind the network and is up to date
 		ses.SendReply(packet.PKT_T_BroadcastAck)
 		ses.QueueElevatorStateTask()
 
@@ -95,13 +95,6 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.scheduleSessionClose()
 }
-
-// func (ses *Session) handleSnapshot() {
-// 	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
-// 	ses.notifyTaskReady()
-// 	ses.SendReply(packet.PKT_T_SnapshotAck)
-// 	ses.scheduleSessionClose()
-// }
 
 func (ses *Session) handleCatchup() {
 	ses.QueueElevatorStateTask()

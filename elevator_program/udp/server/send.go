@@ -49,11 +49,11 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(eMsg message.ElevatorMessage) {
+func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	quorum := srv.getPeerCount()
 	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
 
-	bs.QueueBroadcastUpdateMsg(eMsg)
+	bs.QueueBroadcastUpdateMsg(pktType, eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
@@ -77,6 +77,9 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 
 	case packet.PKT_T_CatchupUpdate:
 		srv.dispatchToSlaveMsg(outMsg)
+
+	case packet.PKT_T_SyncComplete:
+		srv.dispatchCatchupDone(outMsg)
 	}
 }
 
@@ -113,7 +116,15 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startStateBroadcast(outMsg.EMsg)
+	srv.startStateBroadcast(packet.PKT_T_BroadcastUpdate, outMsg.EMsg)
+}
+
+func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
+	if !srv.IsMaster() {
+		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
+	}
+
+	srv.startStateBroadcast(packet.PKT_T_SyncComplete, outMsg.EMsg)
 }
 
 func (srv *Server) dispatchWhoIsMaster() {

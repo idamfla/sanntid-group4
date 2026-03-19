@@ -40,7 +40,8 @@ func (ws *WhoIsMasterBroadcast) SendReply(pkt packet.PacketType) { ws.Session.Se
 
 func (ws *WhoIsMasterBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
 
-func (ws *WhoIsMasterBroadcast) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
+func (ws *WhoIsMasterBroadcast) QueueBroadcastUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+}
 
 func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
 	ws.outgoingMsgCh <- outgoingMessage{

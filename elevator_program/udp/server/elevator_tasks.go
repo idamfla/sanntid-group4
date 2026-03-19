@@ -24,6 +24,8 @@ func (srv *Server) sendTaskLoop() {
 			srv.sendToElevator(task)
 		case <-time.After(udp.TASK_READY_TIMEOUT):
 			fmt.Println(srv.ID, "task never became ready, skipping")
+			continue
+		case <-srv.stop:
 			return
 		}
 	}

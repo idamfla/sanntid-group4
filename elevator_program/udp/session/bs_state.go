@@ -51,9 +51,17 @@ func (sbs *StateBroadcast) SendReply(pkt packet.PacketType) { sbs.Session.SendRe
 
 func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) { sbs.Session.ReceivePacket(pkt) }
 
-func (sbs *StateBroadcast) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {
+func (sbs *StateBroadcast) QueueBroadcastUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+	var pktT packet.PacketType
+	switch pktType {
+	case packet.PKT_T_SyncComplete:
+		pktT = packet.PKT_T_SyncComplete
+	default:
+		pktT = packet.PKT_T_BroadcastUpdate
+	}
+
 	sbs.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_BroadcastUpdate,
+		PktType: packet.PacketType(pktT),
 		EMsg:    eMsg,
 	}
 }

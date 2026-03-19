@@ -13,7 +13,8 @@ const (
 
 	PKT_T_CatchupUpdate
 	PKT_T_CatchupAck
-	PKT_T_CatchupDone
+
+	PKT_T_SyncComplete
 
 	PKT_T_BroadcastUpdate
 	PKT_T_BroadcastAck
@@ -43,7 +44,7 @@ const (
 	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
 	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)          //broadcast
 	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
-	PROTO_PKT_T_CatchupDone          ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupDone)          // master -> slave
+	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)         // master -> slave
 	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
 	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)          // slave -> master
 	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
@@ -75,8 +76,8 @@ func (p PacketType) String() string {
 		return "Catch Up Update"
 	case PKT_T_CatchupAck:
 		return "Catch Up Ack"
-	case PKT_T_CatchupDone:
-		return "Catch Up Done"
+	case PKT_T_SyncComplete:
+		return "Synchronization Complete"
 	case PKT_T_BroadcastUpdate:
 		return "Broadcast Update"
 	case PKT_T_BroadcastAck:
