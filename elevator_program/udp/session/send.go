@@ -24,9 +24,9 @@ func (ses *Session) QueueServerMsg(eMsg message.ElevatorMessage) {
 	ses.tx.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, eMsg)
 }
 
-func (ses *Session) QueueSlaveUpdateMsg(eMsg message.ElevatorMessage) {
+func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_SlaveUpdate,
+		PktType: pktType,
 		EMsg:    eMsg,
 	}
 }

@@ -73,10 +73,8 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 		ip = localIP // broadcastIp
 		port = 9000  //p.portRegistery["broadcast"]
 		msgPacket = packet.PROTO_PKT_T_WhoIsMaster
+		fmt.Println("Trying to send new to channel")
 	}
-	// ip = "127.0.0.255"
-	// port = 3000
-	// fmt.Println("Trying to send new to channel", ip, port)
 	c.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, eMsg)
 }
 

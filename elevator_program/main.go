@@ -4,7 +4,7 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/types"
+	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -90,106 +90,53 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 }
 
 func main() {
-	// eA := elevtest.NewElev("A")
+	eA := elevtest.NewElev("A")
 
-	// err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eB := elevtest.NewElev("B")
-
-	// err = eB.StartServer(localIP, 9001)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eC := elevtest.NewElev("C")
-
-	// // err = eC.StartServer(localIP, 9002)
-	// // if err != nil {
-	// // 	fmt.Println(err)
-	// // 	return
-	// // }
-
-	// eA.Start()
-	// eB.Start()
-	// // eC.Start()
-
-	// eB.QueueMessage(
-	// 	nil,
-	// 	packet.PROTO_PKT_T_WhoIsMaster,
-	// 	message.ElevatorMessage{},
-	// )
-	// // eC.QueueMessage(
-	// // 	udp.MustUDPAddr(localIP, 9001),
-	// // 	packet.PROTO_PKT_T_SlaveUpdate,
-	// // 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	// // )
-	// time.Sleep(5 * time.Second)
-	// eB.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9000),
-	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-	// 	message.ElevatorMessage{},
-	// )
-
-	// closeProgram(eA, eB, eC)
-
-	//My program
-	ip_address := "localhost"
-	port := "15657"
-
-	elevio.Init(ip_address+":"+port, 4)
-
-	e1 := elevator.Elevator{}
-	e1.InitElevator("1", 4, 3, localIP, 9000)
-	p1 := coordinator.Coordinator{}
-	p1.InitCoordinator()
-	err := p1.StartServer(localIP, 9000, "1")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	p1.Start(&e1)
-
-	// fmt.Println("eeeee: ", e1)
-
-	fmt.Println("Created e1 and p1")
-
-	e2 := elevator.Elevator{}
-	e2.InitElevator("2", 4, 3, localIP, 9001)
-	p2 := coordinator.Coordinator{}
-	p2.InitCoordinator()
-	err = p2.StartServer(localIP, 9001, "2")
+	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	p2.Start(&e2)
+	eB := elevtest.NewElev("B")
 
-	fmt.Println(&e1)
-	fmt.Println(&e2)
-	fmt.Println("Am i stuck")
-
-	e2.RunElevatorProgram()
-
-	eMsg := message.ElevatorMessage{
-		EMsgType: message.EMSG_T_NewToChannel,
-		ID:       e2.Id,
-		Addr:     e2.Ip,
-		Elevators: map[string]types.ElevatorsStatus{
-			e2.Id: e2.System.Elevators[e2.Id],
-		},
+	err = eB.StartServer(localIP, 9001)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
-	fmt.Println("Trying to send to network, ", e2.Id)
 
-	e2.SendToCoordinator <- eMsg
+	eC := elevtest.NewElev("C")
 
-	select {}
+	err = eC.StartServer(localIP, 9002)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
+	eA.Start()
+	eB.Start()
+	eC.Start()
+
+	eB.QueueMessage(
+		nil,
+		packet.PROTO_PKT_T_WhoIsMaster,
+		message.ElevatorMessage{},
+	)
+	eC.QueueMessage(
+		udp.MustUDPAddr(localIP, 9001),
+		packet.PROTO_PKT_T_SlaveUpdate,
+		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
+	)
+	time.Sleep(5 * time.Second)
+
+	eB.QueueMessage(
+		udp.MustUDPAddr(localIP, 9000),
+		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+		message.ElevatorMessage{},
+	)
+
+	closeProgram(eA, eB, eC)
 }
 
 // TODO
