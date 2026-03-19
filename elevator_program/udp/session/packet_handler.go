@@ -47,7 +47,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		// TODO what to do now?
 
 	case packet.PKT_T_RequestTaskExecution:
-		ses.handleRequestTaskExecution()
+		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
 
 	case packet.PKT_T_StateSnapshot:
 		ses.handleSnapshot()
@@ -65,7 +65,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
-		ses.handleSlaveUpdate()
+		ses.handleSlaveUpdate(pkt.Payload)
 
 	case packet.PKT_T_BroadcastUpdate:
 		ses.SendReply(packet.PKT_T_BroadcastAck)
@@ -91,30 +91,31 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 }
 
 // ask elevator for sync, get PKT_T_StateSnapshot back
-func (ses *Session) handleRequestTaskExecution() {
-	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport)
-	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
+func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
+	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
 	ses.notifyTaskReady()
+	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.scheduleSessionClose()
 }
 
 func (ses *Session) handleSnapshot() {
+	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
+	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_SnapshotAck)
-	ses.QueueElevatorStateTask()
-	ses.notifyTaskReady()
-}
-
-func (ses *Session) handleCatchup() {
-	ses.SendReply(packet.PKT_T_CatchupAck)
-	ses.QueueElevatorStateTask()
-	ses.notifyTaskReady()
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleSlaveUpdate() {
-	ses.QueueServerMsg(ses.pendingPkt.Payload)
-	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
+func (ses *Session) handleCatchup() {
+	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
+	ses.SendReply(packet.PKT_T_CatchupAck)
+	ses.scheduleSessionClose()
+}
+
+func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
+	// ses.QueueServerMsg(ses.pendingPkt.Payload)
+	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
+	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	ses.scheduleSessionClose()
 }
 
@@ -128,14 +129,19 @@ func (ses *Session) QueueElevatorStateTask() {
 }
 
 // queue order of having master do some work, don't need to notify completion, just start a new session
-func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType) {
-	eMsg := message.ElevatorMessage{
-		ID:       ses.peerID,
-		Addr:     ses.peerAddr.String(),
-		EMsgType: eMsgType,
+func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, eMsg message.ElevatorMessage) {
+	var emsg message.ElevatorMessage
+	if eMsgType == message.EMSG_T_StatusReport {
+		emsg = eMsg
+	} else {
+		emsg = message.ElevatorMessage{
+			ID:       ses.peerID,
+			Addr:     ses.peerAddr.String(),
+			EMsgType: eMsgType,
+		}
 	}
 
-	ses.tx.QueueElevatorTask(eMsg, nil, ses.taskReady)
+	ses.tx.QueueElevatorTask(emsg, nil, ses.taskReady)
 }
 
 func (ses *Session) handleBroadcastCommit() {

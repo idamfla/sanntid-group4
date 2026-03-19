@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+const (
+	CHANNEL_BUF = 32
+)
+
 type PacketSender interface {
 	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
@@ -17,6 +21,11 @@ type PacketSender interface {
 	IsMaster() bool
 	GetMasterPeer() *peerinfo.PeerInfo
 	StartPeerCatchup(peerAddr *net.UDPAddr)
+}
+
+type SessionBehavior interface {
+	HandlePacket(pkt packet.Packet) error
+	OnSend(pktType packet.PacketType)
 }
 
 type Session struct {
@@ -65,16 +74,16 @@ func NewSession(id uint32,
 		pendingPkt:         &packet.Packet{},
 		lastOutPkt:         outgoingMessage{},
 		hasLastPkt:         false,
-		packetInCh:         make(chan packet.Packet, 32),
-		outgoingMsgCh:      make(chan outgoingMessage, 32),
+		packetInCh:         make(chan packet.Packet, CHANNEL_BUF),
+		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
 		remoteCommitTimer:  timer.NewTimer(),
 		shutdownDelayTimer: timer.NewTimer(),
 
-		elevDone:  make(chan struct{}),
-		taskReady: make(chan struct{}),
+		elevDone:  make(chan struct{}, 1),
+		taskReady: make(chan struct{}, 1),
 		tx:        transmitter,
 
-		stop:     make(chan struct{}),
+		stop:     make(chan struct{}, CHANNEL_BUF),
 		closeReq: closeReq,
 	}
 
@@ -90,11 +99,11 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		// Stop normal session timers
+		// stop normal session timers
 		ses.remoteCommitTimer.Stop()
 		ses.shutdownDelayTimer.Stop()
 
-		// Stop base session goroutines
+		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
 

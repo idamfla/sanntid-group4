@@ -126,9 +126,9 @@ func main() {
 	// eC.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9001),
 	// 	packet.PROTO_PKT_T_SlaveUpdate,
-	// 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
+	// 	message.ElevatorMessage{ActivePeers: 380085},
 	// )
-	// time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// eB.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9000),

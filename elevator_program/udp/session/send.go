@@ -31,28 +31,19 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.Eleva
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_BroadcastUpdate,
-		EMsg:    eMsg,
-	}
-}
+func (ses *Session) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
 
-func (ses *Session) QueueWhoIsMasterMsg() {
-	ses.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_WhoIsMaster,
-		EMsg:    message.ElevatorMessage{},
-	}
-}
+func (ses *Session) QueueWhoIsMasterMsg() {}
 
 func (ses *Session) SendReply(pktType packet.PacketType) {
-	done := make(chan struct{})
-	ses.outgoingMsgCh <- outgoingMessage{
+	select {
+	case ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
 		EMsg:    message.ElevatorMessage{},
-		Done:    done, // new field in Outgoing
+	}:
+	default:
+		fmt.Println("Session", ses.ID, "outgoingMsgCh full, dropping packet")
 	}
-	<-done // wait until SendLoop actually sends it
 }
 
 func (ses *Session) sendBroadcastDone() {
@@ -80,10 +71,10 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			}
 			behavior.OnSend(outPkt.PktType)
 
-			if outPkt.Done != nil {
-				close(outPkt.Done) // signal sender
+			// if outPkt.Done != nil {
+			// 	close(outPkt.Done) // signal sender
 
-			}
+			// }
 		case <-ses.stop:
 			return
 		}
