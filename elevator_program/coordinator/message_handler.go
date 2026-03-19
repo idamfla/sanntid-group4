@@ -93,6 +93,8 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 
 func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
+
+	// Update info about an elevator and broadcast
 	case message.EMSG_T_StatusReport:
 		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 		e.SendToCoordinator <- eMsg
@@ -110,17 +112,18 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 					eMsg.BtnStatus = types.Pending
 				}
 			} else {
-				taskElevatorId, _, _ := e.ClosestToTarget(elevs, eMsg.Task) // TODO could be wrong here if master don't update system
+				taskElevatorId := e.ClosestToTarget(elevs, eMsg.Task) // TODO could be wrong here if master don't update system
+
+				// Someone has a better task to do, target that elevator with changing eMsg.ID
 				if taskElevatorId != "" {
-					// Someone has a better task to do, we need to broadcast task_Update
 					eMsg.ID = taskElevatorId
 					eMsg.BtnStatus = types.Running
-				} else { // If it is not the case we just need to broadcast the change
+				} else {
 					eMsg.ID = ""
 				}
-				eMsg.EMsgType = message.EMSG_T_ButtonPress //MSG_T_TaskUpdate
 			}
 		}
+		eMsg.EMsgType = message.EMSG_T_ButtonPress
 		e.SendToCoordinator <- eMsg
 
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate // TODO should remove this

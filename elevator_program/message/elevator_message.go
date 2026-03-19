@@ -22,9 +22,6 @@ const (
 	EMSG_T_NewToChannel // Send the latest information
 )
 
-// DTOs, data transfer objects
-
-// Hopefully a better struct
 type ElevatorMessage struct {
 	EMsgType ElevatorMessageType
 

@@ -173,7 +173,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			EMsgType: message.EMSG_T_StatusReport,
 			ID:       e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
-				e.Id: e.System.Elevators[e.Id],
+				e.Id: elevatorCopy,
 			},
 		}
 		e.System.Mutex.Unlock()

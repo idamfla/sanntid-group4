@@ -58,9 +58,8 @@ func (s *System) RegisterAndSyncElevator(
 	}
 
 	newElevator := types.ElevatorsStatus{
-		Id:       eMsg.ID,
-		Ip:       eMsg.Addr,
-		IsMaster: false,
+		Id: eMsg.ID,
+		Ip: eMsg.Addr,
 		Target: elevio.ButtonEvent{
 			Floor:  -1,
 			Button: elevio.BT_HallUp,

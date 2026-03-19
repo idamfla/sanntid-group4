@@ -43,7 +43,6 @@ func (e *Elevator) shouldRestartAfterOffline() bool {
 	if e.System.Elevators[e.Id].State == types.ES_Moving {
 		return false
 	}
-
 	if e.doorState != DS_Closed {
 		return false
 	}
@@ -99,7 +98,6 @@ func (e *Elevator) handlePeerDead(peerID string) {
 
 // ------------------------- Mode helpers -------------------------- //
 func (e *Elevator) enterOfflineMode() {
-
 	if !e.IsOnline {
 		return
 	}
@@ -110,7 +108,6 @@ func (e *Elevator) enterOfflineMode() {
 }
 
 func (e *Elevator) exitOfflineMode() {
-
 	if e.IsOnline {
 		return
 	}

@@ -39,14 +39,16 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
 		e.emergencyStop = hwEvent.EmergencyStop
-		e.System.Mutex.RLock()
-		_, elevators := e.System.Snapshot()
-		e.System.Mutex.RUnlock()
+		e.System.Mutex.Lock()
+		elevatorCopy := e.System.Elevators[e.Id]
+		elevatorCopy.State = types.ES_EmergencyStop
+		e.System.Elevators[e.Id] = elevatorCopy
 		eMsg := message.ElevatorMessage{
 			EMsgType:  message.EMSG_T_StatusReport,
 			ID:        e.Id,
-			Elevators: elevators,
+			Elevators: e.System.Elevators,
 		}
+		e.System.Mutex.Unlock()
 		e.SendToCoordinator <- eMsg
 
 	case HW_T_ButtonPress:
@@ -75,7 +77,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			}
 
 			if e.IsMaster {
-				taskElevatorId, _, _ := e.ClosestToTarget(elevators, task)
+				taskElevatorId := e.ClosestToTarget(elevators, task)
 				if taskElevatorId != e.Id {
 					eMsg.BtnStatus = types.Running
 					eMsg.ID = taskElevatorId
@@ -101,8 +103,8 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				ID:        e.Id,
 				Elevators: e.System.Elevators,
 			}
-			e.SendToCoordinator <- eMsg
 			e.System.Mutex.Unlock()
+			e.SendToCoordinator <- eMsg
 		}
 
 	case HW_T_Obstruction:
