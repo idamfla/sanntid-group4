@@ -49,11 +49,6 @@ func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
 	}
 }
 
-// place this message in the server outMsgQueue, starts a new session with the master asking for snapshot
-func (ses *Session) QueueSyncMsg() {
-	ses.tx.QueueSyncMsg()
-}
-
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
@@ -98,7 +93,6 @@ func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
 	}
 
 	ws.SendReply(packet.PKT_T_MasterAck)
-	ws.QueueSyncMsg()
 	ws.scheduleSessionClose()
 }
 

@@ -80,7 +80,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 		srv.mu.Unlock()
 
-		srv.QueueSyncMsg()
+		srv.QueueSyncRequest()
 		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
 
 		// if !srv.IsMaster() {

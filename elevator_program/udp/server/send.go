@@ -139,7 +139,7 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 	}
 }
 
-func (srv *Server) QueueSyncMsg() {
+func (srv *Server) QueueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,
 		Addr:     srv.recvConn.LocalAddr().String(),
