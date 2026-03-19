@@ -11,9 +11,6 @@ const (
 	PKT_T_IAmMaster
 	PKT_T_MasterAck
 
-	PKT_T_StateSnapshot
-	PKT_T_SnapshotAck
-
 	PKT_T_CatchupUpdate
 	PKT_T_CatchupAck
 	PKT_T_CatchupDone
@@ -45,7 +42,6 @@ const (
 	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
 	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
 	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)          //broadcast
-	PROTO_PKT_T_StateSnapshot        ProtocolPacketType = ProtocolPacketType(PKT_T_StateSnapshot)        // master -> slave
 	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
 	PROTO_PKT_T_CatchupDone          ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupDone)          // master -> slave
 	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
@@ -75,10 +71,6 @@ func (p PacketType) String() string {
 		return "I am master"
 	case PKT_T_MasterAck:
 		return "Master Ack"
-	case PKT_T_StateSnapshot:
-		return "State Snapshot"
-	case PKT_T_SnapshotAck:
-		return "Snapshot Ack"
 	case PKT_T_CatchupUpdate:
 		return "Catch Up Update"
 	case PKT_T_CatchupAck:

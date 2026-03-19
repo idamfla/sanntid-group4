@@ -4,7 +4,6 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -70,7 +69,7 @@ func testBroadcast_send(srv *server.Server) {
 }
 
 // just to get some prints after i "shut down"
-func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
+func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -84,7 +83,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Graceful shutdown
 	e1.Close()
 	e2.Close()
-	e3.Close()
+	// e3.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
@@ -106,37 +105,37 @@ func main() {
 		return
 	}
 
-	eC := elevtest.NewElev("C")
+	// eC := elevtest.NewElev("C")
 
-	err = eC.StartServer(localIP, 9002)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// err = eC.StartServer(localIP, 9002)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
 	eA.Start()
 	eB.Start()
-	eC.Start()
+	// eC.Start()
 
 	eB.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	eC.QueueMessage(
-		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_SlaveUpdate,
-		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	)
+	// eC.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_SlaveUpdate,
+	// 	message.ElevatorMessage{ActivePeers: 380085},
+	// )
 	time.Sleep(5 * time.Second)
 
-	eB.QueueMessage(
-		udp.MustUDPAddr(localIP, 9000),
-		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-		message.ElevatorMessage{},
-	)
+	// eB.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9000),
+	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+	// 	message.ElevatorMessage{},
+	// )
 
-	closeProgram(eA, eB, eC)
+	closeProgram(eA, eB)
 }
 
 // TODO

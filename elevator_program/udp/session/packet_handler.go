@@ -5,7 +5,6 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 	"time"
 )
 
@@ -47,13 +46,13 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		// TODO what to do now?
 
 	case packet.PKT_T_RequestTaskExecution:
-		ses.handleRequestTaskExecution()
+		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
 
-	case packet.PKT_T_StateSnapshot:
-		ses.handleSnapshot()
+	// case packet.PKT_T_StateSnapshot:
+	// 	ses.handleSnapshot()
 
-	case packet.PKT_T_SnapshotAck:
-		ses.startCatchup(ses.peerAddr)
+	// case packet.PKT_T_SnapshotAck:
+	// 	ses.startCatchup(ses.peerAddr)
 
 	case packet.PKT_T_CatchupUpdate:
 		ses.handleCatchup()
@@ -65,14 +64,13 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
-		ses.handleSlaveUpdate()
+		ses.handleSlaveUpdate(pkt.Payload)
 
 	case packet.PKT_T_BroadcastUpdate:
 		ses.SendReply(packet.PKT_T_BroadcastAck)
 		ses.QueueElevatorStateTask()
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
-		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 	// TODO master must give it an id, send it all important updates
 	/*
@@ -91,36 +89,40 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 }
 
 // ask elevator for sync, get PKT_T_StateSnapshot back
-func (ses *Session) handleRequestTaskExecution() {
-	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport)
-	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
+func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
+	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
 	ses.notifyTaskReady()
+	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleSnapshot() {
-	ses.SendReply(packet.PKT_T_SnapshotAck)
-	ses.QueueElevatorStateTask()
-	ses.notifyTaskReady()
-}
+// func (ses *Session) handleSnapshot() {
+// 	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
+// 	ses.notifyTaskReady()
+// 	ses.SendReply(packet.PKT_T_SnapshotAck)
+// 	ses.scheduleSessionClose()
+// }
 
 func (ses *Session) handleCatchup() {
-	ses.SendReply(packet.PKT_T_CatchupAck)
 	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
+	ses.SendReply(packet.PKT_T_CatchupAck)
+
+	// if peer is not synced ... flush queue, when queue empty send catchup done
+
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleSlaveUpdate() {
-	ses.QueueServerMsg(ses.pendingPkt.Payload)
+func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
+	// ses.QueueServerMsg(ses.pendingPkt.Payload)
+	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
-	ses.notifyTaskReady()
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
-	ses.tx.StartPeerCatchup(peerAddr)
-}
+// func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
+// 	ses.tx.StartPeerCatchup(peerAddr)
+// }
 
 // queue order of having elevator change its states, from master
 func (ses *Session) QueueElevatorStateTask() {
@@ -128,14 +130,19 @@ func (ses *Session) QueueElevatorStateTask() {
 }
 
 // queue order of having master do some work, don't need to notify completion, just start a new session
-func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType) {
-	eMsg := message.ElevatorMessage{
-		ID:       ses.peerID,
-		Addr:     ses.peerAddr.String(),
-		EMsgType: eMsgType,
+func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, eMsg message.ElevatorMessage) {
+	var emsg message.ElevatorMessage
+	if eMsgType == message.EMSG_T_StatusReport {
+		emsg = eMsg
+	} else {
+		emsg = message.ElevatorMessage{
+			ID:       ses.peerID,
+			Addr:     ses.peerAddr.String(),
+			EMsgType: eMsgType,
+		}
 	}
 
-	ses.tx.QueueElevatorTask(eMsg, nil, ses.taskReady)
+	ses.tx.QueueElevatorTask(emsg, nil, ses.taskReady)
 }
 
 func (ses *Session) handleBroadcastCommit() {

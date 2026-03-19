@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+const (
+	CHANNEL_BUF = 32
+)
+
 type PeerInfo struct {
 	Addr      *net.UDPAddr
 	LastSeen  time.Time
@@ -22,12 +26,16 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 		IsSynced:  false,
 		Active:    true,
 		IsMaster:  false,
-		EMsgQueue: make(chan message.ElevatorMessage, 10), // TODO make all channels bufferd ... how much?
+		EMsgQueue: make(chan message.ElevatorMessage, CHANNEL_BUF), // TODO make all channels bufferd ... how much?
 	}
 }
 
 func (peer *PeerInfo) SetMaster(isMaster bool) {
 	peer.IsMaster = isMaster
+}
+
+func (peer *PeerInfo) SetIsSynced(isSynced bool) {
+	peer.IsSynced = true
 }
 
 func (peer *PeerInfo) QueueMessage(msg message.ElevatorMessage) {

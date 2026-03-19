@@ -30,6 +30,10 @@ func IPPortToUDPAddr(ip string, port int) (*net.UDPAddr, error) {
 	return net.ResolveUDPAddr("udp", addr)
 }
 
+func StringAddrToUDPAddr(addr string) (*net.UDPAddr, error) {
+	return net.ResolveUDPAddr("udp", addr)
+}
+
 func MustUDPAddr(ip string, port int) *net.UDPAddr {
 	udpAddr, err := IPPortToUDPAddr(ip, port)
 	if err != nil {

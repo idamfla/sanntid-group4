@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
@@ -10,11 +11,17 @@ import (
 	"sync"
 )
 
+const (
+	CHANNEL_BUF = 32
+)
+
 type SessionHandler interface {
-	ReceivePacket(packet.Packet)
 	Start()
 	Close()
 	SendReply(pkt packet.PacketType)
+	ReceivePacket(pkt packet.Packet)
+	QueueWhoIsMasterMsg()
+	QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage)
 }
 
 type Server struct {
@@ -67,6 +74,9 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 
 	// create broadcast-listening UDP socket
 	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
+	if err != nil {
+		return nil, err
+	}
 
 	bcAddr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
@@ -79,18 +89,18 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		isMaster:           false,
 		searchingForMaster: false,
 		isSynced:           true,
-		incPktCh:           make(chan incomingPacket),
-		outgoingMsgCh:      make(chan outgoingMessage),
+		incPktCh:           make(chan incomingPacket, CHANNEL_BUF),
+		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
 		recvConn:           recvConn,
 		sendConn:           sendConn,
 		broadcastConn:      bcConn,
 		broadcastAddr:      bcAddr,
 		sessions:           make(map[uint32]SessionHandler),
 		peers:              make(map[string]*peerinfo.PeerInfo),
-		closeReq:           make(chan uint32),
-		stop:               make(chan struct{}),
+		closeReq:           make(chan uint32, CHANNEL_BUF),
+		stop:               make(chan struct{}, CHANNEL_BUF),
 		elevator:           toElevator,
-		elevatorTaskQueue:  make(chan ElevatorTask),
+		elevatorTaskQueue:  make(chan ElevatorTask, CHANNEL_BUF),
 	}
 
 	return srv, nil
@@ -145,6 +155,9 @@ func (srv *Server) Close() {
 			srv.closeSessionLocked(sesID)
 		}
 		srv.mu.Unlock()
+
+		fmt.Println(srv.ID, "is synced:", srv.isSynced)
+		srv.PrintPeers()
 	})
 }
 
