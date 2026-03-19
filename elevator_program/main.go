@@ -121,6 +121,7 @@ func main() {
 
 	fmt.Println(&e1)
 	fmt.Println(&e2)
+	fmt.Println("Am i stuck")
 
 	e2.RunElevatorProgram()
 

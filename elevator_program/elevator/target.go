@@ -33,10 +33,10 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 
 		// Todo maybe add some logic where we use inBetweenFloor to check if we have gone past currFloor or not??
-		distNewTarget := utilities.Abs(newTarget.Floor - (elev.CurrentFloor))
-		distTarget := utilities.Abs(elev.Target.Floor - (elev.CurrentFloor))
+		distNewTarget := newTarget.Floor - (elev.CurrentFloor)
+		distTarget := elev.Target.Floor - (elev.CurrentFloor)
 
-		if distNewTarget < distTarget {
+		if distNewTarget < distTarget && distNewTarget > 0 {
 			return true, newTarget, distNewTarget
 		}
 	case elevio.MD_Down:
@@ -44,10 +44,10 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 			return false, elevio.ButtonEvent{}, len(e.hallRequests) + 1
 		}
 
-		distNewTarget := utilities.Abs(newTarget.Floor - (elev.CurrentFloor))
-		distTarget := utilities.Abs(elev.Target.Floor - (elev.CurrentFloor))
+		distNewTarget := (elev.CurrentFloor) - newTarget.Floor
+		distTarget := (elev.CurrentFloor) - elev.Target.Floor
 
-		if distNewTarget < distTarget {
+		if distNewTarget < distTarget && distNewTarget > 0 {
 			return true, newTarget, distNewTarget
 		}
 	}

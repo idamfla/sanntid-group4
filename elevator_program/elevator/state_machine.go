@@ -16,7 +16,7 @@ func (e *Elevator) atTargetFloor(targetFloor int) bool {
 }
 
 func (e *Elevator) isTargetValid(targetFloor int) bool {
-	return targetFloor >= 0 && targetFloor < len(e.hallRequests) // TODO It says e. hallrequests, system is the one updated
+	return targetFloor >= 0 && targetFloor < e.numFloors // TODO It says e. hallrequests, system is the one updated
 }
 
 func (e *Elevator) getMotion(target int) elevio.MotorDirection {
@@ -230,6 +230,12 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 		}
 
+		// if elevatorStatus.Target.Floor == -1 {
+		// 	nextTarget, dir = e.computeNextTargetAndDirection()
+		// 	if nextTarget.Floor != -1 {
+		// 		elevatorStatus.Target = nextTarget
+		// 	}
+		// }
 		nextTarget, dir = e.computeNextTargetAndDirection()
 		if nextTarget.Floor != -1 {
 			elevatorStatus.Target = nextTarget
@@ -240,8 +246,8 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 		}
 
-		if e.atTargetFloor(nextTarget.Floor) { // TODO is it here bc if someone spams the button on the floor you're at?
-			// e.doorState = open
+		if e.atTargetFloor(elevatorStatus.Target.Floor) { // TODO is it here bc if someone spams the button on the floor you're at?
+			e.doorState = DS_Opening
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
 
@@ -259,32 +265,32 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
 
-		dir = e.getMotion(elevatorStatus.Target.Floor)
+		// dir = e.getMotion(elevatorStatus.Target.Floor)
 
-		if dir == elevio.MD_Stop {
-			e.doorState = DS_Opening
-			elevatorStatus.State = types.ES_Idle
-		} else {
-			nextTarget, dir = e.computeNextTargetAndDirection()
-			if nextTarget.Floor != -1 { // tODO Maybe test that this version still works
-				e.System.Mutex.Lock()
-				// TODO I don't know if this is the best way to write it but now can use running
-				if elevatorStatus.Target.Button == elevio.BT_Cab {
-					e.System.Elevators[e.Id].CabRequests[elevatorStatus.Target.Floor] = types.Pending // TODO Need to message that the buttons have changed
-				} else {
-					e.System.HallRequests[elevatorStatus.Target.Floor][elevatorStatus.Target.Button] = types.Pending // TODO Need to message that the buttons have changed
-				}
+		// if dir == elevio.MD_Stop {
+		// 	e.doorState = DS_Opening
+		// 	elevatorStatus.State = types.ES_Idle
+		// } else {
+		// 	nextTarget, dir = e.computeNextTargetAndDirection()
+		// 	if nextTarget.Floor != -1 && nextTarget != elevatorStatus.Target { // tODO Maybe test that this version still works
+		// 		e.System.Mutex.Lock()
+		// 		// TODO I don't know if this is the best way to write it but now can use running
+		// 		if elevatorStatus.Target.Button == elevio.BT_Cab {
+		// 			e.System.Elevators[e.Id].CabRequests[elevatorStatus.Target.Floor] = types.Pending // TODO Need to message that the buttons have changed
+		// 		} else {
+		// 			e.System.HallRequests[elevatorStatus.Target.Floor][elevatorStatus.Target.Button] = types.Pending // TODO Need to message that the buttons have changed
+		// 		}
 
-				if nextTarget.Button == elevio.BT_Cab {
-					e.System.Elevators[e.Id].CabRequests[nextTarget.Floor] = types.Running
-				} else {
-					e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
-				}
-				e.System.Mutex.Unlock()
-				elevatorStatus.Target = nextTarget
-				e.updateDirection(nextTarget, dir)
-			}
-		}
+		// 		if nextTarget.Button == elevio.BT_Cab {
+		// 			e.System.Elevators[e.Id].CabRequests[nextTarget.Floor] = types.Running
+		// 		} else {
+		// 			e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
+		// 		}
+		// 		e.System.Mutex.Unlock()
+		// 		elevatorStatus.Target = nextTarget
+		// 		e.updateDirection(nextTarget, dir)
+		// 	}
+		// }
 	case types.ES_EmergencyStop:
 		elevio.SetMotorDirection(elevio.MD_Stop)
 

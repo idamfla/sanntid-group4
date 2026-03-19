@@ -5,6 +5,8 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
+	"elevator_program/udp/packet"
+	"elevator_program/udp/session"
 	"fmt"
 	"strconv"
 )
@@ -98,10 +100,20 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 				} else { // If it is not the case we just need to broadcast the change
 					msg.Id = ""
 				}
-				msg.MsgType = types.MSG_T_ButtonPress //MSG_T_TaskUpdate
 			}
 		}
+		msg.MsgType = types.MSG_T_ButtonPress
 		e.SendToCoordinator <- msg
+
+		msg.MsgType = types.MSG_T_TaskUpdate
+
+		packet := session.ElevatorPacket{
+			Packet: packet.Packet{
+				Payload: msg,
+			},
+		}
+
+		c.msgRecieveCh <- packet
 
 	case types.MSG_T_TaskUpdate:
 		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)

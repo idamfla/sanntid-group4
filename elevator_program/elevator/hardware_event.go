@@ -120,10 +120,10 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 		e.emergencyStop = hwEvent.EmergencyStop
 
 	case HW_T_ButtonPress:
-        if e.offline && hwEvent.Button != elevio.BT_Cab {
-                elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, false)
-                break
-            }
+		if e.offline && hwEvent.Button != elevio.BT_Cab {
+			elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, false)
+			break
+		}
 
 		if hwEvent.Button == elevio.BT_Cab {
 			e.System.Mutex.Lock()
@@ -143,7 +143,12 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
 
-    }
+			e.System.Mutex.Lock()
+			elevatorCopy := e.System.Elevators[e.Id]
+			elevatorCopy.CurrentFloor = hwEvent.Floor
+			e.System.Elevators[e.Id] = elevatorCopy
+
+		}
 
 	case HW_T_Obstruction:
 		if e.doorState == DS_Closed {
@@ -154,16 +159,16 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 }
 
 func (e *Elevator) RunHardwareEventLoop() {
-    defer e.wg.Done()
+	defer e.wg.Done()
 	fmt.Println("EVENT LOOP STARTED")
 	for {
-        select {
-        case <-e.stop:
-            return
-        case hwEvent := <- e.hardwareEventsCh:
-            e.handleHardwareEvent(hwEvent)
-            fmt.Println(e) // DB
+		select {
+		case <-e.stop:
+			return
+		case hwEvent := <-e.hardwareEventsCh:
+			e.handleHardwareEvent(hwEvent)
+			fmt.Println(e) // DB
 
-        }
-    }
+		}
+	}
 }

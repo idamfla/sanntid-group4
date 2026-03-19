@@ -108,7 +108,7 @@ func (s *System) SetRequestAsTarget(id string, task elevio.ButtonEvent) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	if s.Elevators[id].Target.Floor != -1 {
+	if s.Elevators[id].Target.Floor != -1 && s.Elevators[id].State == types.ES_Moving {
 		s.SetRequestStatus(id, types.Pending, s.Elevators[id].Target)
 	}
 
