@@ -14,9 +14,7 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
 	for ePkt := range c.msgRecieveCh {
 		eMsg := ePkt.EMsg
-		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, eMsg)
 		c.MessageHandler(e, eMsg)
-		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, eMsg)
 		if ePkt.Done != nil {
 			ePkt.Done <- struct{}{}
 		}
@@ -47,20 +45,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 		e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 
-	case message.EMSG_T_LostComs:
-		if !e.ConnectedToMaster() {
-			// e.HandleLostConnection(eMsg.ID)
-		}
-
-	case message.EMSG_T_ElevatorLost:
-		if e.ConnectedToMaster() {
-			eMsg.ID = "" // Send "" if connected, TODO kind of wierd to send the value on Id
-		} else {
-			eMsg.ID = e.Id
-		}
-		eMsg.EMsgType = message.EMSG_T_LostComs // TODO Lost coms and Elevator lost should be deleted
-		e.SendToCoordinator <- eMsg
-
 	case message.EMSG_T_NewToChannel:
 		if e.ConnectedToMaster() {
 			e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO now we can update IpRegistery for the others as well, is it smart?
@@ -68,25 +52,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		} else if e.Id == eMsg.ID {
 			e.SetConnectionState(eMsg)
 			e.System.InitializeFromSystemState(eMsg)
-		} else {
-			// // When two not connected elevators reach eachother
-			// // The one with smallest ip gets to be master
-			// senderIdInt, _ := strconv.Atoi(eMsg.ID)
-			// ownIdInt, _ := strconv.Atoi(e.Id)
-			// if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
-			// 	e.TurnToMaster()
-			// 	c.portRegistery["master"] = c.portSelf
-
-			// 	msg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
-			// 	fmt.Println("Do I get here?", msg)
-			// 	e.IpRegistery[eMsg.Addr] = id
-
-			// 	e.SendToCoordinator <- msg
-			// 	return
-			// } else {
-			// 	// You are not the master, continiue
-			// 	return
-			// }
 		}
 	}
 }
