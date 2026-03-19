@@ -7,7 +7,6 @@ import (
 	"elevator_program/types"
 	"elevator_program/udp/session"
 	"fmt"
-	"strconv"
 )
 
 // TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
@@ -48,24 +47,24 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.SetConnectionState(eMsg)
 			e.System.InitializeFromSystemState(eMsg)
 		} else {
-			// When two not connected elevators reach eachother
-			// The one with smallest ip gets to be master
-			senderIdInt, _ := strconv.Atoi(eMsg.ID)
-			ownIdInt, _ := strconv.Atoi(e.Id)
-			if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
-				e.TurnToMaster()
-				c.portRegistery["master"] = c.portSelf
+			// // When two not connected elevators reach eachother
+			// // The one with smallest ip gets to be master
+			// senderIdInt, _ := strconv.Atoi(eMsg.ID)
+			// ownIdInt, _ := strconv.Atoi(e.Id)
+			// if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
+			// 	e.TurnToMaster()
+			// 	c.portRegistery["master"] = c.portSelf
 
-				msg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
-				fmt.Println("Do I get here?", msg)
-				e.IpRegistery[eMsg.Addr] = id
+			// 	msg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
+			// 	fmt.Println("Do I get here?", msg)
+			// 	e.IpRegistery[eMsg.Addr] = id
 
-				e.SendToCoordinator <- msg
-				return
-			} else {
-				// You are not the master, continiue
-				return
-			}
+			// 	e.SendToCoordinator <- msg
+			// 	return
+			// } else {
+			// 	// You are not the master, continiue
+			// 	return
+			// }
 		}
 	}
 }
@@ -80,18 +79,18 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 	case message.EMSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
 		if eMsg.BtnStatus != types.NotActive {
+			e.System.Mutex.RLock()
+			_, elevs := e.System.Snapshot()
+			e.System.Mutex.RUnlock()
+
 			if eMsg.Task.Button == elevio.BT_Cab {
-				if e.IsNewTargetBetterCab(eMsg.ID, eMsg.Task, eMsg.Elevators[eMsg.ID]) {
+				if e.IsNewTargetBetterCab(eMsg.ID, eMsg.Task, elevs[eMsg.ID]) {
 					eMsg.BtnStatus = types.Running
 				} else {
 					eMsg.BtnStatus = types.Pending
 				}
 			} else {
-				fmt.Println("What does master see? ", e.Id)
-				e.System.Mutex.RLock()
-				elevatorsCopy := e.System.Elevators
-				e.System.Mutex.RUnlock()
-				taskElevatorId, _, _ := e.ClosestToTarget(elevatorsCopy, eMsg.Task) // TODO could be wrong here if master don't update system
+				taskElevatorId, _, _ := e.ClosestToTarget(elevs, eMsg.Task) // TODO could be wrong here if master don't update system
 				if taskElevatorId != "" {
 					// Someone has a better task to do, we need to broadcast task_Update
 					eMsg.ID = taskElevatorId
@@ -104,7 +103,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		}
 		e.SendToCoordinator <- eMsg
 
-		eMsg.EMsgType = message.EMSG_T_TaskUpdate
+		eMsg.EMsgType = message.EMSG_T_TaskUpdate // TODO should remove this
 
 		packet := session.ElevatorPacket{
 			EMsg: eMsg,
