@@ -173,15 +173,6 @@ func (e *Elevator) enterOfflineMode() {
 	e.offline = true
 }
 
-func (e *Elevator) exitOfflineMode() {
-	if !e.offline {
-		return
-	}
-
-	fmt.Println("Exiting offline mode (back online)")
-	e.offline = false
-}
-
 func (e *Elevator) setLocalState(state types.ElevatorState) {
 	e.System.Mutex.Lock()
 	defer e.System.Mutex.Unlock()
@@ -272,6 +263,12 @@ func (e *Elevator) SoftRestart() {
 }
 
 func (e *Elevator) attemptRecovery() {
+
+	if e.restartReason == RestartReasonNetwork {
+		fault.RestartSelf()
+		return
+	}
+
 	e.recoveryMu.Lock()
 	recoveryInProgress := e.softRestartInProgress
 	maxAttemptsReached := e.softRestartAttempts >= e.recoveryCfg.MaxSoftRestartAttempts

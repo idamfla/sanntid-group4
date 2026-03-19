@@ -313,18 +313,18 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	elevatorCopy.State = elevatorStatus.State
 	e.System.Elevators[e.Id] = elevatorCopy
 
-	// msg := message.ElevatorMessage{
-	// 	MsgType: types.MSG_T_NewToChannel,
-	// 	Id:      e.Id,
-	// 	Ip:      e.Ip,
-	// 	Elevators: map[string]types.ElevatorsStatus{
-	// 		e.Id: e.System.Elevators[e.Id],
-	// 	},
-	// }
-	// fmt.Println("Trying to send to network, ", e.Id)
+	msg := message.ElevatorMessage{
+		MsgType: types.MSG_T_NewToChannel,
+		Id:      e.Id,
+		Ip:      e.Ip,
+		Elevators: map[string]types.ElevatorsStatus{
+			e.Id: e.System.Elevators[e.Id],
+		},
+	}
+	fmt.Println("Trying to send to network, ", e.Id)
 	e.System.Mutex.Unlock()
 
-	// e.SendToCoordinator <- msg
+	e.SendToCoordinator <- msg
 }
 
 func (e *Elevator) RunElevatorStateMachine() {
@@ -371,7 +371,7 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	// targetFloor := e.System.Elevators[e.Id].Target.Floor
 	// elevatorCopy.CabRequests[targetFloor] = types.NotActive
 	elevatorCopy.CabRequests[target.Floor] = types.NotActive
-	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+	//elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 	e.System.Elevators[e.Id] = elevatorCopy
 
 	msg.MsgType = types.MSG_T_TaskRequest

@@ -195,17 +195,23 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 
 func (e *Elevator) stopRuntimeLoops() {
 	e.runningMu.Lock()
-	defer e.runningMu.Unlock()
 
 	if !e.isRunning {
+		e.runningMu.Unlock()
 		return
 	}
 
-	close(e.stop)
-	e.wg.Wait()
-
+	stopCh := e.stop
 	e.isRunning = false
+	e.stop = nil
+
+	e.runningMu.Unlock()
+
+	close(stopCh)
+	e.wg.Wait()
 }
+
+
 
 // region printing, for debugging
 func (e *Elevator) String() string {

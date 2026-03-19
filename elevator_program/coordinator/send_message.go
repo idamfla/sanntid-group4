@@ -31,7 +31,7 @@ func (c *Coordinator) sendAsSlave(msg message.ElevatorMessage) {
 	var ip string
 	// broadcastIp := udp.NtnuBroadcastIP // TODO we don't allways want broadcast ip and port, need to find the others
 	// port := udp.BROADCAST_PORT
-	localIP := "127.0.0.1"
+	localIP := "10.100.23.27"
 	port := c.portRegistery["master"]
 
 	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
@@ -76,6 +76,7 @@ func (c *Coordinator) sendAsSlave(msg message.ElevatorMessage) {
 		msgPacket = packet.PROTO_PKT_T_Data
 		fmt.Println("Trying to send new to channel")
 	}
+	port = 9005
 	c.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, msg)
 }
 
