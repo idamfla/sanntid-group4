@@ -7,7 +7,6 @@ const (
 	ES_Idle
 	ES_Moving
 	ES_DoorOpen
-	// ES_Obstruction // TODO move to DoorState
 	ES_EmergencyStop
 )
 

@@ -78,7 +78,6 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 	}
 
 	if incPkt.Packet.Header.PktType == packet.PKT_T_CatchupDone {
-		// srv.handleSyncRequest(senderAddr)
 		srv.isSynced = true
 	}
 
@@ -86,11 +85,6 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 
 	srv.deliverToSession(senderAddr, incPkt)
 }
-
-// func (srv *Server) handleSyncRequest(addr *net.UDPAddr) {
-// 	srv.registerOrUpdatePeer(addr, true)
-// 	fmt.Println("StateSync packet: peer registration and sync only")
-// }
 
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", replyAddr)

@@ -56,6 +56,13 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
 }
 
 func (srv *Server) GetMasterPeer() *peerinfo.PeerInfo {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	return srv.getMasterPeerLocked()
+}
+
+func (srv *Server) getMasterPeerLocked() *peerinfo.PeerInfo {
 	for _, p := range srv.peers {
 		if p.IsMaster {
 			return p
@@ -77,19 +84,6 @@ func (srv *Server) getPeerCount() int {
 	return count
 }
 
-// func (srv *Server) getAliveUnsyncedPeers() []*peerinfo.PeerInfo {
-// 	srv.mu.Lock()
-// 	peers := make([]*peerinfo.PeerInfo, 0, len(srv.peers))
-// 	for _, p := range srv.peers {
-// 		if p.Active && !p.IsSynced {
-// 			peers = append(peers, p)
-// 		}
-// 	}
-// 	srv.mu.Unlock()
-
-// 	return peers
-// }
-
 func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
 	defer srv.wg.Done()
 	done := false
@@ -100,17 +94,19 @@ func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
 		default:
 			done = true // no more messages
 			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupDone, message.ElevatorMessage{})
+			srv.mu.Lock()
 			peer.IsSynced = true
+			srv.mu.Unlock()
 		}
 	}
 }
 
 func (srv *Server) StartPeerCatchup(peerAddr *net.UDPAddr) {
-	srv.wg.Add(1)
 	peer, isNew := srv.getOrCreatePeer(peerAddr)
 	if isNew {
 		return
 	}
+	srv.wg.Add(1)
 	go srv.flushPeerPendingMsg(peer)
 }
 
@@ -140,10 +136,11 @@ func (srv *Server) PrintPeers() {
 		}
 		msg += fmt.Sprintf(`%s -> Addr: %v
 	IsMaster: %v
-	Active: %v
+	Active:   %v
+	IsSynced: %v
 	LastSeen: %v
 `,
-			key, peer.Addr, peer.IsMaster, peer.Active, peer.LastSeen)
+			key, peer.Addr, peer.IsMaster, peer.Active, peer.IsSynced, peer.LastSeen)
 	}
 
 	msg += `=================

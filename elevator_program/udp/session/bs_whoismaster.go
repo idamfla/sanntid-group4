@@ -84,14 +84,6 @@ func (ws *WhoIsMasterBroadcast) HandlePacket(pkt packet.Packet) error {
 func (ws *WhoIsMasterBroadcast) handleWhoIsMaster() {
 	ws.SendReply(packet.PKT_T_IAmAlive)
 	ws.election.Start(ws)
-	// ws.mu.Lock()
-	// if !ws.electionStarted {
-	// 	ws.electionStarted = true
-	// 	ws.wg.Add(1)
-	// 	go ws.electMaster()
-	// }
-
-	// ws.mu.Unlock()
 }
 
 func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
@@ -99,10 +91,6 @@ func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
 	case ws.election.masterFound <- struct{}{}:
 	default:
 	}
-	// select {
-	// case ws.masterFound <- struct{}{}:
-	// default:
-	// }
 
 	ws.SendReply(packet.PKT_T_MasterAck)
 	ws.scheduleSessionClose()
@@ -122,49 +110,3 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 func (ws *WhoIsMasterBroadcast) isMaster() bool {
 	return ws.tx.IsMaster()
 }
-
-// func (ws *WhoIsMasterBroadcast) electMaster() {
-// 	defer ws.wg.Done()
-
-// 	timer := time.NewTimer(udp.MASTER_ELECTION_TIMEOUT)
-// 	defer timer.stop()
-
-// 	select {
-// 	case <-ws.masterFound:
-// 		fmt.Println("Master already exists, stopping election")
-// 		return
-
-// 	case <-timer.C:
-// 		fmt.Println("No master found, electing...")
-
-// 		ws.mu.Lock()
-
-// 		if len(ws.responders) == 0 {
-// 			ws.mu.Unlock()
-// 			return
-// 		}
-
-// 		lowest := ""
-// 		for addr := range ws.responders {
-// 			if lowest == "" || addr < lowest {
-// 				lowest = addr
-// 			}
-// 		}
-
-// 		isMaster := lowest == ws.selfAddr
-
-// 		ws.mu.Unlock()
-
-// 		fmt.Println("Lowest:", lowest)
-
-// 		if isMaster {
-// 			fmt.Println(ws.selfAddr, "is the new master")
-// 			ws.SendReply(packet.PKT_T_IAmMaster)
-// 			ws.expectedResponses = ws.countResponders()
-// 			ws.resetResponders()
-// 		}
-
-// 	case <-ws.stop:
-// 		return
-// 	}
-// }

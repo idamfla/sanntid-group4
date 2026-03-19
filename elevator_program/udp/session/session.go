@@ -20,7 +20,6 @@ type PacketSender interface {
 	QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
 	IsMaster() bool
 	GetMasterPeer() *peerinfo.PeerInfo
-	StartPeerCatchup(peerAddr *net.UDPAddr)
 }
 
 type SessionBehavior interface {

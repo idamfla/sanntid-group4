@@ -16,17 +16,15 @@ type Elevator struct {
 	// TODO temp need to know the ip using the id
 	IpRegistery map[string]string
 
-	// offline         bool
 	scheduleRestart bool
 
 	inBetweenFloors bool
 	currentFloor    int
-	// nextTarget      elevio.ButtonEvent
-	// direction elevio.MotorDirection
-	initFloor  int
+	initFloor       int
+	numFloors       int
+
 	nextTarget elevio.ButtonEvent
 	direction  elevio.MotorDirection
-	numFloors  int
 
 	doorState DoorState
 	doorTimer time.Time
@@ -35,10 +33,6 @@ type Elevator struct {
 	// doorState, currentFloor, inBetweenFloors, emergencyStop, obstruction,
 	// IsOnline, IsMaster, connectedToMaster, scheduleRestart
 	mu sync.Mutex
-
-	//temp Need to time how long you have lost communiction
-	lostComsTimer      time.Time
-	ackCounterLostComs int
 
 	SendToCoordinator chan message.ElevatorMessage
 
@@ -55,7 +49,7 @@ type Elevator struct {
 	IsOnline          bool
 
 	System          system.System
-	currentMasterID string
+	currentMasterID string // TODO do we need this one?
 
 	stop      chan struct{}
 	runningMu sync.Mutex
@@ -77,23 +71,15 @@ type Elevator struct {
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) {
 	e.Id = id
 	e.Ip = ip
+
 	e.currentFloor = -1
-	// e.nextTarget = elevio.ButtonEvent{Floor: -1}
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
-	// e.hallRequests = make([][2]types.ButtonStatus, numFloors)
-	// e.cabRequests = make([]types.ButtonStatus, numFloors)
 	e.numFloors = numFloors
 
 	e.IsMaster = false
 
 	e.System.InitSystem(id, "192.168.0.1", numFloors)
-
-	// e.elevatorState = types.ES_Uninitialized
-
-	//Temp init door timer
-	e.lostComsTimer = time.Time{}
-	e.ackCounterLostComs = 0
 
 	e.IpRegistery = make(map[string]string)
 
@@ -105,13 +91,6 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.recoveryCfg = DefaultRecoveryConfig
 
 	e.IsOnline = false
-	// e.StatusChan = statusChan
-	// e.TaskChan = taskChan
-
-	// e.MsgRecieveCh = make(chan session.ElevatorPacket, 10) // Match the expected type
-
-	// e.StatusChan <-utilities.StatusMsg{e.id, e.currentFloor, e.nextTarget}
-	// e.MsgRecieveCh = make(chan message.ElevatorMessage, 10) // TODO Should have this in the code
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 
@@ -144,7 +123,6 @@ func (e *Elevator) RunElevatorProgram() {
 }
 
 func (e *Elevator) resetRuntimeState(numFloors int) {
-	// e.offline = false
 	e.scheduleRestart = false
 
 	e.inBetweenFloors = false
@@ -155,9 +133,6 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.doorState = DS_Closed
 	e.doorTimer = time.Time{}
 
-	e.lostComsTimer = time.Time{}
-	e.ackCounterLostComs = 0
-
 	e.obstruction = false
 	e.emergencyStop = false
 
@@ -165,9 +140,6 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.connectedToMaster = false
 	e.IsOnline = false
 	e.currentMasterID = ""
-
-	// e.hallRequests = make([][2]types.ButtonStatus, numFloors)
-	// e.cabRequests = make([]types.ButtonStatus, numFloors)
 
 	e.System = system.System{}
 	e.System.InitSystem(e.Id, e.Ip, numFloors)
@@ -227,11 +199,9 @@ func (e *Elevator) String() string {
 	door state: %s
 	elevator state: %s
 `,
-		// e.Id, e.inBetweenFloors, e.currentFloor, e.System.Elevators[e.Id].Target.Floor, e.System.Elevators[e.Id].Target.Button, e.initFloor, e.System.Elevators[e.Id].Direction, e.doorState, e.System.Elevators[e.Id].State)
 		e.Id, e.inBetweenFloors, e.currentFloor, elevStatus.Target.Floor, elevStatus.Target.Button, e.initFloor, elevStatus.Direction, e.doorState, elevStatus.State)
 	for f := 0; f < e.numFloors; f++ {
 		req := e.System.HallRequests[f]
-		// cab := e.System.Elevators[e.Id].CabRequests[f]
 		cab := elevStatus.CabRequests[f]
 
 		s += fmt.Sprintf(

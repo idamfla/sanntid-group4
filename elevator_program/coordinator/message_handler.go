@@ -49,7 +49,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 
 	case message.EMSG_T_LostComs:
 		if !e.ConnectedToMaster() {
-			e.HandleLostConnection(eMsg.ID)
+			// e.HandleLostConnection(eMsg.ID)
 		}
 
 	case message.EMSG_T_ElevatorLost:

@@ -147,7 +147,7 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 	case HW_T_ButtonPress:
 		if hwEvent.Button == elevio.BT_Cab {
 			e.System.Mutex.Lock()
-			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending // Changed to be compatible with system struct
+			e.System.Elevators[e.Id].CabRequests[hwEvent.Floor] = types.Pending
 			e.System.Mutex.Unlock()
 		} else {
 			fmt.Println("Elevator is offline, can not accept order")
@@ -196,8 +196,6 @@ func (e *Elevator) RunHardwareEventLoop() {
 			return
 		case hwEvent := <-e.hardwareEventsCh:
 			e.handleHardwareEvent(hwEvent)
-			fmt.Println(e) // DB
-
 		}
 	}
 }

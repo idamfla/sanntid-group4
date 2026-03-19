@@ -6,24 +6,24 @@ import (
 	"elevator_program/types"
 )
 
-// TODO This function is wierd, either we need to have it as e or something else if it is eMsg sending
-func (e *Elevator) HandleLostConnection(senderId string) {
-	if senderId == "" {
-		e.mu.Lock()
-		e.IsOnline = false
-		e.mu.Unlock()
-		// Need to schedule a restart
-		// TODO It is fault tolerance that should take the time maybe
-	} else {
-		e.ackCounterLostComs++
-		e.System.Mutex.RLock()
-		if e.ackCounterLostComs >= len(e.System.Elevators)-1 { // TODO something not right here, maybe master and a slave has died, then you are waiting for the dead slave to respond as well
-			// Need to reset the timer
-			// Need to start election
-		}
-		e.System.Mutex.RUnlock()
-	}
-}
+// // TODO This function is wierd, either we need to have it as e or something else if it is eMsg sending
+// func (e *Elevator) HandleLostConnection(senderId string) {
+// 	if senderId == "" {
+// 		e.mu.Lock()
+// 		e.IsOnline = false
+// 		e.mu.Unlock()
+// 		// Need to schedule a restart
+// 		// TODO It is fault tolerance that should take the time maybe
+// 	} else {
+// 		e.ackCounterLostComs++
+// 		e.System.Mutex.RLock()
+// 		if e.ackCounterLostComs >= len(e.System.Elevators)-1 { // TODO something not right here, maybe master and a slave has died, then you are waiting for the dead slave to respond as well
+// 			// Need to reset the timer
+// 			// Need to start election
+// 		}
+// 		e.System.Mutex.RUnlock()
+// 	}
+// }
 
 func (e *Elevator) ConnectedToMaster() bool {
 	e.mu.Lock()
@@ -36,7 +36,7 @@ func (e *Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button
 		if button == elevio.BT_Cab {
 			e.clearCabLamp(floor)
 		} else {
-			e.clearHallLamp(floor, button) // Chat don't like these function names. Don't want any underscores
+			e.clearHallLamp(floor, button)
 		}
 
 	} else {

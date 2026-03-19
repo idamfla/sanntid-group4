@@ -6,11 +6,10 @@ import (
 	"sync"
 )
 
-// Uses to add a new elevator to our system
 type System struct {
 	HallRequests [][2]types.ButtonStatus
 	Elevators    map[string]types.ElevatorsStatus
-	Mutex        sync.RWMutex // Add a mutex to protect shared data
+	Mutex        sync.RWMutex
 }
 
 func (s *System) InitSystem(id string, ip string, numFloors int) {

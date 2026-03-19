@@ -7,10 +7,7 @@ import (
 )
 
 func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target elevio.ButtonEvent, hallRequest [][2]types.ButtonStatus, cabRequests []types.ButtonStatus) (bool, elevio.ButtonEvent) {
-	// e.System.Mutex.RLock()
-	// defer e.System.Mutex.RUnlock()
-
-	numFloors := e.numFloors // Changed to be compatible with System struct
+	numFloors := e.numFloors
 
 	// saturate bounds
 	if from >= numFloors {
@@ -30,30 +27,32 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target
 	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
-			if cabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if cabRequests[f] != types.NotActive {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if hallRequest[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
+			} else if hallRequest[f][elevio.BT_HallUp] != types.NotActive {
 				protentilTarget := elevio.ButtonEvent{
 					Floor:  f,
 					Button: elevio.BT_HallUp,
 				}
 
-				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallUp] == types.Running) { // To not steal anyone elses task, TODO could be wrong
+				// To not steal anyone elses task
+				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallUp] == types.Running) {
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 				}
 			}
 		}
 	case elevio.MD_Down:
 		for f := from; f >= to; f-- {
-			if cabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if cabRequests[f] != types.NotActive {
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if hallRequest[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
+			} else if hallRequest[f][elevio.BT_HallDown] != types.NotActive {
 				protentilTarget := elevio.ButtonEvent{
 					Floor:  f,
 					Button: elevio.BT_HallDown,
 				}
-				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallDown] == types.Running) { // To not steal anyone elses task
+				// To not steal anyone elses task
+				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallDown] == types.Running) {
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 				}
 			}

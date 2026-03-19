@@ -6,7 +6,7 @@ import (
 	"elevator_program/utilities"
 )
 
-func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, int) { // TODO can remove task return
+func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, int) {
 	if elev.State == types.ES_Idle {
 		return true, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
@@ -17,7 +17,6 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 			return false, e.numFloors + 1
 		}
 
-		// Todo maybe add some logic where we use inBetweenFloor to check if we have gone past currFloor or not??
 		distNewTarget := newTarget.Floor - (elev.CurrentFloor)
 		distTarget := elev.Target.Floor - (elev.CurrentFloor)
 
@@ -37,7 +36,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 	}
 
-	return false, e.numFloors + 1 // Should I send just elevio.ButtonEvent since it does not matter
+	return false, e.numFloors + 1
 }
 
 func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) string {

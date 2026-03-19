@@ -65,7 +65,7 @@ func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.M
 	e.System.Mutex.RUnlock()
 	elevatorStatus := elevs[e.Id]
 
-	nextTarget := e.GetNextTargetFloor(elevatorStatus, hallRequests) // TODO This may be wrong
+	nextTarget := e.GetNextTargetFloor(elevatorStatus, hallRequests)
 	if nextTarget.Floor == -1 {
 		return elevio.ButtonEvent{Floor: -1}, elevio.MD_Stop
 	}
@@ -103,7 +103,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	if estop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
-		// Update system state to reflect emergency stop
 		e.System.Mutex.Lock()
 		elevatorCopy := e.System.Elevators[e.Id]
 		elevatorCopy.State = types.ES_EmergencyStop
@@ -345,37 +344,7 @@ func (e *Elevator) RunElevatorStateMachine() {
 	}
 }
 
-// func (e *Elevator) finishedTask(state types.ElevatorState) {
-// 	e.System.Mutex.Lock()
-// 	defer e.System.Mutex.Unlock()
-
-// 	target := e.System.Elevators[e.Id].Target
-// 	if target.Floor == -1 {
-// 		return
-// 	}
-
-// 	eMsg := message.ElevatorMessage{
-// 		EMsgType:  message.EMSG_T_ButtonPress,
-// 		ID:        e.Id,
-// 		Task:      target,
-// 		BtnStatus: types.NotActive,
-// 	}
-// 	e.SendToCoordinator <- eMsg
-
-// 	elevatorCopy := e.System.Elevators[e.Id]
-// 	elevatorCopy.State = state
-// 	elevatorCopy.CabRequests[target.Floor] = types.NotActive
-// 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp} // TODO this might screw me over
-// 	e.System.Elevators[e.Id] = elevatorCopy
-
-// 	eMsg.EMsgType = message.EMSG_T_TaskRequest
-// 	eMsg.Elevators = map[string]types.ElevatorsStatus{
-// 		e.Id: e.System.Elevators[e.Id],
-// 	}
-// 	e.SendToCoordinator <- eMsg
-// }
-
-func (e *Elevator) finishedTask(state types.ElevatorState) { // TODO as claude how to fix dependancy bug
+func (e *Elevator) finishedTask(state types.ElevatorState) {
 	e.System.Mutex.Lock()
 
 	target := e.System.Elevators[e.Id].Target
