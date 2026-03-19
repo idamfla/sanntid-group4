@@ -5,7 +5,6 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 	"time"
 )
 
@@ -49,11 +48,11 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_RequestTaskExecution:
 		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
 
-	case packet.PKT_T_StateSnapshot:
-		ses.handleSnapshot()
+	// case packet.PKT_T_StateSnapshot:
+	// 	ses.handleSnapshot()
 
-	case packet.PKT_T_SnapshotAck:
-		ses.startCatchup(ses.peerAddr)
+	// case packet.PKT_T_SnapshotAck:
+	// 	ses.startCatchup(ses.peerAddr)
 
 	case packet.PKT_T_CatchupUpdate:
 		ses.handleCatchup()
@@ -72,7 +71,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		ses.QueueElevatorStateTask()
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
-		ses.remoteCommitTimer.Stop()
 		ses.requestClose()
 	// TODO master must give it an id, send it all important updates
 	/*
@@ -98,17 +96,20 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleSnapshot() {
-	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
-	ses.notifyTaskReady()
-	ses.SendReply(packet.PKT_T_SnapshotAck)
-	ses.scheduleSessionClose()
-}
+// func (ses *Session) handleSnapshot() {
+// 	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
+// 	ses.notifyTaskReady()
+// 	ses.SendReply(packet.PKT_T_SnapshotAck)
+// 	ses.scheduleSessionClose()
+// }
 
 func (ses *Session) handleCatchup() {
 	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_CatchupAck)
+
+	// if peer is not synced ... flush queue, when queue empty send catchup done
+
 	ses.scheduleSessionClose()
 }
 
@@ -119,9 +120,9 @@ func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
-	ses.tx.StartPeerCatchup(peerAddr)
-}
+// func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
+// 	ses.tx.StartPeerCatchup(peerAddr)
+// }
 
 // queue order of having elevator change its states, from master
 func (ses *Session) QueueElevatorStateTask() {

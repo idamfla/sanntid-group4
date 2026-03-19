@@ -20,10 +20,6 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 	)
 }
 
-func (ses *Session) QueueServerMsg(eMsg message.ElevatorMessage) {
-	ses.tx.QueueMessage(nil, packet.PROTO_PKT_T_BroadcastUpdate, eMsg)
-}
-
 func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,

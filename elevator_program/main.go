@@ -70,7 +70,7 @@ func testBroadcast_send(srv *server.Server) {
 }
 
 // just to get some prints after i "shut down"
-func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
+func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -84,7 +84,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Graceful shutdown
 	e1.Close()
 	e2.Close()
-	e3.Close()
+	// e3.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
@@ -106,17 +106,17 @@ func main() {
 		return
 	}
 
-	eC := elevtest.NewElev("C")
+	// eC := elevtest.NewElev("C")
 
-	err = eC.StartServer(localIP, 9002)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// err = eC.StartServer(localIP, 9002)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
 	eA.Start()
 	eB.Start()
-	eC.Start()
+	// eC.Start()
 
 	eB.QueueMessage(
 		nil,
@@ -136,7 +136,7 @@ func main() {
 		message.ElevatorMessage{},
 	)
 
-	closeProgram(eA, eB, eC)
+	closeProgram(eA, eB)
 }
 
 // TODO

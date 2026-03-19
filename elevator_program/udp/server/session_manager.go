@@ -49,17 +49,43 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
 
 	case packet.PKT_T_IAmMaster:
+		srv.mu.Lock()
+
 		key := incPkt.Packet.Header.SenderAddr
-		if peer, exists := srv.peers[key]; exists {
-			peer.SetMaster(true)
-			ses = srv.getOrCreateWhoIsMasterSession(sessionID)
+		peer, exists := srv.peers[key]
+
+		if !exists || peer == nil {
+			srv.mu.Unlock()
+			return
 		}
 
-		if !srv.IsMaster() {
-			fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
+		oldMstr := srv.getMasterPeerLocked()
+
+		// already know this master
+		if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
+			srv.isSynced = true
+			srv.mu.Unlock()
+			return
 		}
 
-		srv.setMasterPeer(key, true)
+		// new master
+		if oldMstr != nil {
+			oldMstr.SetMaster(false)
+		}
+
+		peer.SetMaster(true)
+
+		srv.isSynced = false
+		peer.SetIsSynced(true)
+
+		srv.mu.Unlock()
+
+		srv.QueueSyncMsg()
+		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
+
+		// if !srv.IsMaster() {
+		// 	fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
+		// }
 
 	default:
 		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
@@ -139,34 +165,6 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	return ses
 }
 
-// func (srv *Server) createBroadcastSession(sessionID *uint32, expectedResponses int) *session.BroadcastSession {
-// 	// generate unique id
-// 	var id uint32
-// 	if sessionID != nil {
-// 		id = *sessionID
-// 	} else {
-// 		id = srv.generateSessionIDLocked()
-// 	}
-
-// 	bs := session.NewBroadcastSession(
-// 		id,
-// 		srv.recvConn.LocalAddr().String(),
-// 		srv.broadcastAddr,
-// 		srv.closeReq,
-// 		srv,
-// 		expectedResponses,
-// 	)
-// 	fmt.Printf("Server %s: new broadcast session: %d\n", srv.ID, id)
-
-// 	// store it in sessions map (so server tracks it)
-// 	srv.mu.Lock()
-// 	srv.sessions[bs.Session.ID] = bs
-// 	srv.mu.Unlock()
-// 	bs.Start()
-
-// 	return bs
-// }
-
 func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
 	// generate unique id
 	var id uint32
@@ -198,9 +196,7 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 			srv,
 		)
 	}
-	// fmt.Printf("Server %s: new %s session: %d\n", srv.ID, bsType, id)
 
-	// store it in sessions map (so server tracks it)
 	srv.mu.Lock()
 	srv.sessions[id] = bs
 	srv.mu.Unlock()

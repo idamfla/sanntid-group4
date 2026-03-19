@@ -74,6 +74,9 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 
 	// create broadcast-listening UDP socket
 	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
+	if err != nil {
+		return nil, err
+	}
 
 	bcAddr := &net.UDPAddr{
 		// IP: net.ParseIP("127.0.0.1"),
@@ -152,6 +155,9 @@ func (srv *Server) Close() {
 			srv.closeSessionLocked(sesID)
 		}
 		srv.mu.Unlock()
+
+		fmt.Println(srv.ID, "is synced:", srv.isSynced)
+		srv.PrintPeers()
 	})
 }
 
