@@ -17,11 +17,11 @@ const (
 
 type BaseBroadcastSession struct {
 	*Session
-	selfAddr          string
-	expectedResponses int
-	responders        map[string]bool
-	broadcastAckTimer *timer.Timer
-	mu                sync.Mutex
+	selfAddr               string
+	expectedResponses      int
+	responders             map[string]bool
+	broadcastResponseTimer *timer.Timer
+	mu                     sync.Mutex
 }
 
 func NewBaseBroadcastSession(
@@ -33,11 +33,11 @@ func NewBaseBroadcastSession(
 	expectedResponses int,
 ) *BaseBroadcastSession {
 	bbs := &BaseBroadcastSession{
-		Session:           NewSession(id, addr, closeReq, tx),
-		selfAddr:          selfAddr,
-		expectedResponses: expectedResponses,
-		broadcastAckTimer: timer.NewTimer(),
-		responders:        make(map[string]bool),
+		Session:                NewSession(id, addr, closeReq, tx),
+		selfAddr:               selfAddr,
+		expectedResponses:      expectedResponses,
+		broadcastResponseTimer: timer.NewTimer(),
+		responders:             make(map[string]bool),
 	}
 	bbs.responders[selfAddr] = true
 	return bbs
@@ -51,8 +51,8 @@ func (bbs *BaseBroadcastSession) Start() {
 }
 
 func (bbs *BaseBroadcastSession) Close() {
-	if bbs.broadcastAckTimer != nil {
-		bbs.broadcastAckTimer.Stop()
+	if bbs.broadcastResponseTimer != nil {
+		bbs.broadcastResponseTimer.Stop()
 	}
 
 	bbs.Session.Close()
@@ -76,17 +76,16 @@ func (bbs *BaseBroadcastSession) resetResponders() {
 	bbs.responders = map[string]bool{bbs.selfAddr: true}
 }
 
-func (bbs *BaseBroadcastSession) startAckTimer() {
-	bbs.broadcastAckTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
+func (bbs *BaseBroadcastSession) startResponseTimer() {
+	bbs.broadcastResponseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
 		fmt.Println("Not enough elevators received the data in time ...")
-		// TODO what now??
-		// ses.closeReq <- ses.ID
+		bbs.stopResponseTimer()
 		bbs.requestClose()
 	})
 }
 
-func (bbs *BaseBroadcastSession) stopAckTimer() {
-	bbs.broadcastAckTimer.Stop()
+func (bbs *BaseBroadcastSession) stopResponseTimer() {
+	bbs.broadcastResponseTimer.Stop()
 }
 
 func (bsType BroadcastSessionType) String() string {

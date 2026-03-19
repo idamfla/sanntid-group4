@@ -10,8 +10,6 @@ import (
 type WhoIsMasterBroadcast struct {
 	*BaseBroadcastSession
 	election *Election
-	// electionStarted bool
-	// masterFound     chan struct{}
 }
 
 func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, closeReq chan<- uint32, tx PacketSender) *WhoIsMasterBroadcast {
@@ -32,7 +30,6 @@ func (ws *WhoIsMasterBroadcast) Start() {
 }
 
 func (ws *WhoIsMasterBroadcast) Close() {
-	// close(ws.masterFound)
 	ws.BaseBroadcastSession.Close()
 }
 
@@ -40,13 +37,11 @@ func (ws *WhoIsMasterBroadcast) SendReply(pkt packet.PacketType) { ws.Session.Se
 
 func (ws *WhoIsMasterBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
 
-func (ws *WhoIsMasterBroadcast) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
+func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+}
 
 func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
-	ws.outgoingMsgCh <- outgoingMessage{
-		PktType: packet.PKT_T_WhoIsMaster,
-		EMsg:    message.ElevatorMessage{},
-	}
+	ws.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
 }
 
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
@@ -54,7 +49,7 @@ func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
 	case packet.PKT_T_WhoIsMaster:
 		ws.SendReply(packet.PKT_T_IAmAlive)
 	case packet.PKT_T_IAmMaster:
-		ws.startAckTimer()
+		ws.startResponseTimer()
 	}
 }
 
@@ -98,11 +93,10 @@ func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
 
 func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 	fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
-	ws.startAckTimer()
 
 	if ws.countResponders() >= ws.expectedResponses {
 		ws.hasLastPkt = false
-		ws.stopAckTimer()
+		ws.stopResponseTimer()
 		ws.requestClose()
 	}
 }

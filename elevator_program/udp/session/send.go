@@ -21,29 +21,23 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 }
 
 func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-	ses.outgoingMsgCh <- outgoingMessage{
+	select {
+	case ses.outgoingMsgCh <- outgoingMessage{
 		PktType: pktType,
 		EMsg:    eMsg,
+	}:
+	default:
+		fmt.Println("Can't queue message, sessions messageQueue is full")
 	}
 }
 
-func (ses *Session) QueueBroadcastUpdateMsg(eMsg message.ElevatorMessage) {}
+func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+}
 
 func (ses *Session) QueueWhoIsMasterMsg() {}
 
 func (ses *Session) SendReply(pktType packet.PacketType) {
-	select {
-	case ses.outgoingMsgCh <- outgoingMessage{
-		PktType: pktType,
-		EMsg:    message.ElevatorMessage{},
-	}:
-	default:
-		fmt.Println("Session", ses.ID, "outgoingMsgCh full, dropping packet")
-	}
-}
-
-func (ses *Session) sendBroadcastDone() {
-	ses.SendReply(packet.PKT_T_BroadcastDone)
+	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
 }
 
 func (ses *Session) sendRetry(outPkt outgoingMessage) error {
@@ -60,6 +54,9 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 
 	for {
 		select {
+		case <-ses.stop:
+			return
+
 		case outPkt := <-ses.outgoingMsgCh:
 			err := ses.send(outPkt)
 			if err != nil {
@@ -71,8 +68,6 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			// 	close(outPkt.Done) // signal sender
 
 			// }
-		case <-ses.stop:
-			return
 		}
 	}
 }

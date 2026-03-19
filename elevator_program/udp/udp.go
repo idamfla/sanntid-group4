@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	READ_INTERVAL            = 500 * time.Millisecond
 	RETRY_INTERVAL           = 500 * time.Millisecond
 	MAX_RETRIES              = 10
 	SHUTDOWN_TIMEOUT         = 5 * time.Second

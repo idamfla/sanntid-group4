@@ -9,7 +9,11 @@ import (
 )
 
 func (ses *Session) ReceivePacket(pkt packet.Packet) {
-	ses.packetInCh <- pkt
+	select {
+	case ses.packetInCh <- pkt:
+	default:
+		fmt.Println("Session mailbox is full, could not receive new packet")
+	}
 }
 
 func (ses *Session) HandlePacket(pkt packet.Packet) error {
@@ -35,8 +39,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		pkt.Payload,
 	)
 
-	ses.shutdownDelayTimer.Stop()
-
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
 		fmt.Printf("%s sent %s\n", h.SenderAddr, h.PktType) // TODO remove db, although ... heatbeat should not end up here
@@ -57,18 +59,20 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_CatchupUpdate:
 		ses.handleCatchup()
 
-	case packet.PKT_T_CatchupAck:
+	case packet.PKT_T_Snapshot:
+		ses.handleSnapshot()
+
+	case packet.PKT_T_CatchupAck, packet.PKT_T_SnapshotAck:
 		ses.requestClose()
 
-	case packet.PKT_T_CatchupDone:
-		ses.requestClose()
+	// case packet.PKT_T_SyncComplete:
+	// 	ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
 		ses.handleSlaveUpdate(pkt.Payload)
 
-	case packet.PKT_T_BroadcastUpdate:
-		ses.SendReply(packet.PKT_T_BroadcastAck)
-		ses.QueueElevatorStateTask()
+	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete: // CatchupDone signifies that someone has rejoind the network and is up to date
+		ses.handleStateBSUpdate(h.PktType)
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
 		ses.requestClose()
@@ -78,8 +82,8 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 		communication witht the wondering elevator on a private session another session
 	*/
 
-	case packet.PKT_T_BroadcastCommit:
-		go ses.handleBroadcastCommit()
+	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
+		go ses.handleStateBSCommit(h.PktType)
 
 	case packet.PKT_T_ElevatorFailed:
 		// TODO fault tolerence? what to do now ...
@@ -96,19 +100,18 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 	ses.scheduleSessionClose()
 }
 
-// func (ses *Session) handleSnapshot() {
-// 	ses.QueueElevatorWorkTask(message.EMSG_T_NewToChannel, message.ElevatorMessage{})
-// 	ses.notifyTaskReady()
-// 	ses.SendReply(packet.PKT_T_SnapshotAck)
-// 	ses.scheduleSessionClose()
-// }
+func (ses *Session) handleSnapshot() {
+	ses.QueueElevatorStateTask()
+	ses.notifyTaskReady()
+	ses.SendReply(packet.PKT_T_SnapshotAck)
+
+	ses.scheduleSessionClose()
+}
 
 func (ses *Session) handleCatchup() {
 	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_CatchupAck)
-
-	// if peer is not synced ... flush queue, when queue empty send catchup done
 
 	ses.scheduleSessionClose()
 }
@@ -145,13 +148,30 @@ func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, 
 	ses.tx.QueueElevatorTask(emsg, nil, ses.taskReady)
 }
 
-func (ses *Session) handleBroadcastCommit() {
+func (ses *Session) handleStateBSUpdate(pktType packet.PacketType) {
+	switch pktType {
+	case packet.PKT_T_BroadcastUpdate:
+		ses.SendReply(packet.PKT_T_BroadcastAck)
+	case packet.PKT_T_SyncComplete:
+		ses.SendReply(packet.PKT_T_SyncAck)
+	}
+
+	ses.QueueElevatorStateTask()
+}
+
+func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 	ses.notifyTaskReady()
 	if err := ses.waitForElevatorDoneWithReply(); err != nil {
 		return
 	}
 
-	ses.sendBroadcastDone()
+	switch pktType {
+	case packet.PKT_T_SyncCommit:
+		ses.SendReply(packet.PKT_T_SyncDone)
+	case packet.PKT_T_BroadcastCommit:
+		ses.SendReply(packet.PKT_T_BroadcastDone)
+	}
+
 	ses.pendingPkt = nil
 
 	ses.scheduleSessionClose()
@@ -159,8 +179,10 @@ func (ses *Session) handleBroadcastCommit() {
 
 func (ses *Session) notifyTaskReady() {
 	select {
-	case ses.taskReady <- struct{}{}:
 	case <-ses.stop:
+	case ses.taskReady <- struct{}{}:
+	default:
+		fmt.Println("Notifications full, could not notify to elevator that task is ready")
 	}
 }
 
@@ -176,27 +198,31 @@ func (ses *Session) waitForElevatorDoneWithReply() error {
 
 // Send packet to elevator, block until timeout or elevator complete its task
 func (ses *Session) waitForElevatorDone() error {
+	timer := time.NewTimer(udp.LOCAL_COMMIT_TIMEOUT)
+	defer timer.Stop()
+
 	select { // wait for completion
+	case <-ses.stop:
+		return fmt.Errorf("Session stopped")
+
 	case <-ses.elevDone:
 		fmt.Println("Elevator done commiting")
 		return nil
-	case <-time.After(udp.LOCAL_COMMIT_TIMEOUT):
+
+	case <-timer.C:
 		return fmt.Errorf("Elevator failed to commit …")
-	case <-ses.stop:
-		return fmt.Errorf("Session stopped")
 	}
 }
 
 // --- lifecycle / timers
 func (ses *Session) scheduleSessionClose() {
-	ses.shutdownDelayTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {
-		ses.closeReq <- ses.ID
-	})
+	time.Sleep(udp.SHUTDOWN_TIMEOUT)
+	ses.requestClose()
 }
 
 func (ses *Session) requestClose() {
 	select {
+	case <-ses.stop:
 	case ses.closeReq <- ses.ID:
-	default:
 	}
 }

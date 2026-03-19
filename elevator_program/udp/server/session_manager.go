@@ -88,10 +88,25 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		// }
 
 	default:
-		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
-			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
-			return
+		if pktType == packet.PKT_T_SyncComplete {
+			srv.mu.Lock()
+			recipientAddr := incPkt.Packet.Payload.Addr
+			selfAddr := srv.recvConn.LocalAddr().String()
+
+			if selfAddr == recipientAddr {
+				srv.isSynced = true
+			}
+
+			if peer, exists := srv.peers[recipientAddr]; exists {
+				peer.SetIsSynced(true)
+			}
+			srv.mu.Unlock()
+			if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
+				fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+				return
+			}
 		}
+
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}
 

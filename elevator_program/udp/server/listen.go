@@ -31,9 +31,15 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 			continue
 		}
 
-		srv.incPktCh <- incomingPacket{
+		select {
+		case <-srv.stop:
+			return
+		case srv.incPktCh <- incomingPacket{
 			Packet: pkt,
 			Addr:   addr,
+		}:
+		default:
+			fmt.Println("Server mailbox is full, could not receive new packet")
 		}
 	}
 }
@@ -60,10 +66,6 @@ func (srv *Server) routeInkPkt(incPkt incomingPacket) {
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
-	}
-
-	if incPkt.Packet.Header.PktType == packet.PKT_T_CatchupDone {
-		srv.isSynced = true
 	}
 
 	srv.registerOrUpdatePeer(senderAddr, false)

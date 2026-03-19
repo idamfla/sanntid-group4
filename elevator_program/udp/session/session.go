@@ -4,8 +4,6 @@ import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
-	"elevator_program/udp/timer"
-	"fmt"
 	"net"
 	"sync"
 )
@@ -43,10 +41,6 @@ type Session struct {
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan outgoingMessage
 
-	// --- timers/lifecycle ---
-	shutdownDelayTimer *timer.Timer
-	remoteCommitTimer  *timer.Timer
-
 	// --- external systems ---
 	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
 	elevDone  chan struct{}
@@ -70,13 +64,11 @@ func NewSession(id uint32,
 		peerAddr: peerAddr,
 		peerID:   peerAddr.String(),
 		// seq:                seq, // TODO have it set on init ...
-		pendingPkt:         &packet.Packet{},
-		lastOutPkt:         outgoingMessage{},
-		hasLastPkt:         false,
-		packetInCh:         make(chan packet.Packet, CHANNEL_BUF),
-		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
-		remoteCommitTimer:  timer.NewTimer(),
-		shutdownDelayTimer: timer.NewTimer(),
+		pendingPkt:    &packet.Packet{},
+		lastOutPkt:    outgoingMessage{},
+		hasLastPkt:    false,
+		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
+		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
@@ -98,10 +90,6 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		// stop normal session timers
-		ses.remoteCommitTimer.Stop()
-		ses.shutdownDelayTimer.Stop()
-
 		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
@@ -114,7 +102,5 @@ func (ses *Session) Close() {
 
 		// Clear pending packet
 		ses.pendingPkt = nil
-
-		fmt.Printf("Session %d closed\n", ses.ID)
 	})
 }

@@ -86,17 +86,25 @@ func (srv *Server) getPeerCount() int {
 
 func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
 	defer srv.wg.Done()
-	done := false
-	for !done {
+
+	for {
 		select {
+		case <-srv.stop:
+			return
+
 		case msg := <-peer.EMsgQueue:
 			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupUpdate, msg)
+
 		default:
-			done = true // no more messages
-			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupDone, message.ElevatorMessage{})
+			fmt.Println("Flush DONE")
+			srv.QueueMessage(nil, packet.PROTO_PKT_T_SyncComplete, message.ElevatorMessage{
+				ID:   peer.Addr.String(),
+				Addr: peer.Addr.String(),
+			})
 			srv.mu.Lock()
 			peer.IsSynced = true
 			srv.mu.Unlock()
+			return
 		}
 	}
 }
