@@ -25,9 +25,14 @@ type HardwareEvent struct {
 }
 
 func (e *Elevator) handleHardwareEvent(hwEvent HardwareEvent) {
-	if e.IsOnline {
-		// TODO Temp for debugging
+	e.mu.Lock()
+	online := e.IsOnline
+	if online {
 		e.connectedToMaster = true
+	}
+	e.mu.Unlock()
+
+	if online {
 		e.handleHardwareEventOnline(hwEvent)
 	} else {
 		e.handleHardwareEventOffline(hwEvent)
@@ -38,7 +43,9 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 	switch hwEvent.Type {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
+		e.mu.Lock()
 		e.emergencyStop = hwEvent.EmergencyStop
+		e.mu.Unlock()
 		e.System.Mutex.Lock()
 		elevatorCopy := e.System.Elevators[e.Id]
 		elevatorCopy.State = types.ES_EmergencyStop
@@ -52,7 +59,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		e.SendToCoordinator <- eMsg
 
 	case HW_T_ButtonPress:
-		if !e.connectedToMaster {
+		e.mu.Lock()
+		connected := e.connectedToMaster
+		e.mu.Unlock()
+		if !connected {
 			println("Not connected to master, cannot accept buttonpress")
 			return
 		}
@@ -88,30 +98,41 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
+			e.mu.Lock()
 			e.inBetweenFloors = true
+			e.mu.Unlock()
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.mu.Lock()
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
+			e.mu.Unlock()
 
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Id]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
 			e.System.Elevators[e.Id] = elevatorCopy
+			_, elevs := e.System.Snapshot()
+			e.System.Mutex.Unlock()
+
 			eMsg := message.ElevatorMessage{
 				EMsgType:  message.EMSG_T_StatusReport,
 				ID:        e.Id,
-				Elevators: e.System.Elevators,
+				Elevators: elevs,
 			}
-			e.System.Mutex.Unlock()
 			e.SendToCoordinator <- eMsg
 		}
 
 	case HW_T_Obstruction:
-		if e.doorState == DS_Closed {
+		e.mu.Lock()
+		closed := e.doorState == DS_Closed
+		e.mu.Unlock()
+		if closed {
 			return
 		}
-		e.obstruction = hwEvent.Obstruction // TODO should i notify master, probably not right?
+		e.mu.Lock()
+		e.obstruction = hwEvent.Obstruction
+		e.mu.Unlock()
 	}
 }
 
@@ -119,7 +140,9 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 	switch hwEvent.Type {
 	case HW_T_EmergencyStop:
 		elevio.SetStopLamp(hwEvent.EmergencyStop)
+		e.mu.Lock()
 		e.emergencyStop = hwEvent.EmergencyStop
+		e.mu.Unlock()
 
 	case HW_T_ButtonPress:
 		if hwEvent.Button == elevio.BT_Cab {
@@ -134,11 +157,15 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 
 	case HW_T_FloorSensor:
 		if hwEvent.Floor == -1 {
+			e.mu.Lock()
 			e.inBetweenFloors = true
+			e.mu.Unlock()
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.mu.Lock()
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
+			e.mu.Unlock()
 
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Id]
@@ -148,10 +175,15 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 		}
 
 	case HW_T_Obstruction:
-		if e.doorState == DS_Closed {
+		e.mu.Lock()
+		closed := e.doorState == DS_Closed
+		e.mu.Unlock()
+		if closed {
 			return
 		}
+		e.mu.Lock()
 		e.obstruction = hwEvent.Obstruction
+		e.mu.Unlock()
 	}
 }
 

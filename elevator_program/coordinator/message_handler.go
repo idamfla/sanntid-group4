@@ -135,7 +135,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		c.msgRecieveCh <- packet
 
 	case message.EMSG_T_TaskUpdate:
+		e.System.Mutex.Lock()
 		e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
+		e.System.Mutex.Unlock()
 		if !(eMsg.ID == e.Id && eMsg.Task.Button == elevio.BT_Cab) {
 			e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}

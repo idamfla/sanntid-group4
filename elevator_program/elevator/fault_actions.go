@@ -36,14 +36,24 @@ func (e *Elevator) hasActiveCabRequests() bool {
 */
 
 func (e *Elevator) shouldRestartAfterOffline() bool {
-	if e.IsOnline && !e.scheduleRestart {
+	e.mu.Lock()
+	online := e.IsOnline
+	restart := e.scheduleRestart
+	ds := e.doorState
+	e.mu.Unlock()
+
+	if online && !restart {
 		return false
 	}
 
-	if e.System.Elevators[e.Id].State == types.ES_Moving {
+	e.System.Mutex.RLock()
+	state := e.System.Elevators[e.Id].State
+	e.System.Mutex.RUnlock()
+
+	if state == types.ES_Moving {
 		return false
 	}
-	if e.doorState != DS_Closed {
+	if ds != DS_Closed {
 		return false
 	}
 
@@ -55,9 +65,10 @@ func (e *Elevator) checkOfflineRestart() {
 		return
 	}
 	fmt.Printf("Elevator %s: orders finished while offline, attempting recovery\n", e.Id)
+	e.mu.Lock()
 	e.scheduleRestart = false
+	e.mu.Unlock()
 	e.attemptRecovery()
-
 }
 
 // ------------------------- Fault handlers -------------------------- //
@@ -67,26 +78,33 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 
 	e.stopLocally()
 	e.enterOfflineMode()
+	e.mu.Lock()
 	e.scheduleRestart = true
-
+	e.mu.Unlock()
 }
 
 func (e *Elevator) handleMasterSuspected(reason string) {
 	fmt.Printf("Elevator %s suspects master failure: %s\n", e.Id, reason)
+	e.mu.Lock()
 	e.connectedToMaster = false
+	e.mu.Unlock()
 }
 
 func (e *Elevator) handleNetworkFault(reason string) {
 	fmt.Printf("Network fault in elevator %s: %s\n", e.Id, reason)
 
 	e.enterOfflineMode()
+	e.mu.Lock()
 	e.scheduleRestart = true
+	e.mu.Unlock()
 }
 
 func (e *Elevator) handlePeerDead(peerID string) {
 	fmt.Println("Peer dead:", peerID)
 
+	e.System.Mutex.Lock()
 	delete(e.System.Elevators, peerID)
+	e.System.Mutex.Unlock()
 
 	//if peerID == e.currentMasterID || peerID < e.Id || e.IsMaster {
 	//e.runElection("peer dead")
@@ -98,6 +116,9 @@ func (e *Elevator) handlePeerDead(peerID string) {
 
 // ------------------------- Mode helpers -------------------------- //
 func (e *Elevator) enterOfflineMode() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if !e.IsOnline {
 		return
 	}
@@ -108,6 +129,8 @@ func (e *Elevator) enterOfflineMode() {
 }
 
 func (e *Elevator) exitOfflineMode() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if e.IsOnline {
 		return
 	}
@@ -119,10 +142,11 @@ func (e *Elevator) exitOfflineMode() {
 func (e *Elevator) stopLocally() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.direction = elevio.MD_Stop
+	e.System.Mutex.Lock()
 	tempElevator := e.System.Elevators[e.Id]
 	tempElevator.State = types.ES_Idle
 	e.System.Elevators[e.Id] = tempElevator
-
+	e.System.Mutex.Unlock()
 }
 
 func (e *Elevator) SoftRestart() {

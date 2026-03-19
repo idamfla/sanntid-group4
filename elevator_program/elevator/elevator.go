@@ -31,6 +31,11 @@ type Elevator struct {
 	doorState DoorState
 	doorTimer time.Time
 
+	// mu protects fields accessed from multiple goroutines:
+	// doorState, currentFloor, inBetweenFloors, emergencyStop, obstruction,
+	// IsOnline, IsMaster, connectedToMaster, scheduleRestart
+	mu sync.Mutex
+
 	//temp Need to time how long you have lost communiction
 	lostComsTimer      time.Time
 	ackCounterLostComs int
@@ -39,15 +44,11 @@ type Elevator struct {
 
 	// elevatorState    types.ElevatorState
 	obstruction              bool
-	emergencyStop            bool // TODO fade out ... just figure out how to set state to ES_EmergencyStop, unset it
+	emergencyStop            bool
 	hardwareEventsCh         chan HardwareEvent
 	hardwareListenersStarted bool
 
 	FaultMsg chan message.FaultMessage
-
-	// MsgRecieveCh chan message.ElevatorMessage
-	// msgSendCh    chan message.ElevatorMessage
-	// MsgRecieveCh chan session.ElevatorPacket // Update the channel type, wait should this one be IncomingPacket, do i need to debug and encode this one?
 
 	IsMaster          bool
 	connectedToMaster bool
@@ -182,8 +183,17 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 		elevio.SetFloorIndicator(e.currentFloor)
 	}
 
-	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
-
+	// NOTE: Do NOT recreate SendToCoordinator here.
+	// The coordinator's sendListener is still reading from the original channel.
+	// Drain any stale messages instead.
+	for {
+		select {
+		case <-e.SendToCoordinator:
+		default:
+			goto drained
+		}
+	}
+drained:
 }
 
 func (e *Elevator) stopRuntimeLoops() {

@@ -12,7 +12,11 @@ import (
 // Motion helper functions
 // ------------------------
 func (e *Elevator) atTargetFloor(targetFloor int) bool {
-	return e.currentFloor == targetFloor && !e.inBetweenFloors && e.currentFloor != -1
+	e.mu.Lock()
+	floor := e.currentFloor
+	between := e.inBetweenFloors
+	e.mu.Unlock()
+	return floor == targetFloor && !between && floor != -1
 }
 
 func (e *Elevator) isTargetValid(targetFloor int) bool {
@@ -20,9 +24,13 @@ func (e *Elevator) isTargetValid(targetFloor int) bool {
 }
 
 func (e *Elevator) getMotion(target int) elevio.MotorDirection {
-	if e.atTargetFloor(target) || e.emergencyStop || !e.isTargetValid(target) {
+	e.mu.Lock()
+	estop := e.emergencyStop
+	floor := e.currentFloor
+	e.mu.Unlock()
+	if e.atTargetFloor(target) || estop || !e.isTargetValid(target) {
 		return elevio.MD_Stop
-	} else if e.currentFloor < target {
+	} else if floor < target {
 		return elevio.MD_Up
 	} else {
 		return elevio.MD_Down
@@ -30,7 +38,10 @@ func (e *Elevator) getMotion(target int) elevio.MotorDirection {
 }
 
 func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDirection) {
-	if dir == elevio.MD_Stop && target.Floor == e.currentFloor {
+	e.mu.Lock()
+	floor := e.currentFloor
+	e.mu.Unlock()
+	if dir == elevio.MD_Stop && target.Floor == floor {
 		switch target.Button {
 		case elevio.BT_HallUp:
 			dir = elevio.MD_Up
@@ -64,18 +75,19 @@ func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.M
 }
 
 func (e *Elevator) uninitializedAction() elevio.MotorDirection {
-	if e.currentFloor == -1 {
+	e.mu.Lock()
+	floor := e.currentFloor
+	e.mu.Unlock()
+
+	if floor == -1 {
 		return elevio.MD_Down
 	}
-
-	if e.currentFloor < e.initFloor {
+	if floor < e.initFloor {
 		return elevio.MD_Up
 	}
-
-	if e.currentFloor > e.initFloor {
+	if floor > e.initFloor {
 		return elevio.MD_Down
 	}
-
 	return elevio.MD_Stop
 }
 
@@ -83,9 +95,20 @@ func (e *Elevator) uninitializedAction() elevio.MotorDirection {
 // State Machine
 // ------------------------
 // Updates elevator state when connected to the network
-func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change state and controls the motor
-	if e.emergencyStop {
+func (e *Elevator) updateElevatorStateOnline() {
+	e.mu.Lock()
+	estop := e.emergencyStop
+	ds := e.doorState
+	e.mu.Unlock()
+
+	if estop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
+		// Update system state to reflect emergency stop
+		e.System.Mutex.Lock()
+		elevatorCopy := e.System.Elevators[e.Id]
+		elevatorCopy.State = types.ES_EmergencyStop
+		e.System.Elevators[e.Id] = elevatorCopy
+		e.System.Mutex.Unlock()
 		return
 	}
 
@@ -95,11 +118,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	elevatorState := elevs[e.Id]
 	prevState := elevatorState.State
 
-	// TODO add doorstate switch, e.startTime = time.Now()
-
 	var dir elevio.MotorDirection = elevio.MD_Stop
 
-	if elevatorState.State != types.ES_Uninitialized && e.doorState != DS_Closed {
+	if elevatorState.State != types.ES_Uninitialized && ds != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
@@ -111,7 +132,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorState.State = types.ES_Idle
+			e.mu.Lock()
 			e.doorState = DS_Opening
+			e.mu.Unlock()
 			fmt.Println(e)
 
 			e.System.Mutex.RLock()
@@ -138,7 +161,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			if dir != elevio.MD_Stop {
 				elevatorState.State = types.ES_Moving
 			} else {
+				e.mu.Lock()
 				e.doorState = DS_Opening
+				e.mu.Unlock()
 				e.finishedTask(elevatorState.State)
 			}
 		}
@@ -151,7 +176,9 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		dir = e.getMotion(targetFloor)
 
 		if dir == elevio.MD_Stop {
+			e.mu.Lock()
 			e.doorState = DS_Opening
+			e.mu.Unlock()
 			elevatorState.State = types.ES_Idle
 			e.finishedTask(elevatorState.State)
 		}
@@ -188,8 +215,13 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 }
 
 // Updates the elevator state when not connected to the network
-func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change state and controls the motor
-	if e.emergencyStop {
+func (e *Elevator) updateElevatorStateOffline() {
+	e.mu.Lock()
+	estop := e.emergencyStop
+	ds := e.doorState
+	e.mu.Unlock()
+
+	if estop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		return
 	}
@@ -200,14 +232,11 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	e.System.Mutex.RUnlock()
 	prevState := elevatorStatus.State
 
-	// TODO add doorstate switch, e.startTime = time.Now()
-
 	var dir elevio.MotorDirection = elevio.MD_Stop
 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 
-	if elevatorStatus.State != types.ES_Uninitialized && e.doorState != DS_Closed {
+	if elevatorStatus.State != types.ES_Uninitialized && ds != DS_Closed {
 		elevio.SetMotorDirection(elevio.MD_Stop)
-
 		return
 	}
 
@@ -218,7 +247,9 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorStatus.State = types.ES_Idle
+			e.mu.Lock()
 			e.doorState = DS_Opening
+			e.mu.Unlock()
 			fmt.Println(e)
 		}
 
@@ -242,13 +273,17 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			}
 			e.System.Mutex.Unlock()
 
+			e.mu.Lock()
 			if !e.IsOnline {
 				e.scheduleRestart = true
 			}
+			e.mu.Unlock()
 		}
 
 		if e.atTargetFloor(elevatorStatus.Target.Floor) {
+			e.mu.Lock()
 			e.doorState = DS_Opening
+			e.mu.Unlock()
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
 
@@ -261,7 +296,9 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		dir = e.getMotion(elevatorStatus.Target.Floor)
 
 		if dir == elevio.MD_Stop {
+			e.mu.Lock()
 			e.doorState = DS_Opening
+			e.mu.Unlock()
 			elevatorStatus.State = types.ES_Idle
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
@@ -277,7 +314,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	}
 	elevio.SetMotorDirection(dir)
 
-	e.checkOfflineRestart()
+	// e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
 	e.System.Elevators[e.Id] = elevatorStatus
@@ -296,7 +333,10 @@ func (e *Elevator) RunElevatorStateMachine() {
 		case <-e.stop:
 			return
 		case <-ticker.C:
-			if e.IsOnline {
+			e.mu.Lock()
+			online := e.IsOnline
+			e.mu.Unlock()
+			if online {
 				e.updateElevatorStateOnline()
 			} else {
 				e.updateElevatorStateOffline()
@@ -363,7 +403,10 @@ func (e *Elevator) finishedTask(state types.ElevatorState) { // TODO as claude h
 
 	e.SendToCoordinator <- finishedMsg
 
-	if e.IsMaster {
+	e.mu.Lock()
+	isMaster := e.IsMaster
+	e.mu.Unlock()
+	if isMaster {
 		task := e.GetNextTargetFloor(elevs[e.Id], hallRequests)
 
 		if task.Floor != -1 {

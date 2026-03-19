@@ -8,8 +8,10 @@ import (
 
 // TODO This function is wierd, either we need to have it as e or something else if it is eMsg sending
 func (e *Elevator) HandleLostConnection(senderId string) {
-	if senderId == "" { //|| time.Since(e.lostComsTimer) > 4*time.Second
+	if senderId == "" {
+		e.mu.Lock()
 		e.IsOnline = false
+		e.mu.Unlock()
 		// Need to schedule a restart
 		// TODO It is fault tolerance that should take the time maybe
 	} else {
@@ -24,6 +26,8 @@ func (e *Elevator) HandleLostConnection(senderId string) {
 }
 
 func (e *Elevator) ConnectedToMaster() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	return e.connectedToMaster
 }
 
@@ -41,9 +45,11 @@ func (e *Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button
 }
 
 func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
+	e.mu.Lock()
 	e.Id = eMsg.ID
 	e.IsMaster = false
 	e.connectedToMaster = true
+	e.mu.Unlock()
 	e.exitOfflineMode()
 	e.System.Mutex.RLock()
 	for id, elevator := range e.System.Elevators {
@@ -65,7 +71,9 @@ func (e *Elevator) ClearTarget() {
 }
 
 func (e *Elevator) TurnToMaster() {
+	e.mu.Lock()
 	e.IsOnline = true
 	e.IsMaster = true
 	e.connectedToMaster = true
+	e.mu.Unlock()
 }

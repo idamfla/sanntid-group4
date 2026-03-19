@@ -18,7 +18,12 @@ const (
 )
 
 func (e *Elevator) updateDoorState() {
-	switch e.doorState {
+	e.mu.Lock()
+	ds := e.doorState
+	obs := e.obstruction
+	e.mu.Unlock()
+
+	switch ds {
 	case DS_Closed:
 		return
 
@@ -28,17 +33,24 @@ func (e *Elevator) updateDoorState() {
 		e.System.Mutex.RLock()
 		task := e.System.Elevators[e.Id].Target
 		e.System.Mutex.RUnlock()
+		e.mu.Lock()
+		floor := e.currentFloor
+		e.mu.Unlock()
 		if e.atTargetFloor(task.Floor) {
-			e.clearCurrentFloor(e.currentFloor, task.Button)
+			e.clearCurrentFloor(floor, task.Button)
 		}
 
+		e.mu.Lock()
 		e.doorState = DS_Open
+		e.mu.Unlock()
 		e.doorTimer = time.Time{}
 
 	case DS_Open:
-		if e.obstruction {
+		if obs {
+			e.mu.Lock()
 			e.doorState = DS_Obstruction
-			e.doorTimer = time.Time{} // reset timer
+			e.mu.Unlock()
+			e.doorTimer = time.Time{}
 			break
 		}
 
@@ -47,24 +59,32 @@ func (e *Elevator) updateDoorState() {
 		}
 
 		if time.Since(e.doorTimer) >= 3*time.Second {
+			e.mu.Lock()
 			e.doorState = DS_Closing
+			e.mu.Unlock()
 			e.doorTimer = time.Time{}
 		}
 
 	case DS_Closing:
-		if e.obstruction {
+		if obs {
+			e.mu.Lock()
 			e.doorState = DS_Obstruction
+			e.mu.Unlock()
 			break
 		}
 
 		elevio.SetDoorOpenLamp(false)
+		e.mu.Lock()
 		e.doorState = DS_Closed
+		e.mu.Unlock()
 
 	case DS_Obstruction:
 		elevio.SetDoorOpenLamp(true)
 
-		if !e.obstruction {
+		if !obs {
+			e.mu.Lock()
 			e.doorState = DS_Open
+			e.mu.Unlock()
 			e.doorTimer = time.Now()
 		}
 
