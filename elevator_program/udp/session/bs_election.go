@@ -38,9 +38,13 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 	defer timer.Stop()
 
 	select {
+	case <-ws.stop:
+		return
+
 	case <-e.masterFound:
 		fmt.Println("Master already exists, stopping election")
 		return
+
 	case <-timer.C:
 		fmt.Printf("No master found, electing... There are %d candidates\n", ws.countResponders())
 		ws.mu.Lock()
@@ -49,6 +53,7 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		for addr := range ws.responders {
 			select {
 			case <-ws.stop:
+				ws.mu.Unlock()
 				return
 			default:
 			}
@@ -69,8 +74,5 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		}
 
 		fmt.Println("New master elected", lowest, amMaster, ws.expectedResponses)
-
-	case <-ws.stop:
-		return
 	}
 }

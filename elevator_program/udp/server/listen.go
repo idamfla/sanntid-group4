@@ -32,12 +32,14 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 		}
 
 		select {
+		case <-srv.stop:
+			return
 		case srv.incPktCh <- incomingPacket{
 			Packet: pkt,
 			Addr:   addr,
 		}:
-		case <-srv.stop:
-			return
+		default:
+			fmt.Println("Server mailbox is full, could not receive new packet")
 		}
 	}
 }

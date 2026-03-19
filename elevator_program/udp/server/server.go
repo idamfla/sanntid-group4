@@ -21,7 +21,7 @@ type SessionHandler interface {
 	SendReply(pkt packet.PacketType)
 	ReceivePacket(pkt packet.Packet)
 	QueueWhoIsMasterMsg()
-	QueueBroadcastUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage)
+	QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage)
 }
 
 type Server struct {
@@ -124,6 +124,9 @@ func (srv *Server) run() {
 	defer srv.wg.Done()
 	for {
 		select {
+		case <-srv.stop:
+			return
+
 		case id := <-srv.closeReq:
 			srv.closeSession(id)
 
@@ -134,8 +137,6 @@ func (srv *Server) run() {
 			srv.wg.Add(1)
 			go srv.dispatchMessage(outMsg)
 
-		case <-srv.stop:
-			return
 		}
 	}
 }
@@ -148,7 +149,7 @@ func (srv *Server) Close() {
 		srv.sendConn.Close()
 		srv.broadcastConn.Close()
 
-		close(srv.elevatorTaskQueue)
+		// close(srv.elevatorTaskQueue)
 
 		srv.wg.Wait() // wait for goroutines
 

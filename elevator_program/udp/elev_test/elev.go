@@ -55,7 +55,7 @@ func (e *Elev) listen() {
 				if err != nil {
 					continue
 				}
-				e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_CatchupUpdate, message.ElevatorMessage{})
+				e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_Snapshot, message.ElevatorMessage{})
 				e.srv.StartPeerCatchup(udpAddr)
 			}
 		case <-e.stop:
@@ -76,6 +76,8 @@ func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Protoco
 }
 
 func (e *Elev) Close() {
+	close(e.stop)
+
 	if e.srv != nil {
 		e.srv.PrintSessions()
 		e.wg.Add(1)
@@ -84,8 +86,6 @@ func (e *Elev) Close() {
 			e.srv.Close()
 		}()
 	}
-
-	close(e.stop)
 
 	e.wg.Wait()
 

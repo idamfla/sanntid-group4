@@ -9,8 +9,6 @@ import (
 	"elevator_program/udp/server"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	// "elevator_program/utilities"
@@ -72,10 +70,11 @@ func testBroadcast_send(srv *server.Server) {
 func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	// signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Wait for Ctrl+C
 	<-sigChan
+	// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 
 	fmt.Println("\nCtrl+C pressed")
 	fmt.Println("Is A master", e1.IsMaster())
@@ -127,7 +126,7 @@ func main() {
 	// 	packet.PROTO_PKT_T_SlaveUpdate,
 	// 	message.ElevatorMessage{ActivePeers: 380085},
 	// )
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 
 	// eB.QueueMessage(
 	// 	udp.MustUDPAddr(localIP, 9000),

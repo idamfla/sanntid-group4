@@ -89,11 +89,11 @@ func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
 
 	for {
 		select {
-		case msg := <-peer.EMsgQueue:
-			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupUpdate, msg)
-
 		case <-srv.stop:
 			return
+
+		case msg := <-peer.EMsgQueue:
+			srv.QueueMessage(peer.Addr, packet.PROTO_PKT_T_CatchupUpdate, msg)
 
 		default:
 			fmt.Println("Flush DONE")

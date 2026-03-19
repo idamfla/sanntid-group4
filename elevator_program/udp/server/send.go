@@ -53,7 +53,7 @@ func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.E
 	quorum := srv.getPeerCount()
 	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
 
-	bs.QueueBroadcastUpdateMsg(pktType, eMsg)
+	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
@@ -75,7 +75,7 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
 		srv.dispatchToMasterMsg(outMsg)
 
-	case packet.PKT_T_CatchupUpdate:
+	case packet.PKT_T_CatchupUpdate, packet.PKT_T_Snapshot:
 		srv.dispatchToSlaveMsg(outMsg)
 
 	case packet.PKT_T_SyncComplete:
@@ -148,10 +148,15 @@ func (srv *Server) dispatchWhoIsMaster() {
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
-	srv.outgoingMsgCh <- outgoingMessage{
+
+	select {
+	case srv.outgoingMsgCh <- outgoingMessage{
 		RemoteAddr: remoteAddr,
 		PktType:    pktType,
 		EMsg:       eMsg,
+	}:
+	default:
+		fmt.Println("Can't queue message, servers messageQueue is full")
 	}
 }
 
