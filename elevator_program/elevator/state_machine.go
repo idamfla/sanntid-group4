@@ -240,6 +240,13 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		if nextTarget.Floor != -1 {
 			elevatorStatus.Target = nextTarget
 			e.updateDirection(nextTarget, dir)
+			e.System.Mutex.Lock()
+			if nextTarget.Button == elevio.BT_Cab {
+				elevatorStatus.CabRequests[nextTarget.Floor] = types.Running
+			} else {
+				e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
+			}
+			e.System.Mutex.Unlock()
 
 			if e.offline {
 				e.scheduleRestart = true
@@ -265,32 +272,6 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
 		}
 
-		// dir = e.getMotion(elevatorStatus.Target.Floor)
-
-		// if dir == elevio.MD_Stop {
-		// 	e.doorState = DS_Opening
-		// 	elevatorStatus.State = types.ES_Idle
-		// } else {
-		// 	nextTarget, dir = e.computeNextTargetAndDirection()
-		// 	if nextTarget.Floor != -1 && nextTarget != elevatorStatus.Target { // tODO Maybe test that this version still works
-		// 		e.System.Mutex.Lock()
-		// 		// TODO I don't know if this is the best way to write it but now can use running
-		// 		if elevatorStatus.Target.Button == elevio.BT_Cab {
-		// 			e.System.Elevators[e.Id].CabRequests[elevatorStatus.Target.Floor] = types.Pending // TODO Need to message that the buttons have changed
-		// 		} else {
-		// 			e.System.HallRequests[elevatorStatus.Target.Floor][elevatorStatus.Target.Button] = types.Pending // TODO Need to message that the buttons have changed
-		// 		}
-
-		// 		if nextTarget.Button == elevio.BT_Cab {
-		// 			e.System.Elevators[e.Id].CabRequests[nextTarget.Floor] = types.Running
-		// 		} else {
-		// 			e.System.HallRequests[nextTarget.Floor][nextTarget.Button] = types.Running
-		// 		}
-		// 		e.System.Mutex.Unlock()
-		// 		elevatorStatus.Target = nextTarget
-		// 		e.updateDirection(nextTarget, dir)
-		// 	}
-		// }
 	case types.ES_EmergencyStop:
 		elevio.SetMotorDirection(elevio.MD_Stop)
 
@@ -304,11 +285,8 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 
 	e.checkOfflineRestart()
 
-	e.System.Elevators[e.Id] = elevatorStatus
 	e.System.Mutex.Lock()
-	elevatorCopy := e.System.Elevators[e.Id]
-	elevatorCopy.State = elevatorStatus.State
-	e.System.Elevators[e.Id] = elevatorCopy
+	e.System.Elevators[e.Id] = elevatorStatus
 	e.System.Mutex.Unlock()
 }
 

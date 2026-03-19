@@ -6,7 +6,7 @@ import (
 	"elevator_program/utilities"
 )
 
-func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, hallrequest [][2]types.ButtonStatus) (bool, elevio.ButtonEvent) {
+func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target elevio.ButtonEvent, hallRequest [][2]types.ButtonStatus, cabRequests []types.ButtonStatus) (bool, elevio.ButtonEvent) {
 	// e.System.Mutex.RLock()
 	// defer e.System.Mutex.RUnlock()
 
@@ -30,30 +30,30 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, hallre
 	switch dir {
 	case elevio.MD_Up:
 		for f := from; f <= to; f++ {
-			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if cabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
 
-			} else if e.System.HallRequests[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
+			} else if hallRequest[f][elevio.BT_HallUp] != types.NotActive { // Changed to be compatible with System struct
 				protentilTarget := elevio.ButtonEvent{
 					Floor:  f,
 					Button: elevio.BT_HallUp,
 				}
 
-				if !(e.System.Elevators[e.Id].Target != protentilTarget && e.System.HallRequests[f][elevio.BT_HallUp] == types.Running) { // To not steal anyone elses task, TODO could be wrong
+				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallUp] == types.Running) { // To not steal anyone elses task, TODO could be wrong
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 				}
 			}
 		}
 	case elevio.MD_Down:
 		for f := from; f >= to; f-- {
-			if e.System.Elevators[e.Id].CabRequests[f] != types.NotActive { // Changed to be compatible with System struct
+			if cabRequests[f] != types.NotActive { // Changed to be compatible with System struct
 				return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_Cab}
-			} else if e.System.HallRequests[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
+			} else if hallRequest[f][elevio.BT_HallDown] != types.NotActive { // Changed to be compatible with System struct
 				protentilTarget := elevio.ButtonEvent{
 					Floor:  f,
 					Button: elevio.BT_HallDown,
 				}
-				if !(e.System.Elevators[e.Id].Target != protentilTarget && e.System.HallRequests[f][elevio.BT_HallDown] == types.Running) { // To not steal anyone elses task
+				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallDown] == types.Running) { // To not steal anyone elses task
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 				}
 			}
@@ -100,10 +100,12 @@ func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 	}
 	e.System.Mutex.RLock()
 	direction := e.System.Elevators[e.Id].Direction
+	cabRequests := e.System.Elevators[e.Id].CabRequests
 	hallRequest := e.System.HallRequests
+	target := e.System.Elevators[e.Id].Target
 	e.System.Mutex.RUnlock()
 
-	return e.scanFloor(e.currentFloor, e.currentFloor, direction, hallRequest)
+	return e.scanFloor(e.currentFloor, e.currentFloor, direction, target, hallRequest, cabRequests)
 }
 
 func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
@@ -112,23 +114,25 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 	bottomFloor := 0
 	topFloor := numFloors - 1
 
+	target := elevator.Target
+
 	upScan := func() elevio.ButtonEvent {
 		if ok, ev := e.scanCurrentFloor(); ok && !e.inBetweenFloors {
 			return ev
 		}
 
 		// phase 1: continue up
-		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up, hallRequests); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
 		// phase 2: nothing left up, go down
-		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down, hallRequests); ok {
+		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
 		// phase 3: nothing down, move up again
-		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up, hallRequests); ok {
+		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
@@ -140,14 +144,14 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(elevator.CurrentFloor-1, bottomFloor, elevio.MD_Down, hallRequests); ok {
+		if ok, ev := e.scanFloor(elevator.CurrentFloor-1, bottomFloor, elevio.MD_Down, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
-		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up, hallRequests); ok {
+		if ok, ev := e.scanFloor(bottomFloor, topFloor, elevio.MD_Up, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
-		if ok, ev := e.scanFloor(topFloor, elevator.CurrentFloor, elevio.MD_Down, hallRequests); ok {
+		if ok, ev := e.scanFloor(topFloor, elevator.CurrentFloor, elevio.MD_Down, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
