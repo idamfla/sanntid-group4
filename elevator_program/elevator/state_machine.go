@@ -118,14 +118,14 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 			_, elevs := e.System.Snapshot()
 			e.System.Mutex.RUnlock()
 
-			msg := message.ElevatorMessage{
-				MsgType: types.MSG_T_TaskRequest,
-				Id:      e.Id,
+			eMsg := message.ElevatorMessage{
+				EMsgType: message.EMSG_T_TaskRequest,
+				ID:       e.Id,
 				Elevators: map[string]types.ElevatorsStatus{
 					e.Id: elevs[e.Id],
 				},
 			}
-			e.SendToCoordinator <- msg
+			e.SendToCoordinator <- eMsg
 		}
 
 	case types.ES_Idle:
@@ -169,15 +169,15 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		elevatorCopy.State = elevatorState.State
 		e.System.Elevators[e.Id] = elevatorCopy
 
-		msg := message.ElevatorMessage{
-			MsgType: types.MSG_T_StatusReport,
-			Id:      e.Id,
+		eMsg := message.ElevatorMessage{
+			EMsgType: message.EMSG_T_StatusReport,
+			ID:       e.Id,
 			Elevators: map[string]types.ElevatorsStatus{
 				e.Id: e.System.Elevators[e.Id],
 			},
 		}
 		e.System.Mutex.Unlock()
-		e.SendToCoordinator <- msg
+		e.SendToCoordinator <- eMsg
 	} else {
 		e.System.Mutex.Unlock()
 	}
@@ -309,19 +309,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	elevatorCopy := e.System.Elevators[e.Id]
 	elevatorCopy.State = elevatorStatus.State
 	e.System.Elevators[e.Id] = elevatorCopy
-
-	msg := message.ElevatorMessage{
-		MsgType: types.MSG_T_NewToChannel,
-		Id:      e.Id,
-		Ip:      e.Ip,
-		Elevators: map[string]types.ElevatorsStatus{
-			e.Id: e.System.Elevators[e.Id],
-		},
-	}
-	fmt.Println("Trying to send to network, ", e.Id)
 	e.System.Mutex.Unlock()
-
-	e.SendToCoordinator <- msg
 }
 
 func (e *Elevator) RunElevatorStateMachine() {
@@ -354,13 +342,13 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 		return
 	}
 
-	msg := message.ElevatorMessage{
-		MsgType:   types.MSG_T_ButtonPress,
-		Id:        e.Id,
+	eMsg := message.ElevatorMessage{
+		EMsgType:  message.EMSG_T_ButtonPress,
+		ID:        e.Id,
 		Task:      target, //e.System.Elevators[e.Id].Target,
 		BtnStatus: types.NotActive,
 	}
-	e.SendToCoordinator <- msg
+	e.SendToCoordinator <- eMsg
 
 	// TODO We should clean this up
 	elevatorCopy := e.System.Elevators[e.Id]
@@ -371,9 +359,9 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 	e.System.Elevators[e.Id] = elevatorCopy
 
-	msg.MsgType = types.MSG_T_TaskRequest
-	msg.Elevators = map[string]types.ElevatorsStatus{
+	eMsg.EMsgType = message.EMSG_T_TaskRequest
+	eMsg.Elevators = map[string]types.ElevatorsStatus{
 		e.Id: e.System.Elevators[e.Id],
 	}
-	e.SendToCoordinator <- msg
+	e.SendToCoordinator <- eMsg
 }

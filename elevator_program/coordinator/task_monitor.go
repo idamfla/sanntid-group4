@@ -54,13 +54,13 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 			}
 			e.FaultMsg <- faultMsg
 
-			msg := message.ElevatorMessage{
-				MsgType:   types.MSG_T_TaskUpdate,
-				Id:        taskKey.Owner,
+			eMsg := message.ElevatorMessage{
+				EMsgType:  message.EMSG_T_TaskUpdate,
+				ID:        taskKey.Owner,
 				Task:      taskKey.TaskID,
 				BtnStatus: types.Pending,
 			}
-			e.SendToCoordinator <- msg
+			e.SendToCoordinator <- eMsg
 		}
 
 		tm.mu.Lock()

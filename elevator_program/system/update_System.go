@@ -44,7 +44,7 @@ func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 }
 
 func (s *System) RegisterAndSyncElevator(
-	msg message.ElevatorMessage,
+	eMsg message.ElevatorMessage,
 	ipRegistery map[string]string,
 ) (message.ElevatorMessage, string) {
 
@@ -52,30 +52,30 @@ func (s *System) RegisterAndSyncElevator(
 	defer s.Mutex.Unlock()
 
 	newMessage := message.ElevatorMessage{
-		MsgType: types.MSG_T_NewToChannel,
-		Id:      msg.Id,
-		Ip:      msg.Ip,
+		EMsgType: message.EMSG_T_NewToChannel,
+		ID:       eMsg.ID,
+		Addr:     eMsg.Addr,
 	}
 
 	newElevator := types.ElevatorsStatus{
-		Id:       msg.Id,
-		Ip:       msg.Ip,
+		Id:       eMsg.ID,
+		Ip:       eMsg.Addr,
 		IsMaster: false,
 		Target: elevio.ButtonEvent{
 			Floor:  -1,
 			Button: elevio.BT_HallUp,
 		},
-		CabRequests: make([]types.ButtonStatus, len(msg.Elevators[msg.Id].CabRequests)),
+		CabRequests: make([]types.ButtonStatus, len(eMsg.Elevators[eMsg.ID].CabRequests)),
 	}
 
-	if _, ok := ipRegistery[msg.Ip]; ok {
-		old := s.Elevators[msg.Id].CabRequests
+	if _, ok := ipRegistery[eMsg.Addr]; ok {
+		old := s.Elevators[eMsg.ID].CabRequests
 
 		newElevator.CabRequests = make([]types.ButtonStatus, len(old))
 		copy(newElevator.CabRequests, old)
 	}
 
-	s.Elevators[msg.Id] = newElevator
+	s.Elevators[eMsg.ID] = newElevator
 
 	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hallCopy, s.HallRequests)
@@ -88,7 +88,7 @@ func (s *System) RegisterAndSyncElevator(
 	newMessage.HallRequests = hallCopy
 	newMessage.Elevators = elevCopy
 
-	return newMessage, msg.Id
+	return newMessage, eMsg.ID
 }
 
 func (s *System) IsRequestInSystem(id string, task elevio.ButtonEvent) bool {

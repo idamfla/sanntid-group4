@@ -5,61 +5,60 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
-	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"strconv"
 )
 
 // TODO Chat thinks that this name is not that good, should use follower instead, but then we need to know that everyone else is also using this
-func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMessage) {
-	switch msg.MsgType {
-	case types.MSG_T_StatusReport:
-		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
+func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
+	switch eMsg.EMsgType {
+	case message.EMSG_T_StatusReport:
+		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 
-	case types.MSG_T_TaskUpdate:
-		if e.Id == msg.Id && msg.BtnStatus == types.Running {
-			e.System.SetRequestAsTarget(msg.Id, msg.Task)
+	case message.EMSG_T_TaskUpdate:
+		if e.Id == eMsg.ID && eMsg.BtnStatus == types.Running {
+			e.System.SetRequestAsTarget(eMsg.ID, eMsg.Task)
 		} else {
 			e.System.Mutex.Lock()
-			e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
+			e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
 			e.System.Mutex.Unlock()
 		}
-		e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+		e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 
-	case types.MSG_T_LostComs:
+	case message.EMSG_T_LostComs:
 		if !e.ConnectedToMaster() {
-			e.HandleLostConnection(msg.Id)
+			e.HandleLostConnection(eMsg.ID)
 		}
 
-	case types.MSG_T_ElevatorLost:
+	case message.EMSG_T_ElevatorLost:
 		if e.ConnectedToMaster() {
-			msg.Id = "" // Send "" if connected, TODO kind of wierd to send the value on Id
+			eMsg.ID = "" // Send "" if connected, TODO kind of wierd to send the value on Id
 		} else {
-			msg.Id = e.Id
+			eMsg.ID = e.Id
 		}
-		msg.MsgType = types.MSG_T_LostComs
-		e.SendToCoordinator <- msg
+		eMsg.EMsgType = message.EMSG_T_LostComs
+		e.SendToCoordinator <- eMsg
 
-	case types.MSG_T_NewToChannel:
+	case message.EMSG_T_NewToChannel:
 		if e.ConnectedToMaster() {
-			e.IpRegistery[msg.Ip] = msg.Id // TODO now we can update IpRegistery for the others as well, is it smart?
-			e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
-		} else if e.Id == msg.Id {
-			e.SetConnectionState(msg)
-			e.System.InitializeFromSystemState(msg)
+			e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO now we can update IpRegistery for the others as well, is it smart?
+			e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
+		} else if e.Id == eMsg.ID {
+			e.SetConnectionState(eMsg)
+			e.System.InitializeFromSystemState(eMsg)
 		} else {
 			// When two not connected elevators reach eachother
 			// The one with smallest ip gets to be master
-			senderIdInt, _ := strconv.Atoi(msg.Id)
+			senderIdInt, _ := strconv.Atoi(eMsg.ID)
 			ownIdInt, _ := strconv.Atoi(e.Id)
 			if ownIdInt < senderIdInt { // TODO It may be an error here if master sends back and another new elevator listens to it
 				e.TurnToMaster()
 				c.portRegistery["master"] = c.portSelf
 
-				msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
+				msg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
 				fmt.Println("Do I get here?", msg)
-				e.IpRegistery[msg.Ip] = id
+				e.IpRegistery[eMsg.Addr] = id
 
 				e.SendToCoordinator <- msg
 				return
@@ -71,61 +70,59 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, msg message.ElevatorMe
 	}
 }
 
-func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorMessage) {
-	switch msg.MsgType {
-	case types.MSG_T_StatusReport:
-		e.System.SetStatusReport(msg.Id, msg.Elevators[msg.Id])
+func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.ElevatorMessage) {
+	switch eMsg.EMsgType {
+	case message.EMSG_T_StatusReport:
+		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 		// TODO Send broadcast of status report
-		e.SendToCoordinator <- msg
+		e.SendToCoordinator <- eMsg
 
-	case types.MSG_T_ButtonPress:
+	case message.EMSG_T_ButtonPress:
 		// TODO Could have a test to prevent duplicated requests, check if s.task == msg.BtnStatus
-		if msg.BtnStatus != types.NotActive {
-			if msg.Task.Button == elevio.BT_Cab {
-				if e.IsNewTargetBetterCab(msg.Id, msg.Task, msg.Elevators[msg.Id]) {
-					msg.BtnStatus = types.Running
+		if eMsg.BtnStatus != types.NotActive {
+			if eMsg.Task.Button == elevio.BT_Cab {
+				if e.IsNewTargetBetterCab(eMsg.ID, eMsg.Task, eMsg.Elevators[eMsg.ID]) {
+					eMsg.BtnStatus = types.Running
 				} else {
-					msg.BtnStatus = types.Pending
+					eMsg.BtnStatus = types.Pending
 				}
 			} else {
 				fmt.Println("What does master see? ", e.Id)
 				e.System.Mutex.RLock()
 				elevatorsCopy := e.System.Elevators
 				e.System.Mutex.RUnlock()
-				taskElevatorId, _, _ := e.ClosestToTarget(elevatorsCopy, msg.Task) // TODO could be wrong here if master don't update system
+				taskElevatorId, _, _ := e.ClosestToTarget(elevatorsCopy, eMsg.Task) // TODO could be wrong here if master don't update system
 				if taskElevatorId != "" {
 					// Someone has a better task to do, we need to broadcast task_Update
-					msg.Id = taskElevatorId
-					msg.BtnStatus = types.Running
+					eMsg.ID = taskElevatorId
+					eMsg.BtnStatus = types.Running
 				} else { // If it is not the case we just need to broadcast the change
-					msg.Id = ""
+					eMsg.ID = ""
 				}
+				eMsg.EMsgType = message.EMSG_T_ButtonPress //MSG_T_TaskUpdate
 			}
 		}
-		msg.MsgType = types.MSG_T_ButtonPress
-		e.SendToCoordinator <- msg
+		e.SendToCoordinator <- eMsg
 
-		msg.MsgType = types.MSG_T_TaskUpdate
+		eMsg.EMsgType = message.EMSG_T_TaskUpdate
 
 		packet := session.ElevatorPacket{
-			Packet: packet.Packet{
-				Payload: msg,
-			},
+			EMsg: eMsg,
 		}
 
 		c.msgRecieveCh <- packet
 
-	case types.MSG_T_TaskUpdate:
-		e.System.SetRequestStatus(msg.Id, msg.BtnStatus, msg.Task)
-		if !(msg.Id == e.Id && msg.Task.Button == elevio.BT_Cab) {
-			e.UpdateBtnLamp(msg.BtnStatus, msg.Task.Floor, msg.Task.Button)
+	case message.EMSG_T_TaskUpdate:
+		e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
+		if !(eMsg.ID == e.Id && eMsg.Task.Button == elevio.BT_Cab) {
+			e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
 		taskKey := TaskKey{
-			Owner:  msg.Id,
-			TaskID: msg.Task,
+			Owner:  eMsg.ID,
+			TaskID: eMsg.Task,
 		}
-		switch msg.BtnStatus {
+		switch eMsg.BtnStatus {
 		case types.Running:
 			c.TaskMonitor.StartTask(taskKey, e)
 		case types.NotActive:
@@ -134,23 +131,23 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, msg message.ElevatorM
 			// TODO should i remove it? should not do anything here
 		}
 
-	case types.MSG_T_TaskRequest:
+	case message.EMSG_T_TaskRequest:
 		e.System.Mutex.RLock()
 		hallRequests := e.System.HallRequests
 		e.System.Mutex.RUnlock()
-		task := e.GetNextTargetFloor(msg.Elevators[msg.Id], hallRequests)
-		fmt.Println("After computing \n\n ", task, msg.Elevators, msg.HallRequests, msg.Id)
+		task := e.GetNextTargetFloor(eMsg.Elevators[eMsg.ID], hallRequests)
+		fmt.Println("After computing \n\n ", task, eMsg.Elevators, eMsg.HallRequests, eMsg.ID)
 		if task.Floor != -1 {
 			// Broadcast new assignment if we found a new task
-			msg.Task = task
-			msg.BtnStatus = types.Running
-			e.SendToCoordinator <- msg
+			eMsg.Task = task
+			eMsg.BtnStatus = types.Running
+			e.SendToCoordinator <- eMsg
 		}
 
-	case types.MSG_T_NewToChannel:
-		msg, id := e.System.RegisterAndSyncElevator(msg, e.IpRegistery)
-		e.IpRegistery[msg.Ip] = id
-		e.SendToCoordinator <- msg
+	case message.EMSG_T_NewToChannel:
+		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
+		e.IpRegistery[eMsg.Addr] = id
+		e.SendToCoordinator <- eMsg
 	}
 }
 
@@ -166,13 +163,13 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 // Read new message from server when it appears on the channel
 func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
-	for pktCtx := range c.msgRecieveCh {
-		msg := pktCtx.Packet.Payload
-		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, msg)
-		c.MessageHandler(e, msg)
-		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, msg)
-		if pktCtx.Done != nil {
-			pktCtx.Done <- struct{}{}
+	for ePkt := range c.msgRecieveCh {
+		eMsg := ePkt.EMsg
+		fmt.Println("Before \n\n\n\n\n\n", e.Id, e.IsMaster, e, eMsg)
+		c.MessageHandler(e, eMsg)
+		fmt.Println("Elevator after msg: ", e.Id, e.IsMaster, e, eMsg)
+		if ePkt.Done != nil {
+			ePkt.Done <- struct{}{}
 		}
 	}
 }
