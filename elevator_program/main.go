@@ -108,26 +108,26 @@ func main() {
 
 	eC := elevtest.NewElev("C")
 
-	// err = eC.StartServer(localIP, 9002)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	err = eC.StartServer(localIP, 9002)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	eA.Start()
 	eB.Start()
-	// eC.Start()
+	eC.Start()
 
 	eB.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	// eC.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_SlaveUpdate,
-	// 	message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	// )
+	eC.QueueMessage(
+		udp.MustUDPAddr(localIP, 9001),
+		packet.PROTO_PKT_T_SlaveUpdate,
+		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
+	)
 	time.Sleep(5 * time.Second)
 
 	eB.QueueMessage(
