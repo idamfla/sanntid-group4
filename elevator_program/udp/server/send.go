@@ -3,6 +3,7 @@ package server
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
+	"elevator_program/udp/session"
 	"fmt"
 	"net"
 )
@@ -48,17 +49,17 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startBroadcast(eMsg message.ElevatorMessage) {
+func (srv *Server) startStateBroadcast(eMsg message.ElevatorMessage) {
 	quorum := srv.getPeerCount()
-	ses := srv.createBroadcastSession(nil, quorum)
+	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
 
-	ses.QueueBroadcastUpdateMsg(eMsg)
+	bs.QueueBroadcastUpdateMsg(eMsg)
 }
 
 func (srv *Server) startWhoIsMasterMsg() {
-	ses := srv.createBroadcastSession(nil, 0)
+	bs := srv.createBroadcastSession(nil, session.BS_T_WhoIsMasterBroadcast, 0)
 
-	ses.QueueWhoIsMasterMsg()
+	bs.QueueWhoIsMasterMsg()
 }
 
 // deciding how to output messages from the server, what type of session should start
@@ -102,7 +103,7 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startBroadcast(outMsg.EMsg)
+	srv.startStateBroadcast(outMsg.EMsg)
 }
 
 func (srv *Server) dispatchWhoIsMaster() {

@@ -123,11 +123,11 @@ func main() {
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	eC.QueueMessage(
-		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_SlaveUpdate,
-		message.ElevatorMessage{ActivePeers: 380085}, // nr 3, say boobs
-	)
+	// eC.QueueMessage(
+	// 	udp.MustUDPAddr(localIP, 9001),
+	// 	packet.PROTO_PKT_T_SlaveUpdate,
+	// 	message.ElevatorMessage{ActivePeers: 380085},
+	// )
 	time.Sleep(5 * time.Second)
 
 	eB.QueueMessage(
