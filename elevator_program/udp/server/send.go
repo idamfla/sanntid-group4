@@ -66,12 +66,17 @@ func (srv *Server) startWhoIsMasterMsg() {
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
-		srv.dispatchToMasterMsg(outMsg)
-	case packet.PKT_T_BroadcastUpdate:
-		srv.dispatchBroadcastUpdate(outMsg)
 	case packet.PKT_T_WhoIsMaster:
 		srv.dispatchWhoIsMaster()
+
+	case packet.PKT_T_BroadcastUpdate:
+		srv.dispatchBroadcastUpdate(outMsg)
+
+	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
+		srv.dispatchToMasterMsg(outMsg)
+
+	case packet.PKT_T_CatchupUpdate:
+		srv.dispatchToSlaveMsg(outMsg)
 	}
 }
 

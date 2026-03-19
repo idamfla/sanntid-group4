@@ -2,6 +2,7 @@ package elevtest
 
 import (
 	"elevator_program/message"
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
@@ -42,6 +43,16 @@ func (e *Elev) listen() {
 		fmt.Println("elev got elevator packet:", msg.EMsg)
 		if msg.Done != nil {
 			msg.Done <- struct{}{}
+		}
+
+		if msg.EMsg.EMsgType == message.EMSG_T_NewToChannel {
+			fmt.Println(e.srv.ID, "took screenshot")
+			udpAddr, err := udp.StringAddrToUDPAddr(msg.EMsg.Addr)
+			if err != nil {
+				continue
+			}
+			e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_CatchupUpdate, message.ElevatorMessage{})
+			e.srv.StartPeerCatchup(udpAddr)
 		}
 	}
 }
