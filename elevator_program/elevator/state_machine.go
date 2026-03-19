@@ -93,7 +93,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Id]
-	prevState := elevatorState.State
+	//prevState := elevatorState.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -182,7 +182,7 @@ func (e *Elevator) updateElevatorStateOnline() { // TODO rename, this change sta
 		e.System.Mutex.Unlock()
 	}
 
-	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 }
@@ -198,7 +198,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	_, elevs := e.System.Snapshot()
 	elevatorStatus := elevs[e.Id]
 	e.System.Mutex.RUnlock()
-	prevState := elevatorStatus.State
+	//prevState := elevatorStatus.State
 
 	// TODO add doorstate switch, e.startTime = time.Now()
 
@@ -260,9 +260,12 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		dir = e.getMotion(elevatorStatus.Target.Floor)
 
 		if dir == elevio.MD_Stop {
+			finishedTarget := elevatorStatus.Target
+
 			e.doorState = DS_Opening
 			elevatorStatus.State = types.ES_Idle
-			e.clearCurrentFloor(e.currentFloor, elevatorStatus.Target.Button)
+			e.clearCurrentFloor(e.currentFloor, finishedTarget.Button)
+			elevatorStatus.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 		}
 
 		// dir = e.getMotion(elevatorStatus.Target.Floor)
@@ -297,7 +300,7 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 		return
 	}
 
-	if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 	elevio.SetMotorDirection(dir)
@@ -310,18 +313,18 @@ func (e *Elevator) updateElevatorStateOffline() { // TODO rename, this change st
 	elevatorCopy.State = elevatorStatus.State
 	e.System.Elevators[e.Id] = elevatorCopy
 
-	msg := message.ElevatorMessage{
-		MsgType: types.MSG_T_NewToChannel,
-		Id:      e.Id,
-		Ip:      e.Ip,
-		Elevators: map[string]types.ElevatorsStatus{
-			e.Id: e.System.Elevators[e.Id],
-		},
-	}
-	fmt.Println("Trying to send to network, ", e.Id)
+	// msg := message.ElevatorMessage{
+	// 	MsgType: types.MSG_T_NewToChannel,
+	// 	Id:      e.Id,
+	// 	Ip:      e.Ip,
+	// 	Elevators: map[string]types.ElevatorsStatus{
+	// 		e.Id: e.System.Elevators[e.Id],
+	// 	},
+	// }
+	// fmt.Println("Trying to send to network, ", e.Id)
 	e.System.Mutex.Unlock()
 
-	e.SendToCoordinator <- msg
+	// e.SendToCoordinator <- msg
 }
 
 func (e *Elevator) RunElevatorStateMachine() {

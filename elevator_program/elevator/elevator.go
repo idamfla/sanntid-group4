@@ -69,6 +69,7 @@ type Elevator struct {
 
 	recoveryCfg RecoveryConfig
 
+	restartReason         RestartReason
 	softRestartInProgress bool
 	softRestartAttempts   int
 
@@ -76,7 +77,6 @@ type Elevator struct {
 	recoveryVerified      bool
 	lastRecoveryAttempt   time.Time
 	recoveryMu            sync.Mutex
-
 	// Server *server.Server // TODO be carefull with pass by value functions, locks
 }
 
@@ -109,7 +109,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
 	e.recoveryCfg = DefaultRecoveryConfig
-
+	e.restartReason = RestartReasonNone
 	e.IsOnline = false
 	// e.StatusChan = statusChan
 	// e.TaskChan = taskChan
@@ -155,8 +155,8 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 
 	e.inBetweenFloors = false
 	e.currentFloor = elevio.GetFloor()
-	e.nextTarget = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
-	e.direction = elevio.MD_Stop
+	//e.nextTarget = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
+	//e.direction = elevio.MD_Stop
 
 	e.doorState = DS_Closed
 	e.doorTimer = time.Time{}
@@ -172,15 +172,15 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.IsOnline = false
 	e.currentMasterID = ""
 
-	e.hallRequests = make([][2]types.ButtonStatus, numFloors)
-	e.cabRequests = make([]types.ButtonStatus, numFloors)
+	//e.hallRequests = make([][2]types.ButtonStatus, numFloors)
+	//e.cabRequests = make([]types.ButtonStatus, numFloors)
 
-	e.System = system.System{}
-	e.System.InitSystem(e.Id, e.Ip, numFloors)
+	//e.System = system.System{}
+	//e.System.InitSystem(e.Id, e.Ip, numFloors)
 
 	e.IpRegistery = make(map[string]string)
 
-	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
+	//e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetStopLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Stop)

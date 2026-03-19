@@ -147,7 +147,7 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			elevatorCopy := e.System.Elevators[e.Id]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
 			e.System.Elevators[e.Id] = elevatorCopy
-
+			e.System.Mutex.Unlock()
 		}
 
 	case HW_T_Obstruction:

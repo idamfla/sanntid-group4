@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	localIP  = "127.0.0.1"
-	receiver = "10.100.23.15"
+	localIP  = "10.100.23.27"
+	receiver = "10.100.23.27"
 )
 
 func testElevator() {
@@ -87,16 +87,16 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev) {
 }
 
 func main() {
-	ip_address := "localhost"
+	ip_address := receiver
 	port := "15657"
 
 	elevio.Init(ip_address+":"+port, 4)
 
 	e1 := elevator.Elevator{}
-	e1.InitElevator("1", 4, 3, localIP, 9000)
+	e1.InitElevator("1", 4, 3, receiver, 9005)
 	p1 := coordinator.Coordinator{}
 	p1.InitCoordinator()
-	err := p1.StartServer(localIP, 9000, "1")
+	err := p1.StartServer(receiver, 9005, "1")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -107,24 +107,33 @@ func main() {
 
 	fmt.Println("Created e1 and p1")
 
-	e2 := elevator.Elevator{}
-	e2.InitElevator("2", 4, 3, localIP, 9001)
-	p2 := coordinator.Coordinator{}
-	p2.InitCoordinator()
-	err = p2.StartServer(localIP, 9001, "2")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// e2 := elevator.Elevator{}
+	// e2.InitElevator("2", 4, 3, localIP, 9001)
+	// p2 := coordinator.Coordinator{}
+	// p2.InitCoordinator()
+	// err = p2.StartServer(localIP, 9001, "2")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
-	p2.Start(&e2)
+	// p2.Start(&e2)
 
 	fmt.Println(&e1)
-	fmt.Println(&e2)
+	// fmt.Println(&e2)
 	fmt.Println("Am i stuck")
 
-	e2.RunElevatorProgram()
+	e1.RunElevatorProgram()
 
+	// go func() {
+	// 	time.Sleep(15 * time.Second)
+
+	// 	fmt.Println("\n=== TEST 3: Elevator failed / motor stop ===")
+	// 	e1.FaultMsg <- message.FaultMessage{
+	// 		FaultType: message.FAULT_T_ElevatorFailed,
+	// 	}
+
+	// }()
 	select {}
 
 	//TODO
