@@ -98,13 +98,15 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
+		ses.stopResponseTimer()
+
 		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
 
 		// Close channels
-		close(ses.packetInCh)
-		close(ses.outgoingMsgCh)
+		// close(ses.packetInCh)
+		// close(ses.outgoingMsgCh)
 		close(ses.elevDone)
 		close(ses.taskReady)
 
@@ -115,7 +117,7 @@ func (ses *Session) Close() {
 
 func (ses *Session) startResponseTimer() {
 	ses.responseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
-		fmt.Println("Not enough elevators received the data in time ...")
+		fmt.Println("Elevator(s) did not respond in time ...")
 		ses.QueueWhoIsMasterMsg()
 		ses.stopResponseTimer()
 		ses.requestClose()

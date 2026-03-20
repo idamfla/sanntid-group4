@@ -20,7 +20,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 
 	if h.Seq != ses.seq+1 { // TODO should i retry?
-		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
+		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d)...\n",
 			ses.ID, h.Seq, ses.seq+1)
 		fmt.Println(err)
 		// return ses.sendRetry(ses.lastOutPkt)
