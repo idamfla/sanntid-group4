@@ -1,11 +1,5 @@
 # Software Design Document - Elevator Program
 
-## What is this?
-
-This is a distributed elevator system written in Go. Multiple elevators talk to each other over UDP, figure out who's in charge (master election), split up work, and keep running even when things go wrong. If an elevator loses network, it finishes its cab orders offline and tries to rejoin.
-
----
-
 ## High-level architecture
 
 The system is layered like this:
@@ -16,7 +10,7 @@ The system is layered like this:
 │          Parse flags, spawn processes       │
 ├─────────────────────────────────────────────┤
 │               Coordinator                   │
-│     Glue between elevator and network       │
+│    Connects between elevator and network    │
 ├──────────────────────┬──────────────────────┤
 │      Elevator        │     UDP layer        │
 │  State machines,     │  Server, sessions,   │
@@ -38,52 +32,60 @@ The system is layered like this:
 
 ```
 elevator_program/
-├── main.go                     Entry point
-├── config/config.go            CLI flags, child-process spawning
+├── main.go                        Entry point
+├── config
+│   └── config.go                  CLI flags, child-process spawning
 │
 ├── coordinator/
-│   ├── coordinator.go          Init, start, close
-│   ├── message_handler.go      Master/slave message dispatch
-│   ├── send_message.go         Outgoing message routing
-│   └── task_monitor.go         Per-task timeout watchdog
+│   ├── coordinator.go             Init, start, close
+│   ├── message_handler.go         Master/slave message dispatch
+│   ├── send_message.go            Outgoing message routing
+│   └── task_monitor.go            Per-task timeout watchdog
 │
 ├── elevator/
-│   ├── elevator.go             Core struct, init, lifecycle
-│   ├── state_machine.go        Online & offline state machines
-│   ├── door.go                 Door open/close/obstruction FSM
-│   ├── hardware_event.go       Button press, floor sensor, e-stop
-│   ├── scan.go                 SCAN algorithm for next target
-│   ├── target.go               "Who should take this task?" logic
-│   ├── clear_request.go        Mark requests as done
-│   ├── fault_loop.go           Fault dispatcher goroutine
-│   ├── fault_actions.go        Recovery: soft restart, hard restart
-│   ├── protocol_callbacks.go   Network event hooks
-│   ├── master_logic.go         Periodic master broadcasts
-│   └── clear_lamp.go           Lamp control helpers
+│   ├── elevator.go                Core struct, init, lifecycle
+│   ├── state_machine.go           Online & offline state machines
+│   ├── door.go                    Door open/close/obstruction FSM
+│   ├── hardware_event.go          Button press, floor sensor, e-stop
+│   ├── hardware.go                Polls hardware and emits events
+│   ├── scan.go                    SCAN algorithm for next target
+│   ├── target.go                  "Who should take this task?" logic
+│   ├── clear_request.go           Mark requests as done
+│   ├── fault_loop.go              Fault dispatcher goroutine
+│   ├── fault_actions.go           Recovery: soft restart, hard restart
+│   ├── protocol_callbacks.go      Network event hooks
+│   ├── master_logic.go            Periodic master broadcasts
+│   └── clear_lamp.go              Lamp control helpers
 │
 ├── system/
-│   ├── system.go               System struct, Snapshot(), init
-│   └── update_System.go        Mutating helpers (set status, assign, register)
+│   ├── system.go                  System struct, Snapshot(), init
+│   └── update_System.go           Mutating helpers (set status, assign, register)
 │
 ├── message/
-│   ├── elevator_message.go     ElevatorMessage + message types enum
-│   └── fault_message.go        FaultMessage + fault types enum
+│   ├── elevator_message.go        ElevatorMessage + message types enum
+│   └── fault_message.go           FaultMessage + fault types enum
 │
 ├── types/
-│   ├── types.go                ElevatorState, ButtonStatus enums
-│   └── elevator_status.go      ElevatorsStatus (per-elevator snapshot)
+│   ├── types.go                   ElevatorState, ButtonStatus enums
+│   └── elevator_status.go         ElevatorsStatus (per-elevator snapshot)
 │
-├── elevio/                     Hardware abstraction (TCP to simulator)
+├── elevio/                     
+│    ├── elevator_io.go            Hardware I/O (motor, lamps, sensors)                  
+│    └── elevio_type_converter.go  Type conversion between driver and system
 │
 ├── udp/
-│   ├── server/                 UDP server, session lifecycle, peer tracking
-│   ├── session/                Point-to-point & broadcast sessions
-│   ├── packet/                 Encode/decode, packet type enum
-│   ├── peerinfo/               Peer metadata
-│   └── timer/                  Reusable timer wrapper
+│   ├── server/                    UDP server, session lifecycle, peer tracking
+│   ├── session/                   Point-to-point & broadcast sessions
+│   ├── packet/                    Encode/decode, packet type enum
+│   ├── peerinfo/                  Peer metadata
+│   └── timer/                     Reusable timer wrapper
 │
-├── fault/                      Hard restart (re-exec the binary)
-└── utilities/                  Small helpers (Abs, etc.)
+├── fault/
+│   └── restart.go                 Hard restart (re-exec the binary)
+│
+├──  utilities/
+│    └── utilities.go              Small helpers (Abs, etc.)
+
 ```
 
 ---
@@ -96,7 +98,7 @@ elevator_program/
 # Option 1 -- Launcher mode (spawns N simulator elevators in separate terminals)
 go run . --n 3 --baseport 15657 --floors 4 --initfloor 3
 
-# Option 2 -- Single elevator (e.g. started by the launcher)
+# Option 2 -- Single elevator (for example started by the launcher)
 go run . --id 1 --ip localhost --port 15657 --floors 4 --initfloor 3
 
 # Option 3 -- Explicit addresses for physical elevators
@@ -107,7 +109,7 @@ When `--id` is 0 (the default), the process acts as a **launcher**: it spawns `-
 
 ### Boot sequence
 
-The order matters -- each step depends on the previous one.
+The order matters, each step depends on the previous one.
 
 ```
 1.  elevio.Init(addr, numFloors)
@@ -186,8 +188,7 @@ When the elevator reaches its target it calls `finishedTask()`, which:
 
 ### Offline mode
 
-If the elevator loses the network, it switches to offline mode and only handles **cab requests** (no hall calls). It scans its own cab request list, picks the closest one, drives there, and repeats. Once all cab orders are done and the door is closed, it tries to reconnect (soft restart → hard restart if that fails).
-
+If the elevator loses the network, it switches to offline mode and only handles **cab requests** (no hall calls). It scans its own cab request list, picks the closest one, drives there, and repeats. Once all cab orders are done and the door is closed, it tries to reconnect by restarting.
 ### Door FSM
 
 The door has its own state machine running on a 50 ms tick:
@@ -218,31 +219,31 @@ The door stays open for a fixed timer. If the obstruction sensor fires while the
 
 ### What the master does with each message
 
-**ButtonPress** -- A slave noticed a new button press.
+**ButtonPress**: A slave noticed a new button press.
 - If it's a cab button: check whether it's on the requester's current path (`IsNewTargetBetterCab`). Mark it `Running` or `Pending`.
 - If it's a hall button: run `ClosestToTarget` over all elevators, assign the winner, broadcast the assignment as a `TaskUpdate`.
 
-**TaskRequest** -- An elevator finished its task and wants more work.
+**TaskRequest**: An elevator finished its task and wants more work.
 - Take a snapshot of the current hall requests.
 - Run `GetNextTargetFloor` for the requesting elevator.
 - If a task is found, broadcast it as a `TaskUpdate(Running)`.
 
-**TaskUpdate** -- Comes back through the system (master processes its own broadcasts too).
+**TaskUpdate**: Comes back through the system (master processes its own broadcasts too).
 - `Running`: start a 15-second watchdog timer via `TaskMonitor`.
 - `NotActive`: cancel the timer, the task is done.
 - If the timer fires before the task completes, the task is reset to `Pending` so someone else can pick it up.
 
-**StatusReport** -- Just update the system state and re-broadcast to slaves.
+**StatusReport**: Just update the system state and re-broadcast to slaves.
 
-**NewToChannel** -- A new elevator appeared. Register it, send a full system snapshot back.
+**NewToChannel**: A new elevator appeared. Register it, send a full system snapshot back.
 
 ### What a slave does with each message
 
-**TaskUpdate** -- If `Running` and addressed to me: set it as my target (`SetRequestAsTarget`). Otherwise just update the local system copy.
+**TaskUpdate**: If `Running` and addressed to me: set it as my target (`SetRequestAsTarget`). Otherwise just update the local system copy.
 
-**StatusReport** -- Update local system state.
+**StatusReport**: Update local system state.
 
-**NewToChannel** -- If it's about me: initialize my state from the master's snapshot. Otherwise just note the new peer.
+**NewToChannel**: If it's about me: initialize my state from the master's snapshot. Otherwise just note the new peer.
 
 ---
 
@@ -326,8 +327,6 @@ This ensures all elevators see the same state before anyone acts on it.
 
 ### Recovery: soft restart → hard restart
 
-When an offline elevator has finished all its cab orders:
-
 1. **Soft restart**: stop all goroutines, reset state, re-launch `RunElevatorProgram()`. Then wait 3 seconds for proof that the elevator actually works (it must transition to `Moving`).
 2. If proof arrives: success, reset the attempt counter.
 3. If no proof after 3 seconds, or max attempts reached (1 by default): **hard restart** -- the process re-executes itself (`os.Exec`).
@@ -368,9 +367,9 @@ Each elevator instance runs **7 goroutines** (4 elevator + 3 coordinator):
                                               │
  (50ms tick) ────────→ RunElevatorStateMachine ──→ SendToCoordinator
                                               │         │
- (50ms tick) ────────→ RunDoorStateMachine     │         v
+ (50ms tick) ────────→ RunDoorStateMachine    │         v
                                               │    sendListener
- FaultMsg ───────────→ fault_loop              │     │         │
+ FaultMsg ───────────→ fault_loop             │     │         │
                                               │  sendAsMaster  sendAsSlave
                                               │     │              │
                                               │     v              v
