@@ -9,6 +9,8 @@ import (
 	"elevator_program/udp/server"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	// "elevator_program/utilities"
@@ -70,7 +72,7 @@ func testBroadcast_send(srv *server.Server) {
 func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
-	// signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Wait for Ctrl+C
 	<-sigChan

@@ -54,7 +54,9 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 	sbs.QueueDirectMsg(pktT, eMsg)
 }
 
-func (sbs *StateBroadcast) QueueWhoIsMasterMsg() {}
+func (sbs *StateBroadcast) QueueWhoIsMasterMsg() {
+	sbs.Session.QueueWhoIsMasterMsg()
+}
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {

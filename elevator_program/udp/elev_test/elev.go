@@ -23,7 +23,7 @@ type Elev struct {
 func NewElev(id string) *Elev {
 	return &Elev{
 		ID:   id,
-		ch:   make(chan session.ElevatorPacket),
+		ch:   make(chan session.ElevatorPacket, 32),
 		stop: make(chan struct{}),
 	}
 }

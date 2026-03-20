@@ -41,7 +41,7 @@ func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType,
 }
 
 func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
-	ws.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
+	ws.Session.QueueWhoIsMasterMsg()
 }
 
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
