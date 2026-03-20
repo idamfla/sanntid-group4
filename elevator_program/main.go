@@ -20,8 +20,8 @@ import (
 const (
 	localIP  = "127.0.0.1"
 	homeIP   = "192.168.50.97"
-	wifiIP   = "10.22.119.16"
-	myIP     = homeIP
+	wifiIP   = "172.20.10.3"
+	myIP     = wifiIP
 	receiver = "10.100.23.15"
 )
 
@@ -103,11 +103,11 @@ func main() {
 
 	eB := elevtest.NewElev("B")
 
-	// err = eB.StartServer(myIP, 9001)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	err = eB.StartServer(myIP, 9001)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	eC := elevtest.NewElev("C")
 
@@ -118,7 +118,7 @@ func main() {
 	// }
 
 	eA.Start()
-	// eB.Start()
+	eB.Start()
 	// eC.Start()
 
 	eA.QueueMessage(
