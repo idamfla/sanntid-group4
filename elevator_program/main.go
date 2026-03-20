@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	localIP  = "10.100.23.27"
+	// localIP  = "10.100.23.27"
+	localIP  = "172.20.10.9"
 	receiver = "10.100.23.22"
 )
 

@@ -69,6 +69,6 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 			ws.SendReply(packet.PKT_T_IAmMaster)
 		}
 
-		fmt.Println("New master elected", lowest, amMaster, ws.expectedResponses)
+		fmt.Println(ws.selfAddr, "New master elected", lowest, amMaster, ws.expectedResponses)
 	}
 }

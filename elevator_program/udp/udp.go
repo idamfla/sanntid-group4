@@ -20,7 +20,7 @@ const (
 	OtherBroadcastIP = "172.20.10.15"
 	NtnuBroadcastIP  = "10.22.119.255"
 	HomeBroadcastIP  = "192.168.50.255"
-	BroadcastIP      = NtnuBroadcastIP
+	BroadcastIP      = OtherBroadcastIP
 	BROADCAST_PORT   = 3000
 )
 
