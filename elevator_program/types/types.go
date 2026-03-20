@@ -18,7 +18,6 @@ const (
 	Running
 )
 
-// Temp for printing ButtonStatus
 func (r ButtonStatus) String() string {
 	switch r {
 	case NotActive:
@@ -32,11 +31,8 @@ func (r ButtonStatus) String() string {
 	}
 }
 
-// region printing
 func (s ElevatorState) String() string {
 	switch s {
-	// case Idle:
-	// 		return "idle"
 	case ES_Uninitialized:
 		return "uninitialized"
 	case ES_Idle:
@@ -45,13 +41,9 @@ func (s ElevatorState) String() string {
 		return "moving"
 	case ES_DoorOpen:
 		return "door open"
-	// case ES_Obstruction:
-	// 	return "obstruction"
 	case ES_EmergencyStop:
 		return "emergency stop"
 	default:
 		return "unknown"
 	}
 }
-
-// endregion

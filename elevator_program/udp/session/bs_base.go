@@ -38,21 +38,6 @@ func NewBaseBroadcastSession(
 	return bbs
 }
 
-func (bbs *BaseBroadcastSession) Start() {
-	// bbs.wg.Add(2)
-	// go bbs.listen(bbs)
-	// go bbs.sendLoop(bbs)
-	// fmt.Printf("Broadcast session %d started\n", bbs.ID)
-}
-
-func (bbs *BaseBroadcastSession) Close() {
-	if bbs.responseTimer != nil {
-		bbs.responseTimer.Stop()
-	}
-
-	bbs.Session.Close()
-}
-
 func (bbs *BaseBroadcastSession) addResponder(addr string) {
 	bbs.mu.Lock()
 	defer bbs.mu.Unlock()

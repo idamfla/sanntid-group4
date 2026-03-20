@@ -6,15 +6,12 @@ import (
 	"elevator_program/types"
 )
 
-// TODO Probably a bad name for the file
-
 func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 	s.Elevators[id] = elevator
 }
 
-// SetRequestStatus updates a button request status. Caller MUST hold s.Mutex.
 func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
 	f := btnEvent.Floor
 	b := btnEvent.Button

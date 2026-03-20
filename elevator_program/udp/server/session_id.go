@@ -14,7 +14,6 @@ func generateSessionID() (uint32, error) {
 	return binary.LittleEndian.Uint32(b[:]), nil
 }
 
-// generates a unique session id,the called must mutex lock srv
 func (srv *Server) generateSessionIDLocked() uint32 {
 	for {
 		id, err := generateSessionID()

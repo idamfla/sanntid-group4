@@ -33,8 +33,8 @@ type Server struct {
 	outgoingMsgCh      chan outgoingMessage
 	recvConn           *net.UDPConn
 	sendConn           *net.UDPConn
-	broadcastConn      *net.UDPConn // Listening conn
-	broadcastAddr      *net.UDPAddr // Broadcast sending addr
+	broadcastConn      *net.UDPConn
+	broadcastAddr      *net.UDPAddr
 	sessions           map[uint32]SessionHandler
 	peers              map[string]*peerinfo.PeerInfo
 	bcSeq              uint32
@@ -49,22 +49,20 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) { // TODO isMaster is default false, set by election or something
+func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
-		IP:   net.ParseIP(ip), // parse the string IP
+		IP:   net.ParseIP(ip),
 		Port: port,
 	}
 
-	// make sockets
 	recvConn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
 		return nil, err
 	}
 
-	// create a local UDP socket for sending (unconnected)
 	sendAddr := &net.UDPAddr{
-		IP:   net.ParseIP("0.0.0.0"), // binds to any local IP
-		Port: 0,                      // 0 = let OS pick a free port
+		IP:   net.ParseIP("0.0.0.0"),
+		Port: 0,
 	}
 
 	sendConn, err := net.ListenUDP("udp", sendAddr)
@@ -72,14 +70,12 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		return nil, err
 	}
 
-	// create broadcast-listening UDP socket
 	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
 	if err != nil {
 		return nil, err
 	}
 
 	bcAddr := &net.UDPAddr{
-		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(udp.BroadcastIP),
 		Port: udp.BROADCAST_PORT,
 	}
@@ -143,15 +139,13 @@ func (srv *Server) run() {
 
 func (srv *Server) Close() {
 	srv.closeOnce.Do(func() {
-		close(srv.stop) // signal shutdown
+		close(srv.stop)
 
-		srv.recvConn.Close() // unblock ReadFromUDP
+		srv.recvConn.Close()
 		srv.sendConn.Close()
 		srv.broadcastConn.Close()
 
-		// close(srv.elevatorTaskQueue)
-
-		srv.wg.Wait() // wait for goroutines
+		srv.wg.Wait()
 
 		srv.mu.Lock()
 		for sesID := range srv.sessions {

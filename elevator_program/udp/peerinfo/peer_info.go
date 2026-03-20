@@ -26,7 +26,7 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 		IsSynced:  false,
 		Active:    true,
 		IsMaster:  false,
-		EMsgQueue: make(chan message.ElevatorMessage, CHANNEL_BUF), // TODO make all channels bufferd ... how much?
+		EMsgQueue: make(chan message.ElevatorMessage, CHANNEL_BUF),
 	}
 }
 

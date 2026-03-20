@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// ------------------------
-// Motion helper functions
-// ------------------------
 func (e *Elevator) atTargetFloor(targetFloor int) bool {
 	e.mu.Lock()
 	floor := e.currentFloor
@@ -91,10 +88,6 @@ func (e *Elevator) uninitializedAction() elevio.MotorDirection {
 	return elevio.MD_Stop
 }
 
-// ------------------------
-// State Machine
-// ------------------------
-// Updates elevator state when connected to the network
 func (e *Elevator) updateElevatorStateOnline() {
 	e.mu.Lock()
 	estop := e.emergencyStop
@@ -188,7 +181,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	elevio.SetMotorDirection(dir)
 
-	// If state has changed, notify
 	e.System.Mutex.Lock()
 	if elevatorState.State != e.System.Elevators[e.Id].State {
 		elevatorCopy := e.System.Elevators[e.Id]
@@ -213,7 +205,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 	}
 }
 
-// Updates the elevator state when not connected to the network
 func (e *Elevator) updateElevatorStateOffline() {
 	e.mu.Lock()
 	estop := e.emergencyStop
@@ -313,7 +304,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 	}
 	elevio.SetMotorDirection(dir)
 
-	// e.checkOfflineRestart()
+	e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
 	e.System.Elevators[e.Id] = elevatorStatus

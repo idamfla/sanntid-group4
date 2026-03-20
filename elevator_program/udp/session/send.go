@@ -6,7 +6,6 @@ import (
 	"fmt"
 )
 
-// helper
 func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
@@ -64,16 +63,9 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}
 			behavior.OnSend(outPkt.PktType)
-
-			// if outPkt.Done != nil {
-			// 	close(outPkt.Done) // signal sender
-
-			// }
 		}
 	}
 }
 
-// for the SessionBehavior, does nothing
 func (ses *Session) OnSend(pktType packet.PacketType) {
-	// ses.startResponseTimer()
 }

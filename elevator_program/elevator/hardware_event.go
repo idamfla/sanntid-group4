@@ -71,7 +71,6 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			Button: hwEvent.Button,
 		}
 
-		// Check if button press is already in system, no need to message master
 		if !e.System.IsRequestInSystem(e.Id, task) {
 			e.System.Mutex.RLock()
 			_, elevators := e.System.Snapshot()

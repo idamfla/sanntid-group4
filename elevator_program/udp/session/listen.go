@@ -21,7 +21,6 @@ func (ses *Session) listen(behavior SessionBehavior) {
 
 		case pkt, ok := <-ses.packetInCh:
 			if !ok {
-				// Channel closed, stop the session
 				fmt.Printf("Session %d recvCh channel closed, stopping\n", ses.ID)
 				return
 			}
@@ -36,7 +35,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 				retryCounter++
 				if retryCounter > udp.MAX_RETRIES {
 					fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
-					ses.requestClose() // TODO just have things close, fault tolerence
+					ses.requestClose()
 					return
 				}
 			}

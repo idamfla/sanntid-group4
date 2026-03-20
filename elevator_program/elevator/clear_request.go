@@ -19,7 +19,6 @@ func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {
 	e.System.HallRequests[floor][button] = types.NotActive
 }
 
-// Clear current floor from hallRequests, and turn the lamps off
 func (e *Elevator) clearCurrentFloor(floor int, button elevio.ButtonType) {
 	if button == elevio.BT_Cab {
 		e.clearCabRequest(floor)

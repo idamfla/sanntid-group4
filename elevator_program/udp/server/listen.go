@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"syscall"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -17,7 +18,6 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 	for {
 		n, addr, err := conn.ReadFromUDP(buf)
 		if err != nil {
-			// normal shutdown, just exit the loop
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
@@ -45,7 +45,6 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 	}
 }
 
-// Helper
 func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	lc := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
@@ -67,7 +66,6 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 			return sockErr
 		},
 	}
-
 
 	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
 	if err != nil {

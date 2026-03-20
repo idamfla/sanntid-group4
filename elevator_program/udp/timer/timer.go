@@ -24,7 +24,7 @@ func (t *Timer) Stop() {
 }
 
 func (t *Timer) Restart(duration time.Duration, callback func()) {
-	t.Stop() // stop previous timer
+	t.Stop()
 
 	t.mu.Lock()
 	t.timer = time.AfterFunc(duration, callback)

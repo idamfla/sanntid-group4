@@ -8,14 +8,12 @@ import (
 	"time"
 )
 
-// Election handles the master election logic
 type Election struct {
 	started     bool
 	mu          sync.Mutex
 	masterFound chan struct{}
 }
 
-// Start launches the election if not already started
 func (e *Election) Start(ws *WhoIsMasterBroadcast) {
 	e.mu.Lock()
 	if e.started {
@@ -32,7 +30,6 @@ func (e *Election) Start(ws *WhoIsMasterBroadcast) {
 	}()
 }
 
-// run contains the election logic
 func (e *Election) run(ws *WhoIsMasterBroadcast) {
 	timer := time.NewTimer(udp.MASTER_ELECTION_TIMEOUT)
 	defer timer.Stop()
@@ -67,7 +64,6 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		ws.mu.Unlock()
 
 		if amMaster {
-			// I am the new master
 			ws.expectedResponses = ws.countResponders()
 			ws.resetResponders()
 			ws.SendReply(packet.PKT_T_IAmMaster)

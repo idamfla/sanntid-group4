@@ -5,10 +5,11 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
+	"elevator_program/udp"
+	"elevator_program/udp/packet"
 	"fmt"
 )
 
-// Read new message from server when it appears on the channel
 func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
 	for ePkt := range c.msgRecieveCh {
@@ -20,9 +21,11 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	}
 }
 
-// Route the message to a handler
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if e.IsMaster {
+		e.System.Mutex.Lock()
+		e.IsMaster = true
+		e.System.Mutex.RUnlock()
 		c.handleAsMaster(e, msg)
 	} else {
 		c.handleAsSlave(e, msg)
@@ -46,7 +49,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 
 	case message.EMSG_T_NewToChannel:
 		if e.ConnectedToMaster() {
-			e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO now we can update IpRegistery for the others as well, is it smart?
+			e.IpRegistery[eMsg.Addr] = eMsg.ID
 			e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 		} else if e.Id == eMsg.ID {
 			e.SetConnectionState(eMsg)
@@ -57,7 +60,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 
 func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
-	// Update info about an elevator and broadcast
 	case message.EMSG_T_StatusReport:
 		e.SendToCoordinator <- eMsg
 
@@ -77,9 +79,8 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 					eMsg.BtnStatus = types.Pending
 				}
 			} else {
-				taskElevatorId := e.ClosestToTarget(elevs, eMsg.Task) // TODO could be wrong here if master don't update system
+				taskElevatorId := e.ClosestToTarget(elevs, eMsg.Task)
 
-				// Someone has a better task to do, target that elevator with changing eMsg.ID
 				if taskElevatorId != "" {
 					eMsg.ID = taskElevatorId
 					eMsg.BtnStatus = types.Running
@@ -90,14 +91,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		}
 		eMsg.EMsgType = message.EMSG_T_ButtonPress
 		e.SendToCoordinator <- eMsg
-
-		// eMsg.EMsgType = message.EMSG_T_TaskUpdate // TODO should remove this
-
-		// packet := session.ElevatorPacket{
-		// 	EMsg: eMsg,
-		// }
-
-		// c.msgRecieveCh <- packet
 
 	case message.EMSG_T_TaskUpdate:
 		e.System.Mutex.Lock()
@@ -120,11 +113,10 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 
 	case message.EMSG_T_TaskRequest:
 		e.System.Mutex.RLock()
-		hallRequests, elevs := e.System.Snapshot() // TODO changed to snapshot, did any new errors apear
+		hallRequests, elevs := e.System.Snapshot()
 		e.System.Mutex.RUnlock()
 		task := e.GetNextTargetFloor(elevs[eMsg.ID], hallRequests)
 		if task.Floor != -1 {
-			// Broadcast new assignment if we found a new task
 			eMsg.Task = task
 			eMsg.BtnStatus = types.Running
 			e.SendToCoordinator <- eMsg
@@ -133,6 +125,15 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 	case message.EMSG_T_NewToChannel:
 		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
 		e.IpRegistery[eMsg.Addr] = id
-		e.SendToCoordinator <- eMsg
+		e.System.Mutex.Lock()
+		e.IsOnline = true
+		e.System.Mutex.RUnlock()
+		udpAddr, err := udp.StringAddrToUDPAddr(eMsg.Addr)
+		if err != nil {
+			return
+		}
+		c.Server.QueueMessage(udpAddr, packet.PROTO_PKT_T_Snapshot, message.ElevatorMessage{})
+		c.Server.StartPeerCatchup(udpAddr)
+
 	}
 }

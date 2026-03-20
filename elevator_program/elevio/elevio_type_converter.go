@@ -7,7 +7,7 @@ func MotorDirectionToButton(md MotorDirection) ButtonType {
 	case MD_Down:
 		return BT_HallDown
 	default:
-		return BT_Cab // fallback
+		return BT_Cab
 	}
 }
 
