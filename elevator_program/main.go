@@ -4,11 +4,14 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
+	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	// "elevator_program/utilities"
@@ -70,7 +73,7 @@ func testBroadcast_send(srv *server.Server) {
 func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 	// Create signal channel
 	sigChan := make(chan os.Signal, 1)
-	// signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Wait for Ctrl+C
 	<-sigChan
@@ -106,33 +109,33 @@ func main() {
 
 	eC := elevtest.NewElev("C")
 
-	// err = eC.StartServer(localIP, 9002)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	err = eC.StartServer(localIP, 9002)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	eA.Start()
 	eB.Start()
-	// eC.Start()
+	eC.Start()
 
 	eB.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	// eC.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9001),
-	// 	packet.PROTO_PKT_T_SlaveUpdate,
-	// 	message.ElevatorMessage{ActivePeers: 380085},
-	// )
-	// time.Sleep(5 * time.Second)
+	eC.QueueMessage(
+		udp.MustUDPAddr(localIP, 9001),
+		packet.PROTO_PKT_T_SlaveUpdate,
+		message.ElevatorMessage{ActivePeers: 380085},
+	)
+	time.Sleep(5 * time.Second)
 
-	// eB.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9000),
-	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-	// 	message.ElevatorMessage{},
-	// )
+	eB.QueueMessage(
+		udp.MustUDPAddr(localIP, 9000),
+		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+		message.ElevatorMessage{},
+	)
 
 	closeProgram(eA, eB, eC)
 }

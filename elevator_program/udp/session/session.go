@@ -2,8 +2,11 @@ package session
 
 import (
 	"elevator_program/message"
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
+	"elevator_program/udp/timer"
+	"fmt"
 	"net"
 	"sync"
 )
@@ -41,6 +44,9 @@ type Session struct {
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan outgoingMessage
 
+	// --- lifesycle ---
+	responseTimer *timer.Timer
+
 	// --- external systems ---
 	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
 	elevDone  chan struct{}
@@ -69,6 +75,8 @@ func NewSession(id uint32,
 		hasLastPkt:    false,
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
+
+		responseTimer: timer.NewTimer(),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
@@ -103,4 +111,17 @@ func (ses *Session) Close() {
 		// Clear pending packet
 		ses.pendingPkt = nil
 	})
+}
+
+func (ses *Session) startResponseTimer() {
+	ses.responseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
+		fmt.Println("Not enough elevators received the data in time ...")
+		ses.QueueWhoIsMasterMsg()
+		ses.stopResponseTimer()
+		ses.requestClose()
+	})
+}
+
+func (ses *Session) stopResponseTimer() {
+	ses.responseTimer.Stop()
 }

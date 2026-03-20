@@ -10,7 +10,6 @@ import (
 func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
-	fmt.Println(outPkt.EMsg.ID, outPkt.PktType, "sent msg with seq", ses.seq) // TODO db remove later
 	return ses.tx.Send(
 		ses.peerAddr,
 		ses.seq,
@@ -34,7 +33,9 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.Eleva
 func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
-func (ses *Session) QueueWhoIsMasterMsg() {}
+func (ses *Session) QueueWhoIsMasterMsg() {
+	ses.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
+}
 
 func (ses *Session) SendReply(pktType packet.PacketType) {
 	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
