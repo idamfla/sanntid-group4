@@ -8,7 +8,8 @@ import (
 type ElevatorMessageType int
 
 const (
-	EMSG_T_StatusReport ElevatorMessageType = iota
+	EMSG_T_StatusReport          ElevatorMessageType = iota
+	EMSG_T_StatusReportBroadcast                     // Broadcast the statusreport back
 
 	EMSG_T_TaskCreate  // a new task is created/published
 	EMSG_T_ButtonPress // Slave notices a new button press

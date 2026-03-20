@@ -26,10 +26,6 @@ type Coordinator struct {
 func (c *Coordinator) InitCoordinator() {
 	c.msgRecieveCh = make(chan session.ElevatorPacket, 10)
 	c.msgSendCh = make(chan message.ElevatorMessage, 10)
-	c.portRegistery = map[string]int{
-		"broadcast": 3000, // TODO change this
-		"master":    9000,
-	}
 	c.TaskMonitor = NewTaskMonitor(15 * time.Second) // TODO how long should we wait??
 }
 

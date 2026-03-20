@@ -88,55 +88,6 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 }
 
 func main() {
-	// eA := elevtest.NewElev("A")
-
-	// err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eB := elevtest.NewElev("B")
-
-	// err = eB.StartServer(localIP, 9001)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eC := elevtest.NewElev("C")
-
-	// err = eC.StartServer(localIP, 9002)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-
-	// eA.Start()
-	// eB.Start()
-	// eC.Start()
-
-	// time.Sleep(3 * time.Second)
-	// eB.QueueMessage(
-	// 	nil,
-	// 	packet.PROTO_PKT_T_WhoIsMaster,
-	// 	message.ElevatorMessage{},
-	// )
-	// // eC.QueueMessage(
-	// // 	udp.MustUDPAddr(localIP, 9001),
-	// // 	packet.PROTO_PKT_T_SlaveUpdate,
-	// // 	message.ElevatorMessage{ActivePeers: 380085},
-	// // )
-	// time.Sleep(5 * time.Second)
-
-	// eB.QueueMessage(
-	// 	udp.MustUDPAddr(localIP, 9000),
-	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-	// 	message.ElevatorMessage{},
-	// )
-
-	// closeProgram(eA, eB, eC)
-
 	ip_address := "localhost"
 	port := "15657"
 
@@ -153,31 +104,16 @@ func main() {
 	}
 	p1.Start(&e1)
 
-	fmt.Println("Created e1 and p1")
-
-	e2 := elevator.Elevator{}
-	e2.InitElevator("2", 4, 3, localIP, 9001)
-	p2 := coordinator.Coordinator{}
-	p2.InitCoordinator()
-	err = p2.StartServer(localIP, 9001, "2")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	p2.Start(&e2)
-
 	fmt.Println(&e1)
-	fmt.Println(&e2)
 
-	e2.RunElevatorProgram()
+	e1.RunElevatorProgram()
 
 	// time.Sleep(2 * time.Second)
-	// msg := message.ElevatorMessage{
-	// 	EMsgType: message.EMSG_T_NewToChannel,
-	// 	ID:       e2.Id,
-	// }
-	// e2.SendToCoordinator <- msg
+	msg := message.ElevatorMessage{
+		EMsgType: message.EMSG_T_NewToChannel,
+		ID:       e1.Id,
+	}
+	e1.SendToCoordinator <- msg
 
 	select {}
 }

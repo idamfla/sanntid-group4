@@ -5,7 +5,6 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
-	"elevator_program/udp/session"
 	"fmt"
 )
 
@@ -32,7 +31,7 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
-	case message.EMSG_T_StatusReport:
+	case message.EMSG_T_StatusReportBroadcast:
 		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 
 	case message.EMSG_T_TaskUpdate:
@@ -58,11 +57,12 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 
 func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
-
 	// Update info about an elevator and broadcast
 	case message.EMSG_T_StatusReport:
-		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 		e.SendToCoordinator <- eMsg
+
+	case message.EMSG_T_StatusReportBroadcast:
+		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 
 	case message.EMSG_T_ButtonPress:
 		if eMsg.BtnStatus != types.NotActive {
@@ -91,13 +91,13 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		eMsg.EMsgType = message.EMSG_T_ButtonPress
 		e.SendToCoordinator <- eMsg
 
-		eMsg.EMsgType = message.EMSG_T_TaskUpdate // TODO should remove this
+		// eMsg.EMsgType = message.EMSG_T_TaskUpdate // TODO should remove this
 
-		packet := session.ElevatorPacket{
-			EMsg: eMsg,
-		}
+		// packet := session.ElevatorPacket{
+		// 	EMsg: eMsg,
+		// }
 
-		c.msgRecieveCh <- packet
+		// c.msgRecieveCh <- packet
 
 	case message.EMSG_T_TaskUpdate:
 		e.System.Mutex.Lock()
