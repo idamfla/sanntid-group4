@@ -28,19 +28,15 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
 		msgPacket = packet.PROTO_PKT_T_SlaveUpdate
-		fmt.Println("Trying to send status report")
 
 	case message.EMSG_T_ButtonPress:
 		msgPacket = packet.PROTO_PKT_T_SlaveUpdate
-		fmt.Println("Trying to send button press")
 
 	case message.EMSG_T_TaskRequest:
 		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
-		fmt.Println("Trying to send Task request 1")
 
 	case message.EMSG_T_NewToChannel:
 		msgPacket = packet.PROTO_PKT_T_WhoIsMaster
-		fmt.Println("Trying to send new to channel")
 	}
 	c.QueueMessage(nil, msgPacket, eMsg)
 }
@@ -52,15 +48,14 @@ func (c *Coordinator) sendAsMaster(eMsg message.ElevatorMessage) {
 	case message.EMSG_T_StatusReport:
 		eMsg.EMsgType = message.EMSG_T_StatusReportBroadcast
 		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
-		fmt.Println("Trying to send status report")
+
 	case message.EMSG_T_ButtonPress:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
 		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
-		fmt.Println("Trying to send task update")
+
 	case message.EMSG_T_TaskRequest:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
 		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
-		fmt.Println("Trying to send task update 2")
 	}
 
 	c.QueueMessage(nil, msgPacket, eMsg)

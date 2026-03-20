@@ -108,7 +108,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Id]
-	prevState := elevatorState.State
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
 
@@ -200,7 +199,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 		e.System.Mutex.Unlock()
 	}
 
-	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 }
@@ -220,7 +219,6 @@ func (e *Elevator) updateElevatorStateOffline() {
 	_, elevs := e.System.Snapshot()
 	elevatorStatus := elevs[e.Id]
 	e.System.Mutex.RUnlock()
-	prevState := elevatorStatus.State
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
@@ -299,7 +297,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 		return
 	}
 
-	if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 	elevio.SetMotorDirection(dir)

@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	localIP  = "127.0.0.1"
-	receiver = "10.100.23.15"
+	localIP  = "10.100.23.27"
+	receiver = "10.100.23.22"
 )
 
 func closeProgram(e1 *coordinator.Coordinator, e2 *coordinator.Coordinator) {

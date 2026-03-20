@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// ------------------------- Configs -------------------------- //
-
 type RecoveryConfig struct {
 	SoftRestartTimeout     time.Duration
 	RecoveryProofTimeout   time.Duration
@@ -22,38 +20,105 @@ var DefaultRecoveryConfig = RecoveryConfig{
 	MaxSoftRestartAttempts: 1,
 }
 
-// ------------------------- Utility helpers -------------------------- //
+type RestartReason string
 
-/*
+const (
+	RestartReasonNone    RestartReason = ""
+	RestartReasonNetwork RestartReason = "network"
+	RestartReasonMotor   RestartReason = "motor"
+)
+
 func (e *Elevator) hasActiveCabRequests() bool {
-	for _, status := range e.System.Elevators[e.Id].CabRequests {
+	e.System.Mutex.RLock()
+	defer e.System.Mutex.RUnlock()
+
+	elev, ok := e.System.Elevators[e.Id]
+	if !ok {
+		return false
+	}
+
+	for _, status := range elev.CabRequests {
 		if status != types.NotActive {
 			return true
 		}
 	}
+
 	return false
 }
-*/
 
-func (e *Elevator) shouldRestartAfterOffline() bool {
-	e.mu.Lock()
-	online := e.IsOnline
-	restart := e.scheduleRestart
-	ds := e.doorState
-	e.mu.Unlock()
+func (e *Elevator) hasPendingLocalWork() bool {
+	e.System.Mutex.RLock()
+	defer e.System.Mutex.RUnlock()
 
-	if online && !restart {
+	elev, ok := e.System.Elevators[e.Id]
+	if !ok {
 		return false
 	}
 
+	if elev.Target.Floor != -1 {
+		return true
+	}
+
+	for _, status := range elev.CabRequests {
+		if status != types.NotActive {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (e *Elevator) shouldMarkRecoveryVerified() bool {
 	e.System.Mutex.RLock()
-	state := e.System.Elevators[e.Id].State
+	elev, ok := e.System.Elevators[e.Id]
 	e.System.Mutex.RUnlock()
 
-	if state == types.ES_Moving {
+	if !ok {
 		return false
 	}
-	if ds != DS_Closed {
+
+	isMoving := elev.State == types.ES_Moving
+	isIdle := elev.State == types.ES_Idle
+	doorClosed := e.doorState == DS_Closed
+	noEmergency := !e.emergencyStop
+	noObstruction := !e.obstruction
+	noPendingWork := !e.hasPendingLocalWork()
+
+	safeIdle := isIdle && doorClosed && noEmergency && noObstruction && noPendingWork
+
+	return isMoving || safeIdle
+
+}
+
+func (e *Elevator) shouldRestartAfterOffline() bool {
+
+	e.System.Mutex.RLock()
+	elev, ok := e.System.Elevators[e.Id]
+	e.System.Mutex.RUnlock()
+
+	if !ok {
+		return false
+	}
+
+	e.System.Mutex.Lock()
+	isOnline := e.IsOnline
+	restartScheduled := e.scheduleRestart
+	isMoving := elev.State == types.ES_Moving
+	doorClosed := e.doorState == DS_Closed
+	isNetworkRecovery := e.restartReason == RestartReasonNetwork
+	hasCabRequests := e.hasActiveCabRequests()
+
+	canRestartNow := !isOnline &&
+		restartScheduled &&
+		!isMoving &&
+		doorClosed
+	e.System.Mutex.Unlock()
+
+	if !canRestartNow {
+		return false
+	}
+
+	if isNetworkRecovery && hasCabRequests {
 		return false
 	}
 
@@ -65,17 +130,15 @@ func (e *Elevator) checkOfflineRestart() {
 		return
 	}
 	fmt.Printf("Elevator %s: orders finished while offline, attempting recovery\n", e.Id)
-	e.mu.Lock()
 	e.scheduleRestart = false
-	e.mu.Unlock()
 	e.attemptRecovery()
-}
 
-// ------------------------- Fault handlers -------------------------- //
+}
 
 func (e *Elevator) handleMotorStopFault(reason string) {
 	fmt.Printf("Motor stop fault in elevator %s: %s\n", e.Id, reason)
 
+	e.restartReason = RestartReasonMotor
 	e.stopLocally()
 	e.enterOfflineMode()
 	e.mu.Lock()
@@ -85,39 +148,56 @@ func (e *Elevator) handleMotorStopFault(reason string) {
 
 func (e *Elevator) handleMasterSuspected(reason string) {
 	fmt.Printf("Elevator %s suspects master failure: %s\n", e.Id, reason)
-	e.mu.Lock()
 	e.connectedToMaster = false
-	e.mu.Unlock()
 }
 
 func (e *Elevator) handleNetworkFault(reason string) {
 	fmt.Printf("Network fault in elevator %s: %s\n", e.Id, reason)
 
 	e.enterOfflineMode()
-	e.mu.Lock()
 	e.scheduleRestart = true
-	e.mu.Unlock()
 }
 
 func (e *Elevator) handlePeerDead(peerID string) {
 	fmt.Println("Peer dead:", peerID)
 
-	e.System.Mutex.Lock()
 	delete(e.System.Elevators, peerID)
-	e.System.Mutex.Unlock()
-
-	//if peerID == e.currentMasterID || peerID < e.Id || e.IsMaster {
-	//e.runElection("peer dead")
-	//}
-
-	// TODO senere: reassign hall calls
-	// Midlertidig: marker peer dead i elevatorRegistry / fjern den
+}
+func (e *Elevator) startRecoveryAttempt() {
+	e.softRestartInProgress = true
+	e.softRestartAttempts++
+	e.recoveryAwaitingProof = true
+	e.recoveryVerified = false
+	e.lastRecoveryAttempt = time.Now()
 }
 
-// ------------------------- Mode helpers -------------------------- //
+func (e *Elevator) waitForRecoveryProof(deadline time.Time) bool {
+	for time.Now().Before(deadline) {
+		e.recoveryMu.Lock()
+		recoveryVerified := e.recoveryVerified
+		e.recoveryMu.Unlock()
+
+		if recoveryVerified {
+			return true
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+	return false
+}
+
+func (e *Elevator) finishSuccessfulRecovery() {
+	fmt.Printf("Elevator %s: soft restart succeeded\n", e.Id)
+
+	e.recoveryMu.Lock()
+	e.softRestartInProgress = false
+	e.softRestartAttempts = 0
+	e.recoveryAwaitingProof = false
+	e.restartReason = RestartReasonNone
+	e.recoveryMu.Unlock()
+}
+
 func (e *Elevator) enterOfflineMode() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	if !e.IsOnline {
 		return
@@ -129,8 +209,7 @@ func (e *Elevator) enterOfflineMode() {
 }
 
 func (e *Elevator) exitOfflineMode() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+
 	if e.IsOnline {
 		return
 	}
@@ -142,11 +221,10 @@ func (e *Elevator) exitOfflineMode() {
 func (e *Elevator) stopLocally() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.direction = elevio.MD_Stop
-	e.System.Mutex.Lock()
 	tempElevator := e.System.Elevators[e.Id]
 	tempElevator.State = types.ES_Idle
 	e.System.Elevators[e.Id] = tempElevator
-	e.System.Mutex.Unlock()
+
 }
 
 func (e *Elevator) SoftRestart() {
@@ -162,24 +240,29 @@ func (e *Elevator) SoftRestart() {
 }
 
 func (e *Elevator) attemptRecovery() {
-	e.recoveryMu.Lock()
-	if e.softRestartInProgress {
-		e.recoveryMu.Unlock()
-		return
-	}
 
-	if e.softRestartAttempts >= e.recoveryCfg.MaxSoftRestartAttempts {
-		fmt.Printf("Elevator %s: max soft restart attempts reached, hard restarting\n", e.Id)
-		e.recoveryMu.Unlock()
+	if e.restartReason == RestartReasonNetwork {
 		fault.RestartSelf()
 		return
 	}
 
-	e.softRestartInProgress = true
-	e.softRestartAttempts++
-	e.recoveryAwaitingProof = true
-	e.recoveryVerified = false
-	e.lastRecoveryAttempt = time.Now()
+	e.recoveryMu.Lock()
+	recoveryInProgress := e.softRestartInProgress
+	maxAttemptsReached := e.softRestartAttempts >= e.recoveryCfg.MaxSoftRestartAttempts
+
+	if recoveryInProgress {
+		e.recoveryMu.Unlock()
+		return
+	}
+
+	if maxAttemptsReached {
+		e.recoveryMu.Unlock()
+		fmt.Printf("Elevator %s: max soft restart attempts reached, hard restarting\n", e.Id)
+		fault.RestartSelf()
+		return
+	}
+
+	e.startRecoveryAttempt()
 	e.recoveryMu.Unlock()
 
 	fmt.Printf("Elevator %s: attempting soft restart\n", e.Id)
@@ -187,26 +270,13 @@ func (e *Elevator) attemptRecovery() {
 	go func() {
 		e.SoftRestart()
 
-		time.Sleep(e.recoveryCfg.SoftRestartTimeout)
 		deadline := time.Now().Add(e.recoveryCfg.RecoveryProofTimeout)
 
-		for time.Now().Before(deadline) {
-			e.recoveryMu.Lock()
-			verified := e.recoveryVerified
-			e.recoveryMu.Unlock()
+		recovered := e.waitForRecoveryProof(deadline)
 
-			if verified {
-				fmt.Printf("Elevator %s: soft restart succeeded\n", e.Id)
-
-				e.recoveryMu.Lock()
-				e.softRestartInProgress = false
-				e.softRestartAttempts = 0
-				e.recoveryAwaitingProof = false
-				e.recoveryMu.Unlock()
-
-				return
-			}
-			time.Sleep(50 * time.Millisecond)
+		if recovered {
+			e.finishSuccessfulRecovery()
+			return
 		}
 
 		fmt.Printf("Elevator %s: recovery proof not received, hard restart\n", e.Id)
