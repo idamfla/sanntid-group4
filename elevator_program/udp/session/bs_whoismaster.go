@@ -45,6 +45,7 @@ func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
+		ws.election.Start(ws)
 		ws.SendReply(packet.PKT_T_IAmAlive)
 	case packet.PKT_T_IAmMaster:
 		ws.startResponseTimer()

@@ -107,13 +107,14 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	} else {
 		fmt.Printf(
-			`%s, Session %d:
+			`%s, isMaster: %t, Session %d:
 	sent from : %s
 	to        : %s
 	reply sock: %s
 	pktType   : %s
 `,
 			srv.ID,
+			srv.IsMaster(),
 			incPkt.Packet.Header.SessionID,
 			incPkt.Addr.String(),
 			incPkt.Packet.Header.RecipientAddr,

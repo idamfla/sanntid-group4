@@ -36,6 +36,7 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 
 	select {
 	case <-ws.stop:
+		fmt.Println("Session shutdown... election stopped")
 		return
 
 	case <-e.masterFound:
