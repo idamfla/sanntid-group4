@@ -370,9 +370,9 @@ Each elevator instance runs **7 goroutines** (4 elevator + 3 coordinator):
  (50ms tick) ────────→ RunDoorStateMachine    │         v
                                               │    sendListener
  FaultMsg ───────────→ fault_loop             │     │         │
-                                              │  sendAsMaster  sendAsSlave
-                                              │     │              │
-                                              │     v              v
+                                              │ sendAsMaster  sendAsSlave
+                                              │        │      │ 
+                                              │        v      v        
                                               │       UDP network
                                               │           │
                                               │           v
