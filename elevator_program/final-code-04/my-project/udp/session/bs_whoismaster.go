@@ -16,8 +16,6 @@ func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, clos
 	ws := &WhoIsMasterBroadcast{
 		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
-		// electionStarted: false,
-		// masterFound:     make(chan struct{}, 1),
 	}
 	return ws
 }
