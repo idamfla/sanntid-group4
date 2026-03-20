@@ -4,7 +4,6 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp"
 	elevtest "elevator_program/udp/elev_test"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
@@ -20,6 +19,9 @@ import (
 
 const (
 	localIP  = "127.0.0.1"
+	homeIP   = "192.168.50.97"
+	wifiIP   = "10.22.119.16"
+	myIP     = homeIP
 	receiver = "10.100.23.15"
 )
 
@@ -93,7 +95,7 @@ func closeProgram(e1 *elevtest.Elev, e2 *elevtest.Elev, e3 *elevtest.Elev) {
 func main() {
 	eA := elevtest.NewElev("A")
 
-	err := eA.StartServer(localIP, 9000) // TODO something here dosent work anymore
+	err := eA.StartServer(myIP, 9000) // TODO something here dosent work anymore
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -101,41 +103,41 @@ func main() {
 
 	eB := elevtest.NewElev("B")
 
-	err = eB.StartServer(localIP, 9001)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// err = eB.StartServer(myIP, 9001)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
 	eC := elevtest.NewElev("C")
 
-	err = eC.StartServer(localIP, 9002)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// err = eC.StartServer(myIP, 9002)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
 
 	eA.Start()
-	eB.Start()
-	eC.Start()
+	// eB.Start()
+	// eC.Start()
 
-	eB.QueueMessage(
+	eA.QueueMessage(
 		nil,
 		packet.PROTO_PKT_T_WhoIsMaster,
 		message.ElevatorMessage{},
 	)
-	eC.QueueMessage(
-		udp.MustUDPAddr(localIP, 9001),
-		packet.PROTO_PKT_T_SlaveUpdate,
-		message.ElevatorMessage{ActivePeers: 380085},
-	)
-	time.Sleep(5 * time.Second)
+	// eC.QueueMessage(
+	// 	udp.MustUDPAddr(myIP, 9001),
+	// 	packet.PROTO_PKT_T_SlaveUpdate,
+	// 	message.ElevatorMessage{ActivePeers: 380085},
+	// )
+	// time.Sleep(5 * time.Second)
 
-	eB.QueueMessage(
-		udp.MustUDPAddr(localIP, 9000),
-		packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
-		message.ElevatorMessage{},
-	)
+	// eB.QueueMessage(
+	// 	udp.MustUDPAddr(myIP, 9000),
+	// 	packet.PROTO_PKT_T_RequestTaskExecution, // TODO this task is not working
+	// 	message.ElevatorMessage{},
+	// )
 
 	closeProgram(eA, eB, eC)
 }
