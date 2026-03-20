@@ -74,4 +74,6 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 }
 
 // for the SessionBehavior, does nothing
-func (ses *Session) OnSend(pktType packet.PacketType) {}
+func (ses *Session) OnSend(pktType packet.PacketType) {
+	ses.startResponseTimer()
+}
