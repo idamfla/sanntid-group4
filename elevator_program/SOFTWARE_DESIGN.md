@@ -363,7 +363,7 @@ Each elevator instance runs **7 goroutines** (4 elevator + 3 coordinator):
  Hardware pollers (buttons, floor sensor, obstruction, stop)
         │
         v
- hardwareEventsCh ──→ RunHardwareEventLoop ──┐
+ hardwareEventsCh ──→ RunHardwareEventLoop  ──┐
                                               │
  (50ms tick) ────────→ RunElevatorStateMachine ──→ SendToCoordinator
                                               │         │
