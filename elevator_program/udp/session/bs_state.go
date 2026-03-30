@@ -51,6 +51,7 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 		pktT = packet.PKT_T_BroadcastUpdate
 	}
 
+	sbs.pendingPkt = &packet.Packet{Payload: eMsg}
 	sbs.QueueDirectMsg(pktT, eMsg)
 }
 

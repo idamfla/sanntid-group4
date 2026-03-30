@@ -14,7 +14,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 	switch elev.Direction {
 	case elevio.MD_Up:
 		if newTarget.Floor < elev.CurrentFloor+1 || newTarget.Button == elevio.BT_HallDown {
-			return false, e.numFloors + 1
+			return false, e.NumFloors + 1
 		}
 
 		distNewTarget := newTarget.Floor - (elev.CurrentFloor)
@@ -25,7 +25,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 	case elevio.MD_Down:
 		if newTarget.Floor > elev.CurrentFloor-1 || newTarget.Button == elevio.BT_HallUp {
-			return false, e.numFloors + 1
+			return false, e.NumFloors + 1
 		}
 
 		distNewTarget := (elev.CurrentFloor) - newTarget.Floor
@@ -36,7 +36,7 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 		}
 	}
 
-	return false, e.numFloors + 1
+	return false, e.NumFloors + 1
 }
 
 func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) string {

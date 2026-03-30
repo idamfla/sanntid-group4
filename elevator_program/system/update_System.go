@@ -4,6 +4,7 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
+	"fmt"
 )
 
 func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
@@ -43,6 +44,7 @@ func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 func (s *System) RegisterAndSyncElevator(
 	eMsg message.ElevatorMessage,
 	ipRegistery map[string]string,
+	numFloors int,
 ) (message.ElevatorMessage, string) {
 
 	s.Mutex.Lock()
@@ -61,7 +63,7 @@ func (s *System) RegisterAndSyncElevator(
 			Floor:  -1,
 			Button: elevio.BT_HallUp,
 		},
-		CabRequests: make([]types.ButtonStatus, len(eMsg.Elevators[eMsg.ID].CabRequests)),
+		CabRequests: make([]types.ButtonStatus, numFloors),
 	}
 
 	if _, ok := ipRegistery[eMsg.Addr]; ok {
@@ -83,6 +85,8 @@ func (s *System) RegisterAndSyncElevator(
 
 	newMessage.HallRequests = hallCopy
 	newMessage.Elevators = elevCopy
+
+	fmt.Println("Trying to sync, \n\n\n", newMessage)
 
 	return newMessage, eMsg.ID
 }

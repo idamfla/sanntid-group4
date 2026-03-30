@@ -100,13 +100,14 @@ func (e *Elevator) shouldRestartAfterOffline() bool {
 		return false
 	}
 
+	hasCabRequests := e.hasActiveCabRequests()
+
 	e.System.Mutex.Lock()
 	isOnline := e.IsOnline
 	restartScheduled := e.scheduleRestart
 	isMoving := elev.State == types.ES_Moving
 	doorClosed := e.doorState == DS_Closed
 	isNetworkRecovery := e.restartReason == RestartReasonNetwork
-	hasCabRequests := e.hasActiveCabRequests()
 
 	canRestartNow := !isOnline &&
 		restartScheduled &&
@@ -233,7 +234,7 @@ func (e *Elevator) SoftRestart() {
 	e.stopLocally()
 	e.stopRuntimeLoops()
 
-	e.resetRuntimeState(e.numFloors)
+	e.resetRuntimeState(e.NumFloors)
 	e.RunElevatorProgram()
 
 	fmt.Printf("Elevator %s: soft restart complete\n", e.Id)

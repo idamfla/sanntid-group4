@@ -5,8 +5,6 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
-	"elevator_program/udp"
-	"elevator_program/udp/packet"
 	"fmt"
 )
 
@@ -14,18 +12,20 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
 	for ePkt := range c.msgRecieveCh {
 		eMsg := ePkt.EMsg
+		fmt.Println("thththt \n\n\n\n\n", eMsg)
 		c.MessageHandler(e, eMsg)
 		if ePkt.Done != nil {
-			ePkt.Done <- struct{}{}
+			func() {
+				defer func() { recover() }()
+				ePkt.Done <- struct{}{}
+			}()
 		}
 	}
 }
 
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
-	if e.IsMaster {
-		e.System.Mutex.Lock()
-		e.IsMaster = true
-		e.System.Mutex.RUnlock()
+	if c.Server.IsMaster() {
+		e.TurnToMaster()
 		c.handleAsMaster(e, msg)
 	} else {
 		c.handleAsSlave(e, msg)
@@ -35,6 +35,7 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReportBroadcast:
+		e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO Do i need the ipRegistery, I use it in registerAndSyncElev.
 		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
 
 	case message.EMSG_T_TaskUpdate:
@@ -46,15 +47,17 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.System.Mutex.Unlock()
 		}
 		e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+		fmt.Println("yooooooo \n\n\n\n\n\n\n")
+		// fmt.Println(&e) // TODO why wont it print e just like in state machine and main, it just prints the referance???
 
 	case message.EMSG_T_NewToChannel:
-		if e.ConnectedToMaster() {
-			e.IpRegistery[eMsg.Addr] = eMsg.ID
-			e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
-		} else if e.Id == eMsg.ID {
-			e.SetConnectionState(eMsg)
-			e.System.InitializeFromSystemState(eMsg)
-		}
+		// if e.ConnectedToMaster() {
+		// 	e.IpRegistery[eMsg.Addr] = eMsg.ID
+		// 	e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
+		// } else if e.Id == eMsg.ID {
+		e.SetConnectionState(eMsg)
+		e.System.InitializeFromSystemState(eMsg)
+		// }
 	}
 }
 
@@ -123,17 +126,14 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		}
 
 	case message.EMSG_T_NewToChannel:
-		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery)
-		e.IpRegistery[eMsg.Addr] = id
 		e.System.Mutex.Lock()
+		numFloors := e.NumFloors
 		e.IsOnline = true
-		e.System.Mutex.RUnlock()
-		udpAddr, err := udp.StringAddrToUDPAddr(eMsg.Addr)
-		if err != nil {
-			return
-		}
-		c.Server.QueueMessage(udpAddr, packet.PROTO_PKT_T_Snapshot, message.ElevatorMessage{})
-		c.Server.StartPeerCatchup(udpAddr)
+		e.System.Mutex.Unlock()
+		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery, numFloors)
+		e.IpRegistery[eMsg.Addr] = id
 
+		fmt.Println("Before syncing \n\n\n\n\n", eMsg)
+		e.SendToCoordinator <- eMsg
 	}
 }

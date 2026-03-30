@@ -7,7 +7,7 @@ import (
 )
 
 func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target elevio.ButtonEvent, hallRequest [][2]types.ButtonStatus, cabRequests []types.ButtonStatus) (bool, elevio.ButtonEvent) {
-	numFloors := e.numFloors
+	numFloors := e.NumFloors
 
 	if from >= numFloors {
 		from = numFloors - 1

@@ -20,7 +20,7 @@ type Elevator struct {
 	inBetweenFloors bool
 	currentFloor    int
 	initFloor       int
-	numFloors       int
+	NumFloors       int
 
 	direction elevio.MotorDirection
 
@@ -70,7 +70,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.currentFloor = -1
 	e.initFloor = initFloor
 	e.doorTimer = time.Time{}
-	e.numFloors = numFloors
+	e.NumFloors = numFloors
 
 	e.IsMaster = false
 
@@ -182,7 +182,7 @@ func (e *Elevator) String() string {
 	elevator state: %s
 `,
 		e.Id, e.inBetweenFloors, e.currentFloor, elevStatus.Target.Floor, elevStatus.Target.Button, e.initFloor, elevStatus.Direction, e.doorState, elevStatus.State)
-	for f := 0; f < e.numFloors; f++ {
+	for f := 0; f < e.NumFloors; f++ {
 		req := e.System.HallRequests[f]
 		cab := elevStatus.CabRequests[f]
 
