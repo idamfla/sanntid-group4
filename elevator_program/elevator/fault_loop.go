@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-// nb
-// run as go routine
 func (e *Elevator) fault_loop() {
 	defer e.wg.Done()
 	for {

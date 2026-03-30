@@ -25,7 +25,6 @@ func DecodePacket(buf []byte, n int) (Packet, error) {
 	return pck, nil
 }
 
-// helper to encode & send a packet
 func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, pck Packet) error {
 	data, err := pck.encodePacket()
 	if err != nil {

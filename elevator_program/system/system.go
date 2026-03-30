@@ -33,7 +33,6 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 	}
 }
 
-// Snapshot returns a deep copy of the system state. Caller MUST hold s.Mutex (RLock or Lock).
 func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]types.ElevatorsStatus) {
 	hall = make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hall, s.HallRequests)

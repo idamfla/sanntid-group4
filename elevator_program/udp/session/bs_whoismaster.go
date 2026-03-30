@@ -16,8 +16,6 @@ func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, clos
 	ws := &WhoIsMasterBroadcast{
 		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
-		// electionStarted: false,
-		// masterFound:     make(chan struct{}, 1),
 	}
 	return ws
 }
@@ -41,12 +39,13 @@ func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType,
 }
 
 func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
-	ws.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
+	ws.Session.QueueWhoIsMasterMsg()
 }
 
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
+		ws.election.Start(ws)
 		ws.SendReply(packet.PKT_T_IAmAlive)
 	case packet.PKT_T_IAmMaster:
 		ws.startResponseTimer()

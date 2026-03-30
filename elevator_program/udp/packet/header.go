@@ -33,36 +33,29 @@ const (
 	PKT_T_RequestTaskExecution
 	PKT_T_RequestTaskExecutionAck
 
-	PKT_T_ElevatorFailed // todo do i need this?
+	PKT_T_ElevatorFailed
 )
-
-// TODO combine all MasterDoSomethingRequest: slavereport,requestneworder, data. Dont need report and report ack
-/*
-commit and done is redundant, ack closes one to one msg -> changes only happen when master broadcast. look at msg receiver field for who should do what
-- {this is me: ip, who is master} x3 -> (if someone is master) -> wait 5 sec -> one send {i am master, ip}
-											|-> sync -> who should be master (should new be master)
-*/
 
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
-	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
-	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)          //broadcast
-	PROTO_PKT_T_Snapshot             ProtocolPacketType = ProtocolPacketType(PKT_T_Snapshot)             // master -> slave
-	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
-	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)         // master -> slave
-	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
-	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)          // slave -> master
-	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
+	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)
+	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)
+	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)
+	PROTO_PKT_T_Snapshot             ProtocolPacketType = ProtocolPacketType(PKT_T_Snapshot)
+	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)
+	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)
+	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)
+	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)
+	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution)
 )
 
 type Header struct {
 	Seq           uint32
 	SessionID     uint32
-	PktType       PacketType // Data, Ack, Heartbeat ...
-	RecipientAddr string     // where the reply should go
-	SenderAddr    string     // where this message came from (IP:Port)
+	PktType       PacketType
+	RecipientAddr string
+	SenderAddr    string
 }
 
 func (p PacketType) String() string {

@@ -44,11 +44,9 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDirectMsg(pktType, eMsg)
-	// srv.elevatorTaskQueue()
 	return nil
 }
 
-// Initiate the broadcast message chain
 func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	quorum := srv.getPeerCount()
 	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
@@ -62,7 +60,6 @@ func (srv *Server) startWhoIsMasterMsg() {
 	bs.QueueWhoIsMasterMsg()
 }
 
-// deciding how to output messages from the server, what type of session should start
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
@@ -92,8 +89,7 @@ func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 
 	mstr := srv.getMasterPeerLocked()
 	if mstr == nil {
-		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
-		// srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsMaster, message.ElevatorMessage{}) // TODO fault tol, FAULT_T_LostMaster, queue who is master
+		fmt.Println(srv.ID, "dosen't know who master is")
 		srv.mu.Unlock()
 		return
 	}
@@ -107,7 +103,6 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
 	}
 
-	// if some peers are syncing
 	srv.mu.Lock()
 	for _, p := range srv.peers {
 		if p.Active && !p.IsSynced {
@@ -168,7 +163,6 @@ func (srv *Server) QueueSyncRequest() {
 	})
 }
 
-// --- helper ---
 func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
 	local := srv.recvConn.LocalAddr().(*net.UDPAddr)
 	return addr.IP.Equal(local.IP) && addr.Port == local.Port

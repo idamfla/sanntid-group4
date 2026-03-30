@@ -9,7 +9,6 @@ import (
 func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target elevio.ButtonEvent, hallRequest [][2]types.ButtonStatus, cabRequests []types.ButtonStatus) (bool, elevio.ButtonEvent) {
 	numFloors := e.numFloors
 
-	// saturate bounds
 	if from >= numFloors {
 		from = numFloors - 1
 	}
@@ -36,7 +35,6 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target
 					Button: elevio.BT_HallUp,
 				}
 
-				// To not steal anyone elses task
 				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallUp] == types.Running) {
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallUp}
 				}
@@ -51,7 +49,6 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target
 					Floor:  f,
 					Button: elevio.BT_HallDown,
 				}
-				// To not steal anyone elses task
 				if !(target != protentilTarget && hallRequest[f][elevio.BT_HallDown] == types.Running) {
 					return true, elevio.ButtonEvent{Floor: f, Button: elevio.BT_HallDown}
 				}
@@ -70,7 +67,7 @@ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests 
 	e.mu.Unlock()
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
-	minDist := numFloors + 1 // initialize with something bigger than max possible distance
+	minDist := numFloors + 1
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - floor)
 
@@ -133,17 +130,14 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 			return ev
 		}
 
-		// phase 1: continue up
 		if ok, ev := e.scanFloor(elevator.CurrentFloor+1, topFloor, elevio.MD_Up, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
-		// phase 2: nothing left up, go down
 		if ok, ev := e.scanFloor(topFloor, bottomFloor, elevio.MD_Down, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
 
-		// phase 3: nothing down, move up again
 		if ok, ev := e.scanFloor(bottomFloor, elevator.CurrentFloor, elevio.MD_Up, target, hallRequests, elevator.CabRequests); ok {
 			return ev
 		}
@@ -172,7 +166,6 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 
 		return elevio.ButtonEvent{Floor: -1}
 	}
-	// endregion
 
 	if elevator.State == types.ES_Idle || elevator.Direction == elevio.MD_Stop {
 		return e.getClosestFloor(elevator, hallRequests)
@@ -181,5 +174,5 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 	} else if elevator.Direction == elevio.MD_Down {
 		return downScan()
 	}
-	return elevio.ButtonEvent{Floor: -1} // no requests
+	return elevio.ButtonEvent{Floor: -1}
 }

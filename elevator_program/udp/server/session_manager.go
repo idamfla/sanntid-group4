@@ -7,7 +7,6 @@ import (
 	"net"
 )
 
-// returns session from session map. if no hits, a new server is made
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) SessionHandler {
 	srv.mu.Lock()
 	ses, exists := srv.sessions[sessionID]
@@ -61,14 +60,12 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 		oldMstr := srv.getMasterPeerLocked()
 
-		// already know this master
 		if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
 			srv.isSynced = true
 			srv.mu.Unlock()
 			return
 		}
 
-		// new master
 		if oldMstr != nil {
 			oldMstr.SetMaster(false)
 		}
@@ -82,10 +79,6 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 		srv.QueueSyncRequest()
 		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
-
-		// if !srv.IsMaster() {
-		// 	fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
-		// }
 
 	default:
 		if pktType == packet.PKT_T_SyncComplete {
@@ -102,7 +95,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 			}
 			srv.mu.Unlock()
 			if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
-				fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+				fmt.Println(srv.ID, "is not synced so it can take no new updates")
 				return
 			}
 		}
@@ -114,13 +107,14 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	} else {
 		fmt.Printf(
-			`%s, Session %d:
+			`%s, isMaster: %t, Session %d:
 	sent from : %s
 	to        : %s
 	reply sock: %s
 	pktType   : %s
 `,
 			srv.ID,
+			srv.IsMaster(),
 			incPkt.Packet.Header.SessionID,
 			incPkt.Addr.String(),
 			incPkt.Packet.Header.RecipientAddr,
@@ -132,14 +126,12 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	ses.ReceivePacket(incPkt.Packet)
 }
 
-// helper function, not called directly: *unsafe*
 func (srv *Server) closeSessionLocked(sesID uint32) {
 	ses, exists := srv.sessions[sesID]
 	if exists {
 		ses.Close()
 		delete(srv.sessions, sesID)
 
-		// TODO remove db
 		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
 
 	}
@@ -181,7 +173,6 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 }
 
 func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
-	// generate unique id
 	var id uint32
 	if sessionID != nil {
 		id = *sessionID

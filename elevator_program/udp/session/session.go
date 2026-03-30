@@ -2,8 +2,11 @@ package session
 
 import (
 	"elevator_program/message"
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
+	"elevator_program/udp/timer"
+	"fmt"
 	"net"
 	"sync"
 )
@@ -27,28 +30,25 @@ type SessionBehavior interface {
 
 type Session struct {
 	ID       uint32
-	peerAddr *net.UDPAddr // addr of original sender
+	peerAddr *net.UDPAddr
 	peerID   string
 
-	seq uint32 // TODO remove
+	seq uint32
 
-	// --- protocol state ---
-	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
+	pendingPkt *packet.Packet
 	lastOutPkt outgoingMessage
 	hasLastPkt bool
 
-	// --- internal communication ---
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan outgoingMessage
 
-	// --- external systems ---
-	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
+	responseTimer *timer.Timer
+
 	elevDone  chan struct{}
 	taskReady chan struct{}
-	tx        PacketSender // <-- session uses this to reply
+	tx        PacketSender
 
-	// --- session control ---
-	closeReq  chan<- uint32 // make the server/owner close this session
+	closeReq  chan<- uint32
 	stop      chan struct{}
 	wg        sync.WaitGroup
 	closeOnce sync.Once
@@ -60,15 +60,16 @@ func NewSession(id uint32,
 	transmitter PacketSender,
 ) *Session {
 	ses := &Session{
-		ID:       id,
-		peerAddr: peerAddr,
-		peerID:   peerAddr.String(),
-		// seq:                seq, // TODO have it set on init ...
+		ID:            id,
+		peerAddr:      peerAddr,
+		peerID:        peerAddr.String(),
 		pendingPkt:    &packet.Packet{},
 		lastOutPkt:    outgoingMessage{},
 		hasLastPkt:    false,
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
+
+		responseTimer: timer.NewTimer(),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
@@ -85,22 +86,31 @@ func (ses *Session) Start() {
 	ses.wg.Add(2)
 	go ses.listen(ses)
 	go ses.sendLoop(ses)
-	// fmt.Printf("Session %d started\n", ses.ID)
 }
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		// stop base session goroutines
+		ses.stopResponseTimer()
+
 		close(ses.stop)
 		ses.wg.Wait()
 
-		// Close channels
-		close(ses.packetInCh)
-		close(ses.outgoingMsgCh)
 		close(ses.elevDone)
 		close(ses.taskReady)
 
-		// Clear pending packet
 		ses.pendingPkt = nil
 	})
+}
+
+func (ses *Session) startResponseTimer() {
+	ses.responseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
+		fmt.Println("Elevator(s) did not respond in time ...")
+		ses.QueueWhoIsMasterMsg()
+		ses.stopResponseTimer()
+		ses.requestClose()
+	})
+}
+
+func (ses *Session) stopResponseTimer() {
+	ses.responseTimer.Stop()
 }

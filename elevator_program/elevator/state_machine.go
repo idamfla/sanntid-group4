@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// ------------------------
-// Motion helper functions
-// ------------------------
 func (e *Elevator) atTargetFloor(targetFloor int) bool {
 	e.mu.Lock()
 	floor := e.currentFloor
@@ -91,10 +88,6 @@ func (e *Elevator) uninitializedAction() elevio.MotorDirection {
 	return elevio.MD_Stop
 }
 
-// ------------------------
-// State Machine
-// ------------------------
-// Updates elevator state when connected to the network
 func (e *Elevator) updateElevatorStateOnline() {
 	e.mu.Lock()
 	estop := e.emergencyStop
@@ -115,7 +108,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Id]
-	prevState := elevatorState.State
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
 
@@ -188,7 +180,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	elevio.SetMotorDirection(dir)
 
-	// If state has changed, notify
 	e.System.Mutex.Lock()
 	if elevatorState.State != e.System.Elevators[e.Id].State {
 		elevatorCopy := e.System.Elevators[e.Id]
@@ -208,12 +199,11 @@ func (e *Elevator) updateElevatorStateOnline() {
 		e.System.Mutex.Unlock()
 	}
 
-	if prevState != types.ES_Moving && elevatorState.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 }
 
-// Updates the elevator state when not connected to the network
 func (e *Elevator) updateElevatorStateOffline() {
 	e.mu.Lock()
 	estop := e.emergencyStop
@@ -229,7 +219,6 @@ func (e *Elevator) updateElevatorStateOffline() {
 	_, elevs := e.System.Snapshot()
 	elevatorStatus := elevs[e.Id]
 	e.System.Mutex.RUnlock()
-	prevState := elevatorStatus.State
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
 	var nextTarget elevio.ButtonEvent = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
@@ -308,12 +297,12 @@ func (e *Elevator) updateElevatorStateOffline() {
 		return
 	}
 
-	if prevState != types.ES_Moving && elevatorStatus.State == types.ES_Moving && dir != elevio.MD_Stop {
+	if e.shouldMarkRecoveryVerified() {
 		e.markRecoveryVerified()
 	}
 	elevio.SetMotorDirection(dir)
 
-	// e.checkOfflineRestart()
+	e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
 	e.System.Elevators[e.Id] = elevatorStatus

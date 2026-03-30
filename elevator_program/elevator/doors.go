@@ -93,26 +93,23 @@ func (e *Elevator) updateDoorState() {
 }
 
 func (e *Elevator) RunDoorStateMachine() {
-    defer e.wg.Done()
+	defer e.wg.Done()
 	fmt.Println("DOOR STATE MACHINE STARTED")
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
-        select {
-        case <-e.stop:
-            return
-        case <-ticker.C:
-            e.updateDoorState()
-        }
-    }
+		select {
+		case <-e.stop:
+			return
+		case <-ticker.C:
+			e.updateDoorState()
+		}
+	}
 }
 
-// region printing
 func (s DoorState) String() string {
 	switch s {
-	// case Idle:
-	// 		return "idle"
 	case DS_Closed:
 		return "closed"
 	case DS_Closing:
@@ -129,5 +126,3 @@ func (s DoorState) String() string {
 		return "unknown"
 	}
 }
-
-// endregion

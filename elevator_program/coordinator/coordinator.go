@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-// Delegating tasks to own elevator and preparing and queueing messages to be sent over udp
 type Coordinator struct {
 	Server        *server.Server
 	msgRecieveCh  chan session.ElevatorPacket
@@ -22,14 +21,12 @@ type Coordinator struct {
 	TaskMonitor   TaskMonitor
 }
 
-// Initialize the coordinator struct
 func (c *Coordinator) InitCoordinator() {
 	c.msgRecieveCh = make(chan session.ElevatorPacket, 10)
 	c.msgSendCh = make(chan message.ElevatorMessage, 10)
-	c.TaskMonitor = NewTaskMonitor(15 * time.Second) // TODO how long should we wait??
+	c.TaskMonitor = NewTaskMonitor(10 * time.Second)
 }
 
-// For starting server
 func (c *Coordinator) StartServer(ip string, port int, id string) error {
 	srv, err := server.NewServer(ip, port, id, c.msgRecieveCh)
 	if err != nil {
@@ -41,7 +38,6 @@ func (c *Coordinator) StartServer(ip string, port int, id string) error {
 	return nil
 }
 
-// Start necessary gorutines for the coordinator
 func (c *Coordinator) Start(e *elevator.Elevator) {
 	c.wg.Add(1)
 	go c.MessageListener(e)
@@ -49,12 +45,10 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	go c.Server.Start()
 }
 
-// For queueing messages to send with udp
 func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
 	c.Server.QueueMessage(remoteAddr, protoPktType, msg)
 }
 
-// Closes the server
 func (c *Coordinator) Close() {
 
 	if c.Server != nil {

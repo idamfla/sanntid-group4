@@ -11,9 +11,8 @@ import (
 )
 
 type Elevator struct {
-	Id string
-	Ip string // TODO Think we should have this one here
-	// TODO temp need to know the ip using the id
+	Id          string
+	Ip          string
 	IpRegistery map[string]string
 
 	scheduleRestart bool
@@ -23,20 +22,15 @@ type Elevator struct {
 	initFloor       int
 	numFloors       int
 
-	nextTarget elevio.ButtonEvent
-	direction  elevio.MotorDirection
+	direction elevio.MotorDirection
 
 	doorState DoorState
 	doorTimer time.Time
 
-	// mu protects fields accessed from multiple goroutines:
-	// doorState, currentFloor, inBetweenFloors, emergencyStop, obstruction,
-	// IsOnline, IsMaster, connectedToMaster, scheduleRestart
 	mu sync.Mutex
 
 	SendToCoordinator chan message.ElevatorMessage
 
-	// elevatorState    types.ElevatorState
 	obstruction              bool
 	emergencyStop            bool
 	hardwareEventsCh         chan HardwareEvent
@@ -49,7 +43,7 @@ type Elevator struct {
 	IsOnline          bool
 
 	System          system.System
-	currentMasterID string // TODO do we need this one?
+	currentMasterID string
 
 	stop      chan struct{}
 	runningMu sync.Mutex
@@ -59,6 +53,7 @@ type Elevator struct {
 
 	recoveryCfg RecoveryConfig
 
+	restartReason         RestartReason
 	softRestartInProgress bool
 	softRestartAttempts   int
 
@@ -89,7 +84,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
 	e.recoveryCfg = DefaultRecoveryConfig
-
+	e.restartReason = RestartReasonNone
 	e.IsOnline = false
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
@@ -127,7 +122,6 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 
 	e.inBetweenFloors = false
 	e.currentFloor = elevio.GetFloor()
-	e.nextTarget = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 	e.direction = elevio.MD_Stop
 
 	e.doorState = DS_Closed
@@ -140,13 +134,8 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.connectedToMaster = false
 	e.IsOnline = false
 	e.currentMasterID = ""
-
-	e.System = system.System{}
-	e.System.InitSystem(e.Id, e.Ip, numFloors)
-
 	e.IpRegistery = make(map[string]string)
 
-	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetStopLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Stop)
@@ -155,9 +144,6 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 		elevio.SetFloorIndicator(e.currentFloor)
 	}
 
-	// NOTE: Do NOT recreate SendToCoordinator here.
-	// The coordinator's sendListener is still reading from the original channel.
-	// Drain any stale messages instead.
 	for {
 		select {
 		case <-e.SendToCoordinator:
@@ -170,19 +156,15 @@ drained:
 
 func (e *Elevator) stopRuntimeLoops() {
 	e.runningMu.Lock()
-	defer e.runningMu.Unlock()
 
 	if !e.isRunning {
+		e.runningMu.Unlock()
 		return
 	}
-
-	close(e.stop)
-	e.wg.Wait()
 
 	e.isRunning = false
 }
 
-// region printing, for debugging
 func (e *Elevator) String() string {
 	e.System.Mutex.RLock()
 	defer e.System.Mutex.RUnlock()
@@ -215,5 +197,3 @@ func (e *Elevator) String() string {
 
 	return s
 }
-
-// endregion
