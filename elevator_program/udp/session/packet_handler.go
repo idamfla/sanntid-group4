@@ -119,6 +119,7 @@ func (ses *Session) handleCatchup() {
 func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
 	// ses.QueueServerMsg(ses.pendingPkt.Payload)
 	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
+	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	ses.scheduleSessionClose()
 }
