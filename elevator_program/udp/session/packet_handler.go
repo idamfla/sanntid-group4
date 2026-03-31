@@ -29,15 +29,15 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	}
 
 	ses.seq = pkt.Header.Seq
-	fmt.Printf(
-		`	seq : %d	
-	pktType : %s
-	payload : %+v
-`,
-		pkt.Header.Seq,
-		pkt.Header.PktType,
-		pkt.Payload,
-	)
+	// 	fmt.Printf(
+	// 		`	seq : %d
+	// 	pktType : %s
+	// 	payload : %+v
+	// `,
+	// 		pkt.Header.Seq,
+	// 		pkt.Header.PktType,
+	// 		pkt.Payload,
+	// 	)
 
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
@@ -116,7 +116,7 @@ func (ses *Session) handleCatchup() {
 	ses.scheduleSessionClose()
 }
 
-func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
+func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is the emsg_t the same as teh eMsg's type?
 	// ses.QueueServerMsg(ses.pendingPkt.Payload)
 	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
 	ses.notifyTaskReady()

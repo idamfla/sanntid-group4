@@ -46,7 +46,7 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		return
 
 	case <-timer.C:
-		fmt.Printf("No master found, electing... There are %d candidates\n", ws.countResponders())
+		fmt.Printf("No master found, electing ... There are %d candidates\n", ws.countResponders())
 		ws.mu.Lock()
 
 		lowest := ""
@@ -66,13 +66,13 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		amMaster := lowest == ws.selfAddr
 		ws.mu.Unlock()
 
+		fmt.Printf("New master elected: %s\n", lowest)
+
 		if amMaster {
 			// I am the new master
 			ws.expectedResponses = ws.countResponders()
 			ws.resetResponders()
 			ws.SendReply(packet.PKT_T_IAmMaster)
 		}
-
-		fmt.Println("New master elected", lowest, amMaster, ws.expectedResponses)
 	}
 }

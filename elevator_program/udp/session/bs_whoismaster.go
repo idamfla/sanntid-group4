@@ -26,7 +26,7 @@ func (ws *WhoIsMasterBroadcast) Start() {
 	ws.wg.Add(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
-	fmt.Printf("'Who Is Master'-broadcast session %d started\n", ws.ID)
+	fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
 }
 
 func (ws *WhoIsMasterBroadcast) Close() {
@@ -63,7 +63,7 @@ func (ws *WhoIsMasterBroadcast) HandlePacket(pkt packet.Packet) error {
 		ws.handleWhoIsMaster()
 
 	case packet.PKT_T_IAmAlive:
-		fmt.Println(peerID, pkt.Header.PktType)
+		fmt.Println("from:", peerID, pkt.Header.PktType)
 
 	case packet.PKT_T_IAmMaster:
 		ws.handleIAmMaster()
@@ -104,4 +104,8 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 
 func (ws *WhoIsMasterBroadcast) isMaster() bool {
 	return ws.tx.IsMaster()
+}
+
+func (ws *WhoIsMasterBroadcast) countResponders() int {
+	return ws.BaseBroadcastSession.countResponders() - 1
 }

@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	localIP  = "127.0.0.1"
-	homeIP   = "192.168.50.97"
-	wifiIP   = "172.20.10.3"
-	myIP     = wifiIP
-	receiver = "10.100.23.15"
+	localIP = "127.0.0.1"
+	homeIP  = "192.168.86.206"
+	myIP    = homeIP
+	// receiver = "10.100.23.15"
 )
 
 func testElevator() {

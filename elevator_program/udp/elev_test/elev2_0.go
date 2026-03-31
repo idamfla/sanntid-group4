@@ -1,4 +1,4 @@
-// package elevtest
+package elevtest
 
 // import (
 // 	"elevator_program/elevio"

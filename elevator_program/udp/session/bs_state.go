@@ -123,3 +123,7 @@ func (sbs *StateBroadcast) handleStateBSDone() {
 	sbs.stopResponseTimer()
 	sbs.requestClose()
 }
+
+func (sbs *StateBroadcast) countResponders() int {
+	return sbs.BaseBroadcastSession.countResponders() - 1
+}

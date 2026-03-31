@@ -20,10 +20,9 @@ const (
 
 	// --- IP and Port ---
 	// Group4IP        = "10.100.23.15"
-	OtherBSIp       = "172.20.10.15"
 	NtnuBroadcastIP = "10.22.67.255"
-	HomeBroadcastIP = "192.168.50.255"
-	BroadcastIP     = OtherBSIp
+	HomeBroadcastIP = "192.168.86.255"
+	BroadcastIP     = HomeBroadcastIP
 	BROADCAST_PORT  = 3000
 )
 

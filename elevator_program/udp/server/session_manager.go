@@ -119,6 +119,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	to        : %s
 	reply sock: %s
 	pktType   : %s
+	payload   : %+v
 `,
 			srv.ID,
 			incPkt.Packet.Header.SessionID,
@@ -126,6 +127,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 			incPkt.Packet.Header.RecipientAddr,
 			senderAddr.String(),
 			pktType,
+			incPkt.Packet.Payload,
 		)
 	}
 
@@ -133,35 +135,6 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 }
 
 // helper function, not called directly: *unsafe*
-func (srv *Server) closeSessionLocked(sesID uint32) {
-	ses, exists := srv.sessions[sesID]
-	if exists {
-		ses.Close()
-		delete(srv.sessions, sesID)
-
-		// TODO remove db
-		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
-
-	}
-}
-
-func (srv *Server) closeSession(sesID uint32) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.closeSessionLocked(sesID)
-}
-
-func (srv *Server) PrintSessions() {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-
-	fmt.Printf("%s, Active sessions (%d):\n", srv.ID, len(srv.sessions))
-
-	for id := range srv.sessions {
-		fmt.Println(" -", id)
-	}
-}
-
 func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *session.Session {
 	var id uint32
 	if sessionID != nil {
@@ -218,4 +191,33 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 	bs.Start()
 
 	return bs
+}
+
+func (srv *Server) closeSessionLocked(sesID uint32) {
+	ses, exists := srv.sessions[sesID]
+	if exists {
+		ses.Close()
+		delete(srv.sessions, sesID)
+
+		// TODO remove db
+		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
+
+	}
+}
+
+func (srv *Server) closeSession(sesID uint32) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.closeSessionLocked(sesID)
+}
+
+func (srv *Server) PrintSessions() {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	fmt.Printf("%s, Active sessions (%d):\n", srv.ID, len(srv.sessions))
+
+	for id := range srv.sessions {
+		fmt.Println(" -", id)
+	}
 }
