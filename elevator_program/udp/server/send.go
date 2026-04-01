@@ -13,7 +13,7 @@ func (srv *Server) Send(
 	pktType packet.PacketType,
 	eMsg message.ElevatorMessage,
 ) error {
-	senderAddr := srv.recvConn.LocalAddr().String()
+	senderAddr := srv.getRecvString()
 
 	data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg)
 	if err != nil {
@@ -21,7 +21,7 @@ func (srv *Server) Send(
 		return err
 	}
 
-	_, err = srv.sendConn.WriteToUDP(data, ses.GetPeerAddr())
+	_, err = srv.getSendConn().WriteToUDP(data, ses.GetPeerAddr())
 	if err != nil {
 		fmt.Println("Send error:", err)
 		return err
@@ -29,32 +29,6 @@ func (srv *Server) Send(
 
 	return nil
 }
-
-// func (srv *Server) generateDataPacket(
-// 	remoteAddr *net.UDPAddr,
-// 	seq uint32,
-// 	sessionID uint32,
-// 	pktType packet.PacketType,
-// 	eMsg message.ElevatorMessage,
-// ) ([]byte, error) {
-// 	pkt := packet.Packet{
-// 		Header: packet.Header{
-// 			Seq:           seq,
-// 			SessionID:     sessionID,
-// 			PktType:       pktType,
-// 			RecipientAddr: remoteAddr.String(),
-// 			SenderAddr:    srv.recvConn.LocalAddr().String(),
-// 		},
-// 		Payload: eMsg,
-// 	}
-
-// 	data, err := pkt.EncodePacket()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return data, nil
-// }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
@@ -183,13 +157,13 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 func (srv *Server) QueueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,
-		Addr:     srv.recvConn.LocalAddr().String(),
+		Addr:     srv.getRecvString(),
 		EMsgType: message.EMSG_T_NewToChannel,
 	})
 }
 
 // --- helper ---
 func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
-	local := srv.recvConn.LocalAddr().(*net.UDPAddr)
+	local := srv.getRecvUDPAddr()
 	return addr.IP.Equal(local.IP) && addr.Port == local.Port
 }

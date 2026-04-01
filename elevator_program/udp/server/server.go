@@ -2,7 +2,6 @@ package server
 
 import (
 	"elevator_program/message"
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
 	"elevator_program/udp/session"
@@ -31,15 +30,16 @@ type Server struct {
 	isSynced           bool
 	incPktCh           chan incomingPacket
 	outgoingMsgCh      chan outgoingMessage
-	recvConn           *net.UDPConn
-	sendConn           *net.UDPConn
-	broadcastConn      *net.UDPConn // Listening conn
-	broadcastAddr      *net.UDPAddr // Broadcast sending addr
-	sessions           map[uint32]SessionHandler
-	peers              map[string]*peerinfo.PeerInfo
-	bcSeq              uint32
-	mu                 sync.Mutex
-	closeReq           chan uint32
+	// recvConn           *net.UDPConn
+	// sendConn           *net.UDPConn
+	// broadcastConn      *net.UDPConn // Listening conn
+	// broadcastAddr      *net.UDPAddr // Broadcast sending addr
+	network  *ServerNetwork
+	sessions map[uint32]SessionHandler
+	peers    map[string]*peerinfo.PeerInfo
+	bcSeq    uint32
+	mu       sync.Mutex
+	closeReq chan uint32
 
 	stop      chan struct{}
 	wg        sync.WaitGroup
@@ -55,33 +55,10 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		Port: port,
 	}
 
-	// make sockets
-	recvConn, err := net.ListenUDP("udp", &addr)
+	network, err := NewServerNetwork(&addr)
 	if err != nil {
+		fmt.Println("Couldn't set up network,", err)
 		return nil, err
-	}
-
-	// create a local UDP socket for sending (unconnected)
-	sendAddr := &net.UDPAddr{
-		IP:   net.ParseIP("0.0.0.0"), // binds to any local IP
-		Port: 0,                      // 0 = let OS pick a free port
-	}
-
-	sendConn, err := net.ListenUDP("udp", sendAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	// create broadcast-listening UDP socket
-	bcConn, err := newReusableListenUDPConn(udp.BROADCAST_PORT)
-	if err != nil {
-		return nil, err
-	}
-
-	bcAddr := &net.UDPAddr{
-		// IP: net.ParseIP("127.0.0.1"),
-		IP:   net.ParseIP(udp.BroadcastIP),
-		Port: udp.BROADCAST_PORT,
 	}
 
 	srv := &Server{
@@ -91,10 +68,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		isSynced:           true,
 		incPktCh:           make(chan incomingPacket, CHANNEL_BUF),
 		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
-		recvConn:           recvConn,
-		sendConn:           sendConn,
-		broadcastConn:      bcConn,
-		broadcastAddr:      bcAddr,
+		network:            network,
 		sessions:           make(map[uint32]SessionHandler),
 		peers:              make(map[string]*peerinfo.PeerInfo),
 		closeReq:           make(chan uint32, CHANNEL_BUF),
@@ -108,12 +82,12 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 
 func (srv *Server) Start() {
 	srv.wg.Add(4)
-	go srv.readLoop(srv.recvConn)
-	go srv.readLoop(srv.broadcastConn)
+	go srv.readLoop(srv.getRecvConn())
+	go srv.readLoop(srv.getBroadcastConn())
 	fmt.Printf(`Server %s: listening on %s
 			%s
 `,
-		srv.ID, srv.recvConn.LocalAddr().String(), srv.broadcastConn.LocalAddr().String(),
+		srv.ID, srv.getRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
 	go srv.run()
@@ -145,9 +119,7 @@ func (srv *Server) Close() {
 	srv.closeOnce.Do(func() {
 		close(srv.stop) // signal shutdown
 
-		srv.recvConn.Close() // unblock ReadFromUDP
-		srv.sendConn.Close()
-		srv.broadcastConn.Close()
+		srv.network.Close()
 
 		// close(srv.elevatorTaskQueue)
 
