@@ -5,7 +5,7 @@ import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/peerinfo"
-	"elevator_program/udp/timer"
+	"elevator_program/utilities"
 	"fmt"
 	"net"
 	"sync"
@@ -45,7 +45,7 @@ type Session struct {
 	outgoingMsgCh chan outgoingMessage
 
 	// --- lifesycle ---
-	responseTimer *timer.Timer
+	responseTimer *utilities.Timer
 
 	// --- external systems ---
 	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
@@ -76,7 +76,7 @@ func NewSession(id uint32,
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
-		responseTimer: timer.NewTimer(),
+		responseTimer: utilities.NewTimer(),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
