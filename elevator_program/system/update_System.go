@@ -10,8 +10,14 @@ import (
 func (s *System) SetStatusReport(ip string, elevator types.ElevatorsStatus) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
+
+	// Preserve master-managed fields (Target, CabRequests) so that
+	// stale StatusReports don't overwrite newer task assignments.
+	// if existing, exists := s.Elevators[ip]; exists {
+	// 	elevator.Target = existing.Target
+	// 	elevator.CabRequests = existing.CabRequests
+	// }
 	s.Elevators[ip] = elevator
-	fmt.Println("Help meeee \n\n\n\n\n", s)
 }
 
 func (s *System) SetRequestStatus(ip string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
@@ -118,7 +124,18 @@ func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 	defer s.Mutex.Unlock()
 
 	if s.Elevators[ip].Target.Floor != -1 {
-		s.SetRequestStatus(ip, types.Pending, s.Elevators[ip].Target)
+		oldTarget := s.Elevators[ip].Target
+		// Only revert old target to Pending if it is actually Running.
+		// This prevents phantom Pending from stale target data.
+		if oldTarget.Button == elevio.BT_Cab {
+			if s.Elevators[ip].CabRequests[oldTarget.Floor] == types.Running {
+				s.SetRequestStatus(ip, types.Pending, oldTarget)
+			}
+		} else {
+			if s.HallRequests[oldTarget.Floor][oldTarget.Button] == types.Running {
+				s.SetRequestStatus(ip, types.Pending, oldTarget)
+			}
+		}
 	}
 
 	s.SetRequestStatus(ip, types.Running, task)

@@ -13,11 +13,11 @@ import (
 
 const (
 	// localIP  = "10.100.23.27"
-	localIP  = "127.0.0.1" // "172.20.10.9"
+	localIP  = "192.168.10.156" //"127.0.0.1" // "172.20.10.9"
 	receiver = "10.100.23.22"
 )
 
-func closeProgram(e1 *coordinator.Coordinator, e2 *coordinator.Coordinator) {
+func closeProgram(e1 *coordinator.Coordinator) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -26,7 +26,7 @@ func closeProgram(e1 *coordinator.Coordinator, e2 *coordinator.Coordinator) {
 	fmt.Println("\nCtrl+C pressed")
 
 	e1.Close()
-	e2.Close()
+	// e2.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
@@ -50,22 +50,22 @@ func main() {
 
 	fmt.Println(&e1)
 
-	e2 := elevator.Elevator{}
-	e2.InitElevator("B", 4, 3, localIP, 9001)
-	c2 := coordinator.Coordinator{}
-	c2.InitCoordinator()
-	err = c2.StartServer(localIP, 9001, "B")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	c2.Start(&e2)
+	// e2 := elevator.Elevator{}
+	// e2.InitElevator("B", 4, 3, localIP, 9001)
+	// c2 := coordinator.Coordinator{}
+	// c2.InitCoordinator()
+	// err = c2.StartServer(localIP, 9001, "B")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	// c2.Start(&e2)
 
-	fmt.Println(&e2)
+	// fmt.Println(&e2)
 
-	defer closeProgram(&c1, &c2)
+	defer closeProgram(&c1)
 
-	e2.RunElevatorProgram()
+	e1.RunElevatorProgram()
 
 	msg := message.ElevatorMessage{
 		EMsgType: message.EMSG_T_NewToChannel,

@@ -133,7 +133,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 			e.System.Mutex.RUnlock()
 
 			eMsg := message.ElevatorMessage{
-				EMsgType: message.EMSG_T_TaskRequest,
+				EMsgType: message.EMSG_T_TaskRequest, // TODO i don't know if we should delete this one
 				ID:       e.Id,
 				Addr:     e.Ip,
 				Elevators: map[string]types.ElevatorsStatus{
@@ -346,10 +346,10 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 		return
 	}
 
-	hallRequests, elevs := e.System.Snapshot()
+	_, elevs := e.System.Snapshot()
 
 	elevatorCopy := elevs[e.Ip]
-	elevatorCopy.State = state
+	// elevatorCopy.State = state
 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 	elevs[e.Ip] = elevatorCopy
 	e.System.Elevators[e.Ip] = elevatorCopy
@@ -366,22 +366,22 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 
 	e.SendToCoordinator <- finishedMsg
 
-	e.mu.Lock()
-	isMaster := e.IsMaster
-	e.mu.Unlock()
-	if isMaster {
-		task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
+	// e.mu.Lock()
+	// isMaster := e.IsMaster
+	// e.mu.Unlock()
+	// if isMaster {
+	// 	task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
 
-		if task.Floor != -1 {
-			assignMsg := message.ElevatorMessage{ // TODO this may cause errors
-				EMsgType:  message.EMSG_T_TaskUpdate,
-				ID:        e.Id,
-				Addr:      e.Ip,
-				Task:      task,
-				BtnStatus: types.Running,
-			}
-			e.SendToCoordinator <- assignMsg
-		}
+	// 	if task.Floor != -1 {
+	// 		assignMsg := message.ElevatorMessage{ // TODO this may cause errors
+	// 			EMsgType:  message.EMSG_T_TaskUpdate,
+	// 			ID:        e.Id,
+	// 			Addr:      e.Ip,
+	// 			Task:      task,
+	// 			BtnStatus: types.Running,
+	// 		}
+	// 		e.SendToCoordinator <- assignMsg
+	// 	}
 
-	}
+	// }
 }

@@ -155,6 +155,7 @@ func (srv *Server) PrintSessions() {
 }
 
 func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *session.Session {
+	srv.mu.Lock()
 	var id uint32
 	if sessionID != nil {
 		id = *sessionID
@@ -165,7 +166,6 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
 	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
 
-	srv.mu.Lock()
 	srv.sessions[ses.ID] = ses
 	srv.mu.Unlock()
 	ses.Start()
@@ -173,6 +173,7 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 }
 
 func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
+	srv.mu.Lock()
 	var id uint32
 	if sessionID != nil {
 		id = *sessionID
@@ -203,7 +204,6 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 		)
 	}
 
-	srv.mu.Lock()
 	srv.sessions[id] = bs
 	srv.mu.Unlock()
 	bs.Start()

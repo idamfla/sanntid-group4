@@ -100,7 +100,7 @@ func (ses *Session) handleCatchup() {
 }
 
 func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
-	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg) // TODO slave update is not just statusReport
+	ses.QueueElevatorWorkTask(eMsg.EMsgType, eMsg) // TODO slave update is not just statusReport
 	fmt.Println("YOYYOYOYOYYYOfrignrigne \n\n\n\n\n\n\n", eMsg)
 	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
@@ -195,8 +195,14 @@ func (ses *Session) waitForElevatorDone() error {
 }
 
 func (ses *Session) scheduleSessionClose() {
-	time.Sleep(udp.SHUTDOWN_TIMEOUT)
-	ses.requestClose()
+	go func() {
+		select {
+		case <-ses.stop:
+			return
+		case <-time.After(udp.SHUTDOWN_TIMEOUT):
+			ses.requestClose()
+		}
+	}()
 }
 
 func (ses *Session) requestClose() {

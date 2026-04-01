@@ -87,11 +87,28 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				},
 			}
 
+			// if e.IsMaster && task.Button != elevio.BT_Cab {
+			// 	taskElevatorIp := e.ClosestToTarget(elevators, task)
+			// 	if taskElevatorIp != e.Ip && taskElevatorIp != "" {
+			// 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
+			// 		eMsg.BtnStatus = types.Running
+			// 		eMsg.Addr = taskElevatorIp
+			// 		eMsg.ID = ""
+			// 	}
+			// }
 			if e.IsMaster {
-				taskElevatorIp := e.ClosestToTarget(elevators, task)
-				if taskElevatorIp != e.Ip {
-					eMsg.BtnStatus = types.Running
-					eMsg.Addr = taskElevatorIp
+				if task.Button == elevio.BT_Cab {
+					if e.IsNewTargetBetterCab(task, elevators[e.Ip]) {
+						eMsg.BtnStatus = types.Running
+						// e.System.SetRequestAsTarget(e.Ip, task)
+					}
+				} else {
+					taskElevatorIp := e.ClosestToTarget(elevators, task)
+					if taskElevatorIp != "" { // TODO don't think i need this:  && taskElevatorIp != e.Ip
+						eMsg.EMsgType = message.EMSG_T_TaskUpdate
+						eMsg.BtnStatus = types.Running
+						eMsg.Addr = taskElevatorIp
+					}
 				}
 			}
 			e.SendToCoordinator <- eMsg

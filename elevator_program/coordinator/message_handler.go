@@ -8,6 +8,8 @@ import (
 	"fmt"
 )
 
+// TODO find out where i change e.Id and e.Ip, should not need mutex but could apear receconditiones
+
 func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 	fmt.Println("MESSAGE LISTENER STARTED", e.Id)
 	for ePkt := range c.msgRecieveCh {
@@ -36,11 +38,9 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReportBroadcast:
-		// e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO Do i need the ipRegistery, I use it in registerAndSyncElev.
-		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
-		e.System.Mutex.RLock()
-		fmt.Println("Do i get fucked here?? \n\n\n\n\n\n\n", e.System)
-		e.System.Mutex.RUnlock()
+		if eMsg.Addr != e.Ip {
+			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+		}
 
 	case message.EMSG_T_TaskUpdate:
 		if e.Ip == eMsg.Addr && eMsg.BtnStatus == types.Running {
@@ -76,9 +76,9 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		// } else if e.Id == eMsg.ID {
 		e.SetConnectionState(eMsg)
 		e.System.InitializeFromSystemState(eMsg)
-		e.System.Mutex.RLock()
-		fmt.Println("I have synced !!!! \n\n\n\n\n\n", e.System)
-		e.System.Mutex.RUnlock()
+		// e.System.Mutex.RLock()
+		// fmt.Println("I have synced !!!! \n\n\n\n\n\n", e.System)
+		// e.System.Mutex.RUnlock()
 		// }
 	}
 }
@@ -90,7 +90,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_StatusReportBroadcast:
-		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+		if eMsg.Addr != e.Ip {
+			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+		}
 
 	case message.EMSG_T_ButtonPress:
 		if eMsg.BtnStatus != types.NotActive {
@@ -111,7 +113,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 					eMsg.Addr = taskElevatorIp
 					eMsg.BtnStatus = types.Running
 				} else {
-					eMsg.Addr = ""
+					eMsg.BtnStatus = types.Pending
 				}
 			}
 		}
@@ -139,12 +141,26 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			c.TaskMonitor.StartTask(taskKey, e)
 		case types.NotActive:
 			c.TaskMonitor.FinishTask(taskKey)
+
+			if e.Ip == eMsg.Addr { // TODO could create a function for this, save some space
+				e.System.Mutex.RLock()
+				hallRequests, elevs := e.System.Snapshot()
+				e.System.Mutex.RUnlock()
+				task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
+				if task.Floor != -1 {
+					eMsg.EMsgType = message.EMSG_T_TaskUpdate
+					eMsg.Addr = e.Ip
+					eMsg.Task = task
+					eMsg.BtnStatus = types.Running
+					e.SendToCoordinator <- eMsg
+				}
+			}
 		}
 
 	case message.EMSG_T_TaskRequest:
 		e.System.Mutex.RLock()
 		hallRequests, elevs := e.System.Snapshot()
-		fmt.Println("what is in my system?? \n\n\n\n\n", e.System)
+		// fmt.Println("what is in my system?? \n\n\n\n\n", e.System)
 		e.System.Mutex.RUnlock()
 		task := e.GetNextTargetFloor(elevs[eMsg.Addr], hallRequests)
 		if task.Floor != -1 {
@@ -163,9 +179,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		// e.IpRegistery[eMsg.Addr] = id
 
 		fmt.Println("Before syncing \n\n\n\n\n", eMsg)
-		e.System.Mutex.RLock()
-		fmt.Println("Have I updated myself?? \n\n", e.System)
-		e.System.Mutex.RUnlock()
+		// e.System.Mutex.RLock()
+		// fmt.Println("Have I updated myself?? \n\n", e.System)
+		// e.System.Mutex.RUnlock()
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_SyncedElevator:

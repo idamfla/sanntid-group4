@@ -14,14 +14,22 @@ func (e *Elevator) ConnectedToMaster() bool {
 
 func (e *Elevator) UpdateBtnLamp(ip string, btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
 	if btnStatus == types.NotActive {
-		if button == elevio.BT_Cab && e.Ip == ip {
-			e.clearCabLamp(floor)
+		if button == elevio.BT_Cab {
+			if e.Ip == ip {
+				e.clearCabLamp(floor)
+			}
 		} else {
 			e.clearHallLamp(floor, button)
 		}
 
 	} else {
-		elevio.SetButtonLamp(button, floor, true)
+		if button == elevio.BT_Cab {
+			if e.Ip == ip {
+				elevio.SetButtonLamp(button, floor, true)
+			}
+		} else {
+			elevio.SetButtonLamp(button, floor, true)
+		}
 	}
 }
 

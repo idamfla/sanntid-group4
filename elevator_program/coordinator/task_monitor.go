@@ -44,6 +44,10 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 		<-ctx.Done()
 
 		if ctx.Err() == context.DeadlineExceeded {
+			// Don't revert to Pending if the task was already completed.
+			if !e.System.IsRequestInSystem(taskKey.Owner, taskKey.TaskID) {
+				return
+			}
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
 
 			eMsg := message.ElevatorMessage{

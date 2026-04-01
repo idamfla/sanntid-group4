@@ -62,9 +62,10 @@ func (e *Elevator) scanFloor(from int, to int, dir elevio.MotorDirection, target
 func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests [][2]types.ButtonStatus) elevio.ButtonEvent {
 	numFloors := len(hallRequests)
 
-	e.mu.Lock()
-	floor := e.currentFloor
-	e.mu.Unlock()
+	// e.mu.Lock()
+	// floor := e.currentFloor
+	// e.mu.Unlock()
+	floor := elevator.CurrentFloor
 
 	closest := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_Cab}
 	minDist := numFloors + 1
@@ -81,7 +82,7 @@ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests 
 		}
 
 		for _, b := range []elevio.ButtonType{elevio.BT_HallUp, elevio.BT_HallDown} {
-			if hallRequests[f][b] != types.NotActive {
+			if hallRequests[f][b] != types.NotActive && hallRequests[f][b] != types.Running {
 				if closest.Floor == -1 || dist < minDist {
 					closest.Floor = f
 					closest.Button = b
