@@ -6,6 +6,30 @@ import (
 	"fmt"
 )
 
+func (ses *Session) GenerateDataPacket(
+	senderAddr string,
+	pktType packet.PacketType,
+	eMsg message.ElevatorMessage,
+) ([]byte, error) {
+	pkt := packet.Packet{
+		Header: packet.Header{
+			Seq:           ses.seq,
+			SessionID:     ses.ID,
+			PktType:       pktType,
+			RecipientAddr: ses.peerAddr.String(),
+			SenderAddr:    senderAddr,
+		},
+		Payload: eMsg,
+	}
+
+	data, err := pkt.EncodePacket()
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	select {
 	case ses.outgoingMsgCh <- outgoingMessage{
@@ -23,6 +47,9 @@ func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg messag
 func (ses *Session) QueueWhoIsMasterMsg() {
 	ses.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
 }
+
+// for the SessionBehavior, does nothing
+func (ses *Session) OnSend(pktType packet.PacketType) {}
 
 func (ses *Session) SendReply(pktType packet.PacketType) {
 	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
@@ -55,31 +82,4 @@ func (ses *Session) handleOutgoing(outPkt outgoingMessage, behavior SessionBehav
 	}
 
 	behavior.OnSend(outPkt.PktType)
-}
-
-// for the SessionBehavior, does nothing
-func (ses *Session) OnSend(pktType packet.PacketType) {}
-
-func (ses *Session) GenerateDataPacket(
-	senderAddr string,
-	pktType packet.PacketType,
-	eMsg message.ElevatorMessage,
-) ([]byte, error) {
-	pkt := packet.Packet{
-		Header: packet.Header{
-			Seq:           ses.seq,
-			SessionID:     ses.ID,
-			PktType:       pktType,
-			RecipientAddr: ses.peerAddr.String(),
-			SenderAddr:    senderAddr,
-		},
-		Payload: eMsg,
-	}
-
-	data, err := pkt.EncodePacket()
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
