@@ -32,7 +32,7 @@ func (e *Elevator) hasActiveCabRequests() bool {
 	e.System.Mutex.RLock()
 	defer e.System.Mutex.RUnlock()
 
-	elev, ok := e.System.Elevators[e.Id]
+	elev, ok := e.System.Elevators[e.Ip]
 	if !ok {
 		return false
 	}
@@ -50,7 +50,7 @@ func (e *Elevator) hasPendingLocalWork() bool {
 	e.System.Mutex.RLock()
 	defer e.System.Mutex.RUnlock()
 
-	elev, ok := e.System.Elevators[e.Id]
+	elev, ok := e.System.Elevators[e.Ip]
 	if !ok {
 		return false
 	}
@@ -70,7 +70,7 @@ func (e *Elevator) hasPendingLocalWork() bool {
 
 func (e *Elevator) shouldMarkRecoveryVerified() bool {
 	e.System.Mutex.RLock()
-	elev, ok := e.System.Elevators[e.Id]
+	elev, ok := e.System.Elevators[e.Ip]
 	e.System.Mutex.RUnlock()
 
 	if !ok {
@@ -93,7 +93,7 @@ func (e *Elevator) shouldMarkRecoveryVerified() bool {
 func (e *Elevator) shouldRestartAfterOffline() bool {
 
 	e.System.Mutex.RLock()
-	elev, ok := e.System.Elevators[e.Id]
+	elev, ok := e.System.Elevators[e.Ip]
 	e.System.Mutex.RUnlock()
 
 	if !ok {
@@ -222,9 +222,9 @@ func (e *Elevator) exitOfflineMode() {
 func (e *Elevator) stopLocally() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	e.direction = elevio.MD_Stop
-	tempElevator := e.System.Elevators[e.Id]
+	tempElevator := e.System.Elevators[e.Ip]
 	tempElevator.State = types.ES_Idle
-	e.System.Elevators[e.Id] = tempElevator
+	e.System.Elevators[e.Ip] = tempElevator
 
 }
 

@@ -50,9 +50,9 @@ func (e *Elevator) updateDirection(target elevio.ButtonEvent, dir elevio.MotorDi
 	if dir != elevio.MD_Stop {
 		e.System.Mutex.Lock()
 		defer e.System.Mutex.Unlock()
-		elevatorCopy := e.System.Elevators[e.Id]
+		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.Direction = dir
-		e.System.Elevators[e.Id] = elevatorCopy
+		e.System.Elevators[e.Ip] = elevatorCopy
 	}
 }
 
@@ -60,7 +60,7 @@ func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.M
 	e.System.Mutex.RLock()
 	hallRequests, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
-	elevatorStatus := elevs[e.Id]
+	elevatorStatus := elevs[e.Ip]
 
 	nextTarget := e.GetNextTargetFloor(elevatorStatus, hallRequests)
 	if nextTarget.Floor == -1 {
@@ -97,9 +97,9 @@ func (e *Elevator) updateElevatorStateOnline() {
 	if estop {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		e.System.Mutex.Lock()
-		elevatorCopy := e.System.Elevators[e.Id]
+		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = types.ES_EmergencyStop
-		e.System.Elevators[e.Id] = elevatorCopy
+		e.System.Elevators[e.Ip] = elevatorCopy
 		e.System.Mutex.Unlock()
 		return
 	}
@@ -107,7 +107,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
-	elevatorState := elevs[e.Id]
+	elevatorState := elevs[e.Ip]
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
 
@@ -135,8 +135,9 @@ func (e *Elevator) updateElevatorStateOnline() {
 			eMsg := message.ElevatorMessage{
 				EMsgType: message.EMSG_T_TaskRequest,
 				ID:       e.Id,
+				Addr:     e.Ip,
 				Elevators: map[string]types.ElevatorsStatus{
-					e.Id: elevs[e.Id],
+					e.Ip: elevs[e.Ip],
 				},
 			}
 			e.SendToCoordinator <- eMsg
@@ -144,7 +145,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	case types.ES_Idle:
 		e.System.Mutex.RLock()
-		targetFloor := e.System.Elevators[e.Id].Target.Floor
+		targetFloor := e.System.Elevators[e.Ip].Target.Floor
 		e.System.Mutex.RUnlock()
 
 		if targetFloor != -1 {
@@ -163,7 +164,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	case types.ES_Moving:
 		e.System.Mutex.RLock()
-		targetFloor := e.System.Elevators[e.Id].Target.Floor
+		targetFloor := e.System.Elevators[e.Ip].Target.Floor
 		e.System.Mutex.RUnlock()
 
 		dir = e.getMotion(targetFloor)
@@ -183,16 +184,17 @@ func (e *Elevator) updateElevatorStateOnline() {
 	elevio.SetMotorDirection(dir)
 
 	e.System.Mutex.Lock()
-	if elevatorState.State != e.System.Elevators[e.Id].State {
-		elevatorCopy := e.System.Elevators[e.Id]
+	if elevatorState.State != e.System.Elevators[e.Ip].State {
+		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = elevatorState.State
-		e.System.Elevators[e.Id] = elevatorCopy
+		e.System.Elevators[e.Ip] = elevatorCopy
 
 		eMsg := message.ElevatorMessage{
 			EMsgType: message.EMSG_T_StatusReport,
 			ID:       e.Id,
+			Addr:     e.Ip,
 			Elevators: map[string]types.ElevatorsStatus{
-				e.Id: elevatorCopy,
+				e.Ip: elevatorCopy,
 			},
 		}
 		e.System.Mutex.Unlock()
@@ -219,7 +221,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
-	elevatorStatus := elevs[e.Id]
+	elevatorStatus := elevs[e.Ip]
 	e.System.Mutex.RUnlock()
 
 	var dir elevio.MotorDirection = elevio.MD_Stop
@@ -307,7 +309,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 	e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
-	e.System.Elevators[e.Id] = elevatorStatus
+	e.System.Elevators[e.Ip] = elevatorStatus
 	e.System.Mutex.Unlock()
 }
 
@@ -338,7 +340,7 @@ func (e *Elevator) RunElevatorStateMachine() {
 func (e *Elevator) finishedTask(state types.ElevatorState) {
 	e.System.Mutex.Lock()
 
-	target := e.System.Elevators[e.Id].Target
+	target := e.System.Elevators[e.Ip].Target
 	if target.Floor == -1 {
 		e.System.Mutex.Unlock()
 		return
@@ -346,17 +348,18 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 
 	hallRequests, elevs := e.System.Snapshot()
 
-	elevatorCopy := elevs[e.Id]
+	elevatorCopy := elevs[e.Ip]
 	elevatorCopy.State = state
 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
-	elevs[e.Id] = elevatorCopy
-	e.System.Elevators[e.Id] = elevatorCopy
+	elevs[e.Ip] = elevatorCopy
+	e.System.Elevators[e.Ip] = elevatorCopy
 
 	e.System.Mutex.Unlock()
 
 	finishedMsg := message.ElevatorMessage{
 		EMsgType:  message.EMSG_T_ButtonPress,
 		ID:        e.Id,
+		Addr:      e.Ip,
 		Task:      target,
 		BtnStatus: types.NotActive,
 	}
@@ -367,28 +370,18 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	isMaster := e.IsMaster
 	e.mu.Unlock()
 	if isMaster {
-		task := e.GetNextTargetFloor(elevs[e.Id], hallRequests)
+		task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
 
 		if task.Floor != -1 {
-			assignMsg := message.ElevatorMessage{
+			assignMsg := message.ElevatorMessage{ // TODO this may cause errors
 				EMsgType:  message.EMSG_T_TaskUpdate,
 				ID:        e.Id,
+				Addr:      e.Ip,
 				Task:      task,
 				BtnStatus: types.Running,
 			}
 			e.SendToCoordinator <- assignMsg
 		}
 
-	} else {
-		// requestMsg := message.ElevatorMessage{
-		// 	EMsgType: message.EMSG_T_TaskRequest,
-		// 	ID:       e.Id,
-		// 	Task:     target,
-		// 	Elevators: map[string]types.ElevatorsStatus{
-		// 		e.Id: elevatorCopy,
-		// 	},
-		// }
-
-		// e.SendToCoordinator <- requestMsg
 	}
 }

@@ -20,7 +20,7 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 		s.HallRequests = make([][2]types.ButtonStatus, numFloors)
 	}
 
-	s.Elevators[id] = types.ElevatorsStatus{
+	s.Elevators[ip] = types.ElevatorsStatus{
 		Id:           id,
 		Ip:           ip,
 		CurrentFloor: -1,
@@ -38,8 +38,8 @@ func (s *System) Snapshot() (hall [][2]types.ButtonStatus, elevs map[string]type
 	copy(hall, s.HallRequests)
 
 	elevs = make(map[string]types.ElevatorsStatus)
-	for id, e := range s.Elevators {
-		elevs[id] = e
+	for ip, e := range s.Elevators {
+		elevs[ip] = e
 	}
 	return
 }

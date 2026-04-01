@@ -48,7 +48,8 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 
 			eMsg := message.ElevatorMessage{
 				EMsgType:  message.EMSG_T_TaskUpdate,
-				ID:        taskKey.Owner,
+				ID:        e.Id,
+				Addr:      taskKey.Owner,
 				Task:      taskKey.TaskID,
 				BtnStatus: types.Pending,
 			}

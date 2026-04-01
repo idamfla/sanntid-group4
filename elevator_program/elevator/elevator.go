@@ -11,9 +11,9 @@ import (
 )
 
 type Elevator struct {
-	Id          string
-	Ip          string
-	IpRegistery map[string]string
+	Id string
+	Ip string
+	// IpRegistery map[string]string
 
 	scheduleRestart bool
 
@@ -74,9 +74,9 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.IsMaster = false
 
-	e.System.InitSystem(id, "192.168.0.1", numFloors)
+	e.System.InitSystem(id, ip, numFloors)
 
-	e.IpRegistery = make(map[string]string)
+	// e.IpRegistery = make(map[string]string)
 
 	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
 	e.FaultMsg = make(chan message.FaultMessage, 20)
@@ -134,7 +134,7 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.connectedToMaster = false
 	e.IsOnline = false
 	e.currentMasterID = ""
-	e.IpRegistery = make(map[string]string)
+	// e.IpRegistery = make(map[string]string)
 
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetStopLamp(false)
@@ -169,7 +169,7 @@ func (e *Elevator) String() string {
 	e.System.Mutex.RLock()
 	defer e.System.Mutex.RUnlock()
 
-	elevStatus := e.System.Elevators[e.Id]
+	elevStatus := e.System.Elevators[e.Ip]
 	s := fmt.Sprintf(
 		`Elevator
 	id: %s

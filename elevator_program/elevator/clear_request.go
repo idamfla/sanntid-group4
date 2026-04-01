@@ -8,9 +8,9 @@ import (
 func (e *Elevator) clearCabRequest(floor int) {
 	e.System.Mutex.Lock()
 	defer e.System.Mutex.Unlock()
-	elevatorCopy := e.System.Elevators[e.Id]
+	elevatorCopy := e.System.Elevators[e.Ip]
 	elevatorCopy.CabRequests[floor] = types.NotActive
-	e.System.Elevators[e.Id] = elevatorCopy
+	e.System.Elevators[e.Ip] = elevatorCopy
 }
 
 func (e *Elevator) clearHallRequest(floor int, button elevio.ButtonType) {

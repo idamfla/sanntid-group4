@@ -13,10 +13,11 @@ func NewElevatorMsg(id string, ip string) ElevatorMessage {
 	}
 }
 
-func TaskUpdateCallback(id string, task elevio.ButtonEvent, btnStatus types.ButtonStatus) ElevatorMessage {
+func TaskUpdateCallback(id string, ip string, task elevio.ButtonEvent, btnStatus types.ButtonStatus) ElevatorMessage {
 	return ElevatorMessage{
 		EMsgType:  EMSG_T_TaskUpdate,
 		ID:        id,
+		Addr:      ip,
 		Task:      task,
 		BtnStatus: btnStatus,
 	}

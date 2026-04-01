@@ -102,10 +102,10 @@ func (e *Elevator) scanCurrentFloor() (bool, elevio.ButtonEvent) {
 		return false, elevio.ButtonEvent{}
 	}
 	e.System.Mutex.RLock()
-	direction := e.System.Elevators[e.Id].Direction
-	cabRequests := e.System.Elevators[e.Id].CabRequests
+	direction := e.System.Elevators[e.Ip].Direction
+	cabRequests := e.System.Elevators[e.Ip].CabRequests
 	hallRequest := e.System.HallRequests
-	target := e.System.Elevators[e.Id].Target
+	target := e.System.Elevators[e.Ip].Target
 	e.System.Mutex.RUnlock()
 
 	e.mu.Lock()

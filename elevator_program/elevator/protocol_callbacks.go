@@ -12,9 +12,9 @@ func (e *Elevator) ConnectedToMaster() bool {
 	return e.connectedToMaster
 }
 
-func (e *Elevator) UpdateBtnLamp(btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
+func (e *Elevator) UpdateBtnLamp(ip string, btnStatus types.ButtonStatus, floor int, button elevio.ButtonType) {
 	if btnStatus == types.NotActive {
-		if button == elevio.BT_Cab {
+		if button == elevio.BT_Cab && e.Ip == ip {
 			e.clearCabLamp(floor)
 		} else {
 			e.clearHallLamp(floor, button)
@@ -34,9 +34,9 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.mu.Unlock()
 	e.exitOfflineMode()
 	e.System.Mutex.Lock()
-	for id, elevator := range e.System.Elevators {
-		e.IpRegistery[elevator.Ip] = id
-	}
+	// for id, elevator := range e.System.Elevators {
+	// 	e.IpRegistery[elevator.Ip] = id
+	// }
 	e.System.Mutex.Unlock()
 }
 
@@ -46,9 +46,9 @@ func (e *Elevator) ClearTarget() {
 		Button: elevio.BT_HallUp,
 	}
 	e.System.Mutex.Lock()
-	elevatorCopy := e.System.Elevators[e.Id]
+	elevatorCopy := e.System.Elevators[e.Ip]
 	elevatorCopy.Target = clearedTarget
-	e.System.Elevators[e.Id] = elevatorCopy
+	e.System.Elevators[e.Ip] = elevatorCopy
 	e.System.Mutex.Unlock()
 }
 

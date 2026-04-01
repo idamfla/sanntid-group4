@@ -31,7 +31,7 @@ func (e *Elevator) updateDoorState() {
 		elevio.SetDoorOpenLamp(true)
 
 		e.System.Mutex.RLock()
-		task := e.System.Elevators[e.Id].Target
+		task := e.System.Elevators[e.Ip].Target
 		e.System.Mutex.RUnlock()
 		e.mu.Lock()
 		floor := e.currentFloor

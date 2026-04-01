@@ -36,33 +36,34 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReportBroadcast:
-		e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO Do i need the ipRegistery, I use it in registerAndSyncElev.
-		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
+		// e.IpRegistery[eMsg.Addr] = eMsg.ID // TODO Do i need the ipRegistery, I use it in registerAndSyncElev.
+		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 		e.System.Mutex.RLock()
 		fmt.Println("Do i get fucked here?? \n\n\n\n\n\n\n", e.System)
 		e.System.Mutex.RUnlock()
 
 	case message.EMSG_T_TaskUpdate:
-		if e.Id == eMsg.ID && eMsg.BtnStatus == types.Running {
-			e.System.SetRequestAsTarget(eMsg.ID, eMsg.Task)
+		if e.Ip == eMsg.Addr && eMsg.BtnStatus == types.Running {
+			e.System.SetRequestAsTarget(eMsg.Addr, eMsg.Task)
 		} else {
 			e.System.Mutex.Lock()
-			e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
+			e.System.SetRequestStatus(eMsg.Addr, eMsg.BtnStatus, eMsg.Task)
 			e.System.Mutex.Unlock()
 		}
-		e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+		e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 
-		fmt.Println("yooooooo \n\n\n\n\n\n\n", eMsg.BtnStatus, eMsg.ID)
+		fmt.Println("yooooooo \n\n\n\n\n\n\n", eMsg.BtnStatus, eMsg.Addr)
 
 		e.System.Mutex.RLock()
 		fmt.Println("What is my id and ip??", e.Id, e.Ip) // TODO I need to change so everything analyses ip/addr instead of id,
 		e.System.Mutex.RUnlock()
 
-		if eMsg.BtnStatus == types.NotActive && e.Ip == eMsg.ID { // TODO I think this may prevent raceconditions but something is wrong
+		if eMsg.BtnStatus == types.NotActive && e.Ip == eMsg.Addr { // TODO I think this may prevent raceconditions but something is wrong
 			fmt.Println("THISISIS")
 			requestMsg := message.ElevatorMessage{
 				EMsgType: message.EMSG_T_TaskRequest,
 				ID:       e.Id,
+				Addr:     e.Ip,
 				Task:     eMsg.Task,
 			}
 			e.SendToCoordinator <- requestMsg
@@ -89,7 +90,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_StatusReportBroadcast:
-		e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
+		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 
 	case message.EMSG_T_ButtonPress:
 		if eMsg.BtnStatus != types.NotActive {
@@ -98,19 +99,19 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			e.System.Mutex.RUnlock()
 
 			if eMsg.Task.Button == elevio.BT_Cab {
-				if e.IsNewTargetBetterCab(eMsg.ID, eMsg.Task, elevs[eMsg.ID]) {
+				if e.IsNewTargetBetterCab(eMsg.Task, elevs[eMsg.Addr]) {
 					eMsg.BtnStatus = types.Running
 				} else {
 					eMsg.BtnStatus = types.Pending
 				}
 			} else {
-				taskElevatorId := e.ClosestToTarget(elevs, eMsg.Task)
+				taskElevatorIp := e.ClosestToTarget(elevs, eMsg.Task)
 
-				if taskElevatorId != "" {
-					eMsg.ID = taskElevatorId
+				if taskElevatorIp != "" {
+					eMsg.Addr = taskElevatorIp
 					eMsg.BtnStatus = types.Running
 				} else {
-					eMsg.ID = ""
+					eMsg.Addr = ""
 				}
 			}
 		}
@@ -119,18 +120,18 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 
 	case message.EMSG_T_TaskUpdate:
 		if eMsg.BtnStatus == types.Running {
-			e.System.SetRequestAsTarget(eMsg.ID, eMsg.Task)
+			e.System.SetRequestAsTarget(eMsg.Addr, eMsg.Task)
 		} else {
 			e.System.Mutex.Lock()
-			e.System.SetRequestStatus(eMsg.ID, eMsg.BtnStatus, eMsg.Task)
+			e.System.SetRequestStatus(eMsg.Addr, eMsg.BtnStatus, eMsg.Task)
 			e.System.Mutex.Unlock()
 		}
-		if !(eMsg.ID != e.Id && eMsg.Task.Button == elevio.BT_Cab) {
-			e.UpdateBtnLamp(eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+		if !(eMsg.Addr != e.Ip && eMsg.Task.Button == elevio.BT_Cab) {
+			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
 		taskKey := TaskKey{
-			Owner:  eMsg.ID,
+			Owner:  eMsg.Addr,
 			TaskID: eMsg.Task,
 		}
 		switch eMsg.BtnStatus {
@@ -145,7 +146,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		hallRequests, elevs := e.System.Snapshot()
 		fmt.Println("what is in my system?? \n\n\n\n\n", e.System)
 		e.System.Mutex.RUnlock()
-		task := e.GetNextTargetFloor(elevs[eMsg.ID], hallRequests)
+		task := e.GetNextTargetFloor(elevs[eMsg.Addr], hallRequests)
 		if task.Floor != -1 {
 			eMsg.Task = task
 			eMsg.BtnStatus = types.Running
@@ -158,8 +159,8 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		numFloors := e.NumFloors
 		e.IsOnline = true
 		e.System.Mutex.Unlock()
-		eMsg, id := e.System.RegisterAndSyncElevator(eMsg, e.IpRegistery, numFloors)
-		e.IpRegistery[eMsg.Addr] = id
+		eMsg := e.System.RegisterAndSyncElevator(eMsg, numFloors)
+		// e.IpRegistery[eMsg.Addr] = id
 
 		fmt.Println("Before syncing \n\n\n\n\n", eMsg)
 		e.System.Mutex.RLock()

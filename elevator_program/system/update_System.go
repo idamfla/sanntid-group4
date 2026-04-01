@@ -7,31 +7,31 @@ import (
 	"fmt"
 )
 
-func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
+func (s *System) SetStatusReport(ip string, elevator types.ElevatorsStatus) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
-	s.Elevators[id] = elevator
+	s.Elevators[ip] = elevator
 	fmt.Println("Help meeee \n\n\n\n\n", s)
 }
 
-func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
+func (s *System) SetRequestStatus(ip string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
 	f := btnEvent.Floor
 	b := btnEvent.Button
 	if b == elevio.BT_Cab {
-		elevatorCopy := s.Elevators[id]
+		elevatorCopy := s.Elevators[ip]
 		elevatorCopy.CabRequests[f] = status
-		s.Elevators[id] = elevatorCopy
+		s.Elevators[ip] = elevatorCopy
 	} else {
 		s.HallRequests[f][b] = status
 	}
 
 	if status == types.NotActive {
-		elevatorCopy := s.Elevators[id]
+		elevatorCopy := s.Elevators[ip]
 		elevatorCopy.Target = elevio.ButtonEvent{
 			Button: elevio.BT_HallUp,
 			Floor:  -1,
 		}
-		s.Elevators[id] = elevatorCopy
+		s.Elevators[ip] = elevatorCopy
 	}
 }
 
@@ -43,19 +43,19 @@ func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 	copy(s.HallRequests, msg.HallRequests)
 
 	s.Elevators = make(map[string]types.ElevatorsStatus)
-	for id, e := range msg.Elevators {
-		if id == e.Id {
+	for ip, e := range msg.Elevators {
+		if ip == e.Ip {
 
 		}
-		s.Elevators[id] = e
+		s.Elevators[ip] = e
 	}
 }
 
 func (s *System) RegisterAndSyncElevator(
 	eMsg message.ElevatorMessage,
-	ipRegistery map[string]string,
+	// ipRegistery map[string]string,
 	numFloors int,
-) (message.ElevatorMessage, string) {
+) message.ElevatorMessage {
 
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
@@ -76,21 +76,21 @@ func (s *System) RegisterAndSyncElevator(
 		CabRequests: make([]types.ButtonStatus, numFloors),
 	}
 
-	if _, ok := ipRegistery[eMsg.Addr]; ok {
-		old := s.Elevators[eMsg.ID].CabRequests
+	if _, ok := s.Elevators[eMsg.Addr]; ok {
+		old := s.Elevators[eMsg.Addr].CabRequests
 
 		newElevator.CabRequests = make([]types.ButtonStatus, len(old))
 		copy(newElevator.CabRequests, old)
 	}
 
-	s.Elevators[eMsg.ID] = newElevator
+	s.Elevators[eMsg.Addr] = newElevator
 
 	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hallCopy, s.HallRequests)
 
 	elevCopy := make(map[string]types.ElevatorsStatus)
-	for id, e := range s.Elevators {
-		elevCopy[id] = e
+	for ip, e := range s.Elevators {
+		elevCopy[ip] = e
 	}
 
 	newMessage.HallRequests = hallCopy
@@ -98,38 +98,38 @@ func (s *System) RegisterAndSyncElevator(
 
 	fmt.Println("Trying to sync, \n\n\n", newMessage)
 
-	return newMessage, eMsg.ID
+	return newMessage
 }
 
-func (s *System) IsRequestInSystem(id string, task elevio.ButtonEvent) bool {
+func (s *System) IsRequestInSystem(ip string, task elevio.ButtonEvent) bool {
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 	f := task.Floor
 	b := task.Button
 	if b == elevio.BT_Cab {
-		return s.Elevators[id].CabRequests[f] != types.NotActive
+		return s.Elevators[ip].CabRequests[f] != types.NotActive
 	} else {
 		return s.HallRequests[f][b] != types.NotActive
 	}
 }
 
-func (s *System) SetRequestAsTarget(id string, task elevio.ButtonEvent) {
+func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	if s.Elevators[id].Target.Floor != -1 {
-		s.SetRequestStatus(id, types.Pending, s.Elevators[id].Target)
+	if s.Elevators[ip].Target.Floor != -1 {
+		s.SetRequestStatus(ip, types.Pending, s.Elevators[ip].Target)
 	}
 
-	s.SetRequestStatus(id, types.Running, task)
+	s.SetRequestStatus(ip, types.Running, task)
 
-	elevatorCopy := s.Elevators[id]
+	elevatorCopy := s.Elevators[ip]
 	elevatorCopy.Target = task
 
-	if task.Floor > s.Elevators[id].CurrentFloor {
+	if task.Floor > s.Elevators[ip].CurrentFloor {
 		elevatorCopy.Direction = elevio.MD_Up
-	} else if task.Floor < s.Elevators[id].CurrentFloor {
+	} else if task.Floor < s.Elevators[ip].CurrentFloor {
 		elevatorCopy.Direction = elevio.MD_Down
 	}
-	s.Elevators[id] = elevatorCopy
+	s.Elevators[ip] = elevatorCopy
 }

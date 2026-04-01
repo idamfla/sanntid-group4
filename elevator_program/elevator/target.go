@@ -41,10 +41,10 @@ func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.El
 
 func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsStatus, newTarget elevio.ButtonEvent) string {
 	minDistance := len(e.System.HallRequests) + 1
-	bestElevatorID := ""
+	bestElevatorIP := ""
 	isClosestIdle := false
 
-	for id, candidate := range elevatorRegistry {
+	for ip, candidate := range elevatorRegistry {
 		canTake, distance := e.isNewTargetBetter(newTarget, candidate)
 
 		if isClosestIdle && candidate.State != types.ES_Idle {
@@ -53,14 +53,14 @@ func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSt
 
 		if canTake && distance < minDistance {
 			minDistance = distance
-			bestElevatorID = id
+			bestElevatorIP = ip
 			isClosestIdle = candidate.State == types.ES_Idle
 		}
 	}
-	return bestElevatorID
+	return bestElevatorIP
 }
 
-func (e *Elevator) IsNewTargetBetterCab(id string, target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
+func (e *Elevator) IsNewTargetBetterCab(target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
 	if elevatorStatus.State == types.ES_Idle {
 		return true
 	}
