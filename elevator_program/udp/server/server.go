@@ -30,16 +30,12 @@ type Server struct {
 	isSynced           bool
 	incPktCh           chan incomingPacket
 	outgoingMsgCh      chan outgoingMessage
-	// recvConn           *net.UDPConn
-	// sendConn           *net.UDPConn
-	// broadcastConn      *net.UDPConn // Listening conn
-	// broadcastAddr      *net.UDPAddr // Broadcast sending addr
-	network  *ServerNetwork
-	sessions map[uint32]SessionHandler
-	peers    map[string]*peerinfo.PeerInfo
-	bcSeq    uint32
-	mu       sync.Mutex
-	closeReq chan uint32
+	network            *ServerNetwork
+	sessions           map[uint32]SessionHandler
+	peers              map[string]*peerinfo.PeerInfo
+	bcSeq              uint32
+	mu                 sync.Mutex
+	closeReq           chan uint32
 
 	stop      chan struct{}
 	wg        sync.WaitGroup
