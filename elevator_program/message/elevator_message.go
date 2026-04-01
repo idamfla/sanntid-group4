@@ -18,6 +18,7 @@ const (
 	EMSG_T_LostComs
 	EMSG_T_ElevatorLost
 	EMSG_T_NewToChannel
+	EMSG_T_SyncedElevator // TODO Is supposed to don't do shit
 )
 
 type ElevatorMessage struct {

@@ -76,7 +76,9 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 
 func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
 	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
+	fmt.Println("Halla balla")
 	ses.notifyTaskReady()
+	fmt.Println("Mordecay")
 	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.scheduleSessionClose()
 }
@@ -98,7 +100,9 @@ func (ses *Session) handleCatchup() {
 }
 
 func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) {
-	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
+	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg) // TODO slave update is not just statusReport
+	fmt.Println("YOYYOYOYOYYYOfrignrigne \n\n\n\n\n\n\n", eMsg)
+	ses.notifyTaskReady()
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	ses.scheduleSessionClose()
 }
@@ -110,6 +114,8 @@ func (ses *Session) QueueElevatorStateTask() {
 func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, eMsg message.ElevatorMessage) {
 	var emsg message.ElevatorMessage
 	if eMsgType == message.EMSG_T_StatusReport {
+		emsg = eMsg
+	} else if eMsgType == message.EMSG_T_ButtonPress {
 		emsg = eMsg
 	} else {
 		emsg = message.ElevatorMessage{
@@ -154,7 +160,9 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 func (ses *Session) notifyTaskReady() {
 	select {
 	case <-ses.stop:
+		fmt.Println("Im djfjrrf")
 	case ses.taskReady <- struct{}{}:
+		fmt.Println("freddy fazbear")
 	default:
 		fmt.Println("Notifications full, could not notify to elevator that task is ready")
 	}

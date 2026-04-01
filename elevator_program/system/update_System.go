@@ -11,6 +11,7 @@ func (s *System) SetStatusReport(id string, elevator types.ElevatorsStatus) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 	s.Elevators[id] = elevator
+	fmt.Println("Help meeee \n\n\n\n\n", s)
 }
 
 func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent elevio.ButtonEvent) {
@@ -22,6 +23,15 @@ func (s *System) SetRequestStatus(id string, status types.ButtonStatus, btnEvent
 		s.Elevators[id] = elevatorCopy
 	} else {
 		s.HallRequests[f][b] = status
+	}
+
+	if status == types.NotActive {
+		elevatorCopy := s.Elevators[id]
+		elevatorCopy.Target = elevio.ButtonEvent{
+			Button: elevio.BT_HallUp,
+			Floor:  -1,
+		}
+		s.Elevators[id] = elevatorCopy
 	}
 }
 
@@ -107,7 +117,7 @@ func (s *System) SetRequestAsTarget(id string, task elevio.ButtonEvent) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	if s.Elevators[id].Target.Floor != -1 && s.Elevators[id].State == types.ES_Moving {
+	if s.Elevators[id].Target.Floor != -1 {
 		s.SetRequestStatus(id, types.Pending, s.Elevators[id].Target)
 	}
 

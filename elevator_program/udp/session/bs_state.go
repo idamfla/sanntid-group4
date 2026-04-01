@@ -61,8 +61,10 @@ func (sbs *StateBroadcast) QueueWhoIsMasterMsg() {
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
-	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
+	case packet.PKT_T_BroadcastUpdate:
 		sbs.QueueElevatorStateTask()
+		sbs.startResponseTimer()
+	case packet.PKT_T_SyncComplete:
 		sbs.startResponseTimer()
 	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
 		sbs.startResponseTimer()

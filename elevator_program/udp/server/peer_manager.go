@@ -96,8 +96,9 @@ func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
 		default:
 			fmt.Println("Flush DONE")
 			srv.QueueMessage(nil, packet.PROTO_PKT_T_SyncComplete, message.ElevatorMessage{
-				ID:   peer.Addr.String(),
-				Addr: peer.Addr.String(),
+				EMsgType: message.EMSG_T_SyncedElevator, // TODO created a new messagetype for syncing elevators
+				ID:       peer.Addr.String(),
+				Addr:     peer.Addr.String(),
 			})
 			srv.mu.Lock()
 			peer.IsSynced = true

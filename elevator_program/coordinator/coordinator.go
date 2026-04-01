@@ -22,8 +22,8 @@ type Coordinator struct {
 }
 
 func (c *Coordinator) InitCoordinator() {
-	c.msgRecieveCh = make(chan session.ElevatorPacket, 10)
-	c.msgSendCh = make(chan message.ElevatorMessage, 10)
+	c.msgRecieveCh = make(chan session.ElevatorPacket, 20)
+	c.msgSendCh = make(chan message.ElevatorMessage, 20)
 	c.TaskMonitor = NewTaskMonitor(10 * time.Second)
 }
 

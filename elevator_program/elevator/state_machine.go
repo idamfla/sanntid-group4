@@ -128,7 +128,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 			e.mu.Unlock()
 			fmt.Println(e)
 
-			e.System.Mutex.RLock()
+			e.System.Mutex.RLock() // TODO i don't think we need this one
 			_, elevs := e.System.Snapshot()
 			e.System.Mutex.RUnlock()
 
@@ -153,7 +153,9 @@ func (e *Elevator) updateElevatorStateOnline() {
 				elevatorState.State = types.ES_Moving
 			} else {
 				e.mu.Lock()
-				e.doorState = DS_Opening
+				if e.doorState == DS_Closed {
+					e.doorState = DS_Opening
+				}
 				e.mu.Unlock()
 				e.finishedTask(elevatorState.State)
 			}
@@ -378,15 +380,15 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 		}
 
 	} else {
-		requestMsg := message.ElevatorMessage{
-			EMsgType: message.EMSG_T_TaskRequest,
-			ID:       e.Id,
-			Task:     target,
-			Elevators: map[string]types.ElevatorsStatus{
-				e.Id: elevatorCopy,
-			},
-		}
+		// requestMsg := message.ElevatorMessage{
+		// 	EMsgType: message.EMSG_T_TaskRequest,
+		// 	ID:       e.Id,
+		// 	Task:     target,
+		// 	Elevators: map[string]types.ElevatorsStatus{
+		// 		e.Id: elevatorCopy,
+		// 	},
+		// }
 
-		e.SendToCoordinator <- requestMsg
+		// e.SendToCoordinator <- requestMsg
 	}
 }

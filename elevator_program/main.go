@@ -65,7 +65,7 @@ func main() {
 
 	defer closeProgram(&c1, &c2)
 
-	e1.RunElevatorProgram()
+	e2.RunElevatorProgram()
 
 	msg := message.ElevatorMessage{
 		EMsgType: message.EMSG_T_NewToChannel,
