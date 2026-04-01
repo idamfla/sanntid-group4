@@ -17,7 +17,7 @@ func (srv *Server) Send(
 	seq := ses.GetSeq()
 	sessionID := ses.GetID()
 
-	data, err := srv.computeDataPacket(remoteAddr, seq, sessionID, pktType, eMsg)
+	data, err := srv.generateDataPacket(remoteAddr, seq, sessionID, pktType, eMsg)
 	if err != nil {
 		fmt.Println("Encode error:", err)
 		return err
@@ -32,7 +32,7 @@ func (srv *Server) Send(
 	return nil
 }
 
-func (srv *Server) computeDataPacket(
+func (srv *Server) generateDataPacket(
 	remoteAddr *net.UDPAddr,
 	seq uint32,
 	sessionID uint32,
