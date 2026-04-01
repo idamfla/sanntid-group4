@@ -25,7 +25,7 @@ func NewBaseBroadcastSession(
 	selfAddr string,
 	addr *net.UDPAddr,
 	closeReq chan<- uint32,
-	tx PacketSender,
+	tx ServerAPI,
 	expectedResponses int,
 ) *BaseBroadcastSession {
 	bbs := &BaseBroadcastSession{

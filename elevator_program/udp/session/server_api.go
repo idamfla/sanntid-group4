@@ -1,0 +1,54 @@
+package session
+
+import (
+	"elevator_program/message"
+	"elevator_program/udp/packet"
+	"net"
+)
+
+type ServerAPI interface {
+	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
+	IsMaster() bool
+	SetSelfAsMaster(isMaster bool)
+	SetIsSynced(isSynced bool)
+	// QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
+	// GetMasterPeer() *peerinfo.PeerInfo
+}
+
+func (ses *Session) send(outPkt outgoingMessage) error {
+	ses.seq++
+	ses.lastOutPkt = outPkt
+	return ses.srv.Send(
+		ses.peerAddr,
+		ses.seq,
+		ses.ID,
+		outPkt.PktType,
+		outPkt.EMsg,
+	)
+}
+
+func (ses *Session) sendRetry(outPkt outgoingMessage) error {
+	return ses.srv.Send(
+		ses.peerAddr,
+		ses.seq,
+		ses.ID,
+		outPkt.PktType,
+		outPkt.EMsg)
+}
+
+func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
+	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
+}
+
+func (ses *Session) isMaster() bool {
+	return ses.srv.IsMaster()
+}
+
+func (ses *Session) setSelfAsMaster(isMaster bool) {
+	ses.srv.SetSelfAsMaster(isMaster)
+}
+
+func (ses *Session) setIsSynced(isSynced bool) {
+	ses.srv.SetIsSynced(isSynced)
+}

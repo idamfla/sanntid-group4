@@ -6,19 +6,6 @@ import (
 	"fmt"
 )
 
-// helper
-func (ses *Session) send(outPkt outgoingMessage) error {
-	ses.seq++
-	ses.lastOutPkt = outPkt
-	return ses.tx.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
-		outPkt.PktType,
-		outPkt.EMsg,
-	)
-}
-
 func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	select {
 	case ses.outgoingMsgCh <- outgoingMessage{
@@ -41,15 +28,6 @@ func (ses *Session) SendReply(pktType packet.PacketType) {
 	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
 }
 
-func (ses *Session) sendRetry(outPkt outgoingMessage) error {
-	return ses.tx.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
-		outPkt.PktType,
-		outPkt.EMsg)
-}
-
 func (ses *Session) sendLoop(behavior SessionBehavior) {
 	defer ses.wg.Done()
 
@@ -63,6 +41,12 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			if err != nil {
 				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 			}
+
+			if outPkt.PktType == packet.PKT_T_IAmMaster {
+				ses.setSelfAsMaster(true)
+				ses.setIsSynced(true)
+			}
+
 			behavior.OnSend(outPkt.PktType)
 		}
 	}

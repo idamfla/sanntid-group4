@@ -1,10 +1,8 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/peerinfo"
 	"elevator_program/utilities"
 	"fmt"
 	"net"
@@ -14,14 +12,6 @@ import (
 const (
 	CHANNEL_BUF = 32
 )
-
-type PacketSender interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
-	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
-	QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
-	IsMaster() bool
-	GetMasterPeer() *peerinfo.PeerInfo
-}
 
 type SessionBehavior interface {
 	HandlePacket(pkt packet.Packet) error
@@ -51,7 +41,7 @@ type Session struct {
 	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
 	elevDone  chan struct{}
 	taskReady chan struct{}
-	tx        PacketSender // <-- session uses this to reply
+	srv       ServerAPI // <-- session uses this to reply
 
 	// --- session control ---
 	closeReq  chan<- uint32 // make the server/owner close this session
@@ -63,7 +53,7 @@ type Session struct {
 func NewSession(id uint32,
 	peerAddr *net.UDPAddr,
 	closeReq chan<- uint32,
-	transmitter PacketSender,
+	transmitter ServerAPI,
 ) *Session {
 	ses := &Session{
 		ID:       id,
@@ -80,7 +70,7 @@ func NewSession(id uint32,
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
-		tx:        transmitter,
+		srv:       transmitter,
 
 		stop:     make(chan struct{}, CHANNEL_BUF),
 		closeReq: closeReq,

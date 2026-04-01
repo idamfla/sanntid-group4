@@ -50,7 +50,7 @@ func (e *Elev) listen() {
 			}
 
 			if msg.EMsg.EMsgType == message.EMSG_T_NewToChannel {
-				fmt.Println(e.srv.ID, "took screenshot")
+				fmt.Println(e.srv.ID, "took snapshot")
 				udpAddr, err := udp.StringAddrToUDPAddr(msg.EMsg.Addr)
 				if err != nil {
 					continue

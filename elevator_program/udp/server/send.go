@@ -16,6 +16,28 @@ func (srv *Server) Send(
 	eMsg message.ElevatorMessage,
 ) error {
 
+	data, err := srv.computeDataPacket(remoteAddr, seq, sessionID, pktType, eMsg)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		return err
+	}
+
+	_, err = srv.sendConn.WriteToUDP(data, remoteAddr)
+	if err != nil {
+		fmt.Println("Send error:", err)
+		return err
+	}
+
+	return nil
+}
+
+func (srv *Server) computeDataPacket(
+	remoteAddr *net.UDPAddr,
+	seq uint32,
+	sessionID uint32,
+	pktType packet.PacketType,
+	eMsg message.ElevatorMessage,
+) ([]byte, error) {
 	pkt := packet.Packet{
 		Header: packet.Header{
 			Seq:           seq,
@@ -27,12 +49,12 @@ func (srv *Server) Send(
 		Payload: eMsg,
 	}
 
-	if pktType == packet.PKT_T_IAmMaster {
-		srv.setSelfAsMaster(true)
-		srv.isSynced = true
+	data, err := pkt.EncodePacket()
+	if err != nil {
+		return nil, err
 	}
 
-	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
+	return data, nil
 }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
@@ -44,7 +66,6 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDirectMsg(pktType, eMsg)
-	// srv.elevatorTaskQueue()
 	return nil
 }
 

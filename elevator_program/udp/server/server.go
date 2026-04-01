@@ -131,7 +131,7 @@ func (srv *Server) run() {
 			srv.closeSession(id)
 
 		case incPkt := <-srv.incPktCh:
-			srv.routeInkPkt(incPkt)
+			srv.routeIncPkt(incPkt)
 
 		case outMsg := <-srv.outgoingMsgCh:
 			srv.wg.Add(1)
@@ -170,7 +170,7 @@ func (srv *Server) IsMaster() bool {
 	return srv.isMaster
 }
 
-func (srv *Server) setSelfAsMaster(isMaster bool) {
+func (srv *Server) SetSelfAsMaster(isMaster bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	srv.isMaster = isMaster
@@ -178,4 +178,10 @@ func (srv *Server) setSelfAsMaster(isMaster bool) {
 	if isMaster {
 		srv.searchingForMaster = false
 	}
+}
+
+func (srv *Server) SetIsSynced(isSynced bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.isSynced = isSynced
 }

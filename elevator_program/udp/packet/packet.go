@@ -3,8 +3,6 @@ package packet
 import (
 	"elevator_program/message"
 	"encoding/json"
-	"fmt"
-	"net"
 )
 
 type Packet struct {
@@ -12,7 +10,7 @@ type Packet struct {
 	Payload message.ElevatorMessage `json:"payload"`
 }
 
-func (p Packet) encodePacket() ([]byte, error) {
+func (p Packet) EncodePacket() ([]byte, error) {
 	return json.Marshal(p)
 }
 
@@ -26,21 +24,21 @@ func DecodePacket(buf []byte, n int) (Packet, error) {
 }
 
 // helper to encode & send a packet
-func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, pck Packet) error {
-	data, err := pck.encodePacket()
-	if err != nil {
-		fmt.Println("Encode error:", err)
-		return err
-	}
+// func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, pck Packet) error {
+// 	// data, err := pck.encodePacket()
+// 	// if err != nil {
+// 	// 	fmt.Println("Encode error:", err)
+// 	// 	return err
+// 	// }
 
-	_, err = conn.WriteToUDP(data, addr)
-	if err != nil {
-		fmt.Println("Send error:", err)
-		return err
-	}
+// 	// _, err = conn.WriteToUDP(data, addr)
+// 	// if err != nil {
+// 	// 	fmt.Println("Send error:", err)
+// 	// 	return err
+// 	// }
 
-	return nil
-}
+// 	// return nil
+// }
 
 func IsBroadcastPkt(t PacketType) bool {
 	switch t {

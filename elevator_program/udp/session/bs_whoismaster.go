@@ -12,7 +12,7 @@ type WhoIsMasterBroadcast struct {
 	election *Election
 }
 
-func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, closeReq chan<- uint32, tx PacketSender) *WhoIsMasterBroadcast {
+func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, closeReq chan<- uint32, tx ServerAPI) *WhoIsMasterBroadcast {
 	ws := &WhoIsMasterBroadcast{
 		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
@@ -100,10 +100,6 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 		ws.stopResponseTimer()
 		ws.requestClose()
 	}
-}
-
-func (ws *WhoIsMasterBroadcast) isMaster() bool {
-	return ws.tx.IsMaster()
 }
 
 func (ws *WhoIsMasterBroadcast) countResponders() int {

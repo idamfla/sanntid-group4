@@ -130,7 +130,7 @@ func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is
 
 // queue order of having elevator change its states, from master
 func (ses *Session) QueueElevatorStateTask() {
-	ses.tx.QueueElevatorTask(ses.pendingPkt.Payload, ses.elevDone, ses.taskReady)
+	ses.queueElevatorTask(ses.pendingPkt.Payload, ses.elevDone)
 }
 
 // queue order of having master do some work, don't need to notify completion, just start a new session
@@ -146,7 +146,7 @@ func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, 
 		}
 	}
 
-	ses.tx.QueueElevatorTask(emsg, nil, ses.taskReady)
+	ses.queueElevatorTask(emsg, nil)
 }
 
 func (ses *Session) handleStateBSUpdate(pktType packet.PacketType) {
