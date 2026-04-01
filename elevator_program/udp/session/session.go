@@ -94,9 +94,6 @@ func (ses *Session) Close() {
 		close(ses.stop)
 		ses.wg.Wait()
 
-		// Close channels
-		// close(ses.packetInCh)
-		// close(ses.outgoingMsgCh)
 		close(ses.elevDone)
 		close(ses.taskReady)
 

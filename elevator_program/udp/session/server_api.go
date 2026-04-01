@@ -12,8 +12,6 @@ type ServerAPI interface {
 	IsMaster() bool
 	SetSelfAsMaster(isMaster bool)
 	SetIsSynced(isSynced bool)
-	// QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
-	// GetMasterPeer() *peerinfo.PeerInfo
 }
 
 func (ses *Session) send(outPkt outgoingMessage) error {

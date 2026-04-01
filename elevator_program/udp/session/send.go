@@ -37,19 +37,24 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			return
 
 		case outPkt := <-ses.outgoingMsgCh:
-			err := ses.send(outPkt)
-			if err != nil {
-				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
-			}
-
-			if outPkt.PktType == packet.PKT_T_IAmMaster {
-				ses.setSelfAsMaster(true)
-				ses.setIsSynced(true)
-			}
-
-			behavior.OnSend(outPkt.PktType)
+			ses.handleOutgoing(outPkt, behavior)
 		}
 	}
+}
+
+func (ses *Session) handleOutgoing(outPkt outgoingMessage, behavior SessionBehavior) {
+	err := ses.send(outPkt)
+	if err != nil {
+		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
+		return
+	}
+
+	if outPkt.PktType == packet.PKT_T_IAmMaster {
+		ses.setSelfAsMaster(true)
+		ses.setIsSynced(true)
+	}
+
+	behavior.OnSend(outPkt.PktType)
 }
 
 // for the SessionBehavior, does nothing
