@@ -13,17 +13,15 @@ func (srv *Server) Send(
 	pktType packet.PacketType,
 	eMsg message.ElevatorMessage,
 ) error {
-	remoteAddr := ses.GetPeerAddr()
-	seq := ses.GetSeq()
-	sessionID := ses.GetID()
+	senderAddr := srv.recvConn.LocalAddr().String()
 
-	data, err := srv.generateDataPacket(remoteAddr, seq, sessionID, pktType, eMsg)
+	data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg)
 	if err != nil {
 		fmt.Println("Encode error:", err)
 		return err
 	}
 
-	_, err = srv.sendConn.WriteToUDP(data, remoteAddr)
+	_, err = srv.sendConn.WriteToUDP(data, ses.GetPeerAddr())
 	if err != nil {
 		fmt.Println("Send error:", err)
 		return err
@@ -32,31 +30,31 @@ func (srv *Server) Send(
 	return nil
 }
 
-func (srv *Server) generateDataPacket(
-	remoteAddr *net.UDPAddr,
-	seq uint32,
-	sessionID uint32,
-	pktType packet.PacketType,
-	eMsg message.ElevatorMessage,
-) ([]byte, error) {
-	pkt := packet.Packet{
-		Header: packet.Header{
-			Seq:           seq,
-			SessionID:     sessionID,
-			PktType:       pktType,
-			RecipientAddr: remoteAddr.String(),
-			SenderAddr:    srv.recvConn.LocalAddr().String(),
-		},
-		Payload: eMsg,
-	}
+// func (srv *Server) generateDataPacket(
+// 	remoteAddr *net.UDPAddr,
+// 	seq uint32,
+// 	sessionID uint32,
+// 	pktType packet.PacketType,
+// 	eMsg message.ElevatorMessage,
+// ) ([]byte, error) {
+// 	pkt := packet.Packet{
+// 		Header: packet.Header{
+// 			Seq:           seq,
+// 			SessionID:     sessionID,
+// 			PktType:       pktType,
+// 			RecipientAddr: remoteAddr.String(),
+// 			SenderAddr:    srv.recvConn.LocalAddr().String(),
+// 		},
+// 		Payload: eMsg,
+// 	}
 
-	data, err := pkt.EncodePacket()
-	if err != nil {
-		return nil, err
-	}
+// 	data, err := pkt.EncodePacket()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return data, nil
-}
+// 	return data, nil
+// }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
 	if srv.isLocalAddr(remoteAddr) {

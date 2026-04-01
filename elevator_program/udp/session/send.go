@@ -59,3 +59,27 @@ func (ses *Session) handleOutgoing(outPkt outgoingMessage, behavior SessionBehav
 
 // for the SessionBehavior, does nothing
 func (ses *Session) OnSend(pktType packet.PacketType) {}
+
+func (ses *Session) GenerateDataPacket(
+	senderAddr string,
+	pktType packet.PacketType,
+	eMsg message.ElevatorMessage,
+) ([]byte, error) {
+	pkt := packet.Packet{
+		Header: packet.Header{
+			Seq:           ses.seq,
+			SessionID:     ses.ID,
+			PktType:       pktType,
+			RecipientAddr: ses.peerAddr.String(),
+			SenderAddr:    senderAddr,
+		},
+		Payload: eMsg,
+	}
+
+	data, err := pkt.EncodePacket()
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
