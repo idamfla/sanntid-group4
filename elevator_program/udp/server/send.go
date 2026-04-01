@@ -9,12 +9,13 @@ import (
 )
 
 func (srv *Server) Send(
-	remoteAddr *net.UDPAddr,
-	seq uint32,
-	sessionID uint32,
+	ses *session.Session,
 	pktType packet.PacketType,
 	eMsg message.ElevatorMessage,
 ) error {
+	remoteAddr := ses.GetPeerAddr()
+	seq := ses.GetSeq()
+	sessionID := ses.GetID()
 
 	data, err := srv.computeDataPacket(remoteAddr, seq, sessionID, pktType, eMsg)
 	if err != nil {

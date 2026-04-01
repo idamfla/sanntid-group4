@@ -3,11 +3,10 @@ package session
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
-	"net"
 )
 
 type ServerAPI interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
 	SetSelfAsMaster(isMaster bool)
@@ -18,9 +17,7 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 	ses.seq++
 	ses.lastOutPkt = outPkt
 	return ses.srv.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
+		ses,
 		outPkt.PktType,
 		outPkt.EMsg,
 	)
@@ -28,9 +25,7 @@ func (ses *Session) send(outPkt outgoingMessage) error {
 
 func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 	return ses.srv.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
+		ses,
 		outPkt.PktType,
 		outPkt.EMsg)
 }

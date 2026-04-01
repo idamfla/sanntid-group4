@@ -7,12 +7,22 @@ import (
 	"net"
 )
 
+func (srv *Server) addSession(id uint32, sh SessionHandler) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.sessions[id] = sh
+}
+
+func (srv *Server) getSession(id uint32) (SessionHandler, bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	sh, exists := srv.sessions[id]
+	return sh, exists
+}
+
 // returns session from session map. if no hits, a new server is made. NB! this functions contains locks
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) SessionHandler {
-	srv.mu.Lock()
-	ses, exists := srv.sessions[sessionID]
-	srv.mu.Unlock()
-
+	ses, exists := srv.getSession(sessionID)
 	if exists {
 		return ses
 	}
@@ -21,10 +31,7 @@ func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32)
 }
 
 func (srv *Server) getOrCreateWhoIsMasterSession(sessionID uint32) SessionHandler {
-	srv.mu.Lock()
-	bs, exists := srv.sessions[sessionID]
-	srv.mu.Unlock()
-
+	bs, exists := srv.getSession(sessionID)
 	if exists {
 		return bs
 	}
@@ -127,7 +134,6 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPa
 	return srv.getOrCreateSession(senderAddr, sessionID)
 }
 
-// helper function, not called directly: *unsafe*
 func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *session.Session {
 	var id uint32
 	if sessionID != nil {
@@ -139,9 +145,7 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
 	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
 
-	srv.mu.Lock()
-	srv.sessions[ses.ID] = ses
-	srv.mu.Unlock()
+	srv.addSession(id, ses)
 	ses.Start()
 	return ses
 }
@@ -178,30 +182,25 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 		)
 	}
 
-	srv.mu.Lock()
-	srv.sessions[id] = bs
-	srv.mu.Unlock()
+	srv.addSession(id, bs)
 	bs.Start()
 
 	return bs
 }
 
-func (srv *Server) closeSessionLocked(sesID uint32) {
-	ses, exists := srv.sessions[sesID]
-	if exists {
-		ses.Close()
-		delete(srv.sessions, sesID)
-
-		// TODO remove db
-		fmt.Printf("Server %s removed session: %d\n", srv.ID, sesID)
-
-	}
-}
-
-func (srv *Server) closeSession(sesID uint32) {
+func (srv *Server) closeSession(sessionID uint32) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	srv.closeSessionLocked(sesID)
+
+	ses, exists := srv.sessions[sessionID]
+	if exists {
+		ses.Close()
+		delete(srv.sessions, sessionID)
+
+		// TODO remove db
+		fmt.Printf("Server %s removed session: %d\n", srv.ID, sessionID)
+
+	}
 }
 
 func (srv *Server) PrintSessions() {

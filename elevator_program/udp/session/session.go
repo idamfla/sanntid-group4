@@ -23,7 +23,7 @@ type Session struct {
 	peerAddr *net.UDPAddr // addr of original sender
 	peerID   string
 
-	seq uint32 // TODO remove
+	seq uint32 // TODO remove ... maybe??
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
@@ -83,7 +83,6 @@ func (ses *Session) Start() {
 	ses.wg.Add(2)
 	go ses.listen(ses)
 	go ses.sendLoop(ses)
-	// fmt.Printf("Session %d started\n", ses.ID)
 }
 
 func (ses *Session) Close() {
@@ -100,6 +99,18 @@ func (ses *Session) Close() {
 		// Clear pending packet
 		ses.pendingPkt = nil
 	})
+}
+
+func (ses *Session) GetID() uint32 {
+	return ses.ID
+}
+
+func (ses *Session) GetSeq() uint32 {
+	return ses.seq
+}
+
+func (ses *Session) GetPeerAddr() *net.UDPAddr {
+	return ses.peerAddr
 }
 
 func (ses *Session) startResponseTimer() {

@@ -153,11 +153,9 @@ func (srv *Server) Close() {
 
 		srv.wg.Wait() // wait for goroutines
 
-		srv.mu.Lock()
 		for sesID := range srv.sessions {
-			srv.closeSessionLocked(sesID)
+			srv.closeSession(sesID)
 		}
-		srv.mu.Unlock()
 
 		fmt.Println(srv.ID, "is synced:", srv.isSynced)
 		srv.PrintPeers()
