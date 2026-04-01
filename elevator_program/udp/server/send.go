@@ -122,16 +122,14 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 }
 
 func (srv *Server) dispatchWhoIsMaster() {
-	srv.mu.Lock()
-
-	if srv.searchingForMaster {
-		srv.mu.Unlock()
+	if srv.isSearchingForMaster() {
 		return
 	}
-	srv.isMaster = false
-	srv.isSynced = false
-	srv.searchingForMaster = true
 
+	srv.ResetState()
+	srv.setMasterSearch()
+
+	srv.mu.Lock()
 	if peer := srv.getMasterPeerLocked(); peer != nil {
 		peer.SetMaster(false)
 	}

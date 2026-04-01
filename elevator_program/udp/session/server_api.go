@@ -9,7 +9,7 @@ type ServerAPI interface {
 	Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
-	SetSelfAsMaster(isMaster bool)
+	SetSelfAsMaster()
 	SetIsSynced(isSynced bool)
 }
 
@@ -38,8 +38,8 @@ func (ses *Session) isMaster() bool {
 	return ses.srv.IsMaster()
 }
 
-func (ses *Session) setSelfAsMaster(isMaster bool) {
-	ses.srv.SetSelfAsMaster(isMaster)
+func (ses *Session) setSelfAsMaster() {
+	ses.srv.SetSelfAsMaster()
 }
 
 func (ses *Session) setIsSynced(isSynced bool) {

@@ -24,18 +24,16 @@ type SessionHandler interface {
 }
 
 type Server struct {
-	ID                 string
-	isMaster           bool
-	searchingForMaster bool
-	isSynced           bool
-	incPktCh           chan incomingPacket
-	outgoingMsgCh      chan outgoingMessage
-	network            *ServerNetwork
-	sessions           map[uint32]SessionHandler
-	peers              map[string]*peerinfo.PeerInfo
-	bcSeq              uint32
-	mu                 sync.Mutex
-	closeReq           chan uint32
+	ID            string
+	state         *ServerState
+	incPktCh      chan incomingPacket
+	outgoingMsgCh chan outgoingMessage
+	network       *ServerNetwork
+	sessions      map[uint32]SessionHandler
+	peers         map[string]*peerinfo.PeerInfo
+	bcSeq         uint32
+	mu            sync.Mutex
+	closeReq      chan uint32
 
 	stop      chan struct{}
 	wg        sync.WaitGroup
@@ -45,7 +43,7 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) { // TODO isMaster is default false, set by election or something
+func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -58,19 +56,17 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 	}
 
 	srv := &Server{
-		ID:                 id,
-		isMaster:           false,
-		searchingForMaster: false,
-		isSynced:           true,
-		incPktCh:           make(chan incomingPacket, CHANNEL_BUF),
-		outgoingMsgCh:      make(chan outgoingMessage, CHANNEL_BUF),
-		network:            network,
-		sessions:           make(map[uint32]SessionHandler),
-		peers:              make(map[string]*peerinfo.PeerInfo),
-		closeReq:           make(chan uint32, CHANNEL_BUF),
-		stop:               make(chan struct{}, CHANNEL_BUF),
-		elevator:           toElevator,
-		elevatorTaskQueue:  make(chan ElevatorTask, CHANNEL_BUF),
+		ID:                id,
+		state:             &ServerState{},
+		incPktCh:          make(chan incomingPacket, CHANNEL_BUF),
+		outgoingMsgCh:     make(chan outgoingMessage, CHANNEL_BUF),
+		network:           network,
+		sessions:          make(map[uint32]SessionHandler),
+		peers:             make(map[string]*peerinfo.PeerInfo),
+		closeReq:          make(chan uint32, CHANNEL_BUF),
+		stop:              make(chan struct{}, CHANNEL_BUF),
+		elevator:          toElevator,
+		elevatorTaskQueue: make(chan ElevatorTask, CHANNEL_BUF),
 	}
 
 	return srv, nil
@@ -117,37 +113,13 @@ func (srv *Server) Close() {
 
 		srv.network.Close()
 
-		// close(srv.elevatorTaskQueue)
-
 		srv.wg.Wait() // wait for goroutines
 
 		for sesID := range srv.sessions {
 			srv.closeSession(sesID)
 		}
 
-		fmt.Println(srv.ID, "is synced:", srv.isSynced)
+		fmt.Println(srv.ID, "is synced:", srv.isSynced())
 		srv.PrintPeers()
 	})
-}
-
-func (srv *Server) IsMaster() bool {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	return srv.isMaster
-}
-
-func (srv *Server) SetSelfAsMaster(isMaster bool) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.isMaster = isMaster
-
-	if isMaster {
-		srv.searchingForMaster = false
-	}
-}
-
-func (srv *Server) SetIsSynced(isSynced bool) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.isSynced = isSynced
 }

@@ -126,7 +126,7 @@ func (srv *Server) setMasterPeer(peerID string, isMaster bool) {
 	}
 
 	if isMaster {
-		srv.searchingForMaster = false
+		srv.clearMasterSearch()
 	}
 
 }

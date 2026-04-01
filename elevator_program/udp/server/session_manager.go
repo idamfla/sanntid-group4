@@ -56,7 +56,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		ses = srv.handleSyncComplete(senderAddr, incPkt)
 
 	default:
-		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
+		if packet.IsBroadcastPkt(pktType) && srv.isSynced() == false {
 			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
 			return
 		}
@@ -70,12 +70,9 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 }
 
 func (srv *Server) handleWhoIsMaster(sessionID uint32) SessionHandler {
-	srv.mu.Lock()
-	if srv.searchingForMaster {
-		srv.mu.Unlock()
+	if srv.isSearchingForMaster() {
 		return nil
 	}
-	srv.mu.Unlock()
 	return srv.getOrCreateWhoIsMasterSession(sessionID)
 }
 
@@ -95,7 +92,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 
 	// already know this master
 	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
-		srv.isSynced = true
+		srv.SetIsSynced(true)
 		srv.mu.Unlock()
 		return nil
 	}
@@ -107,7 +104,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 
 	peer.SetMaster(true)
 
-	srv.isSynced = false
+	srv.SetIsSynced(false)
 	peer.SetIsSynced(true)
 
 	srv.mu.Unlock()
@@ -123,7 +120,7 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPa
 	selfAddr := srv.getRecvString()
 
 	if selfAddr == recipientAddr {
-		srv.isSynced = true
+		srv.SetIsSynced(true)
 	}
 
 	if peer, exists := srv.peers[recipientAddr]; exists {
@@ -215,7 +212,7 @@ func (srv *Server) PrintSessions() {
 }
 
 func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketType, incPkt incomingPacket) {
-	if pktType == packet.PKT_T_MasterAck && !srv.isMaster {
+	if pktType == packet.PKT_T_MasterAck && !srv.IsMaster() {
 
 	} else {
 		fmt.Printf(

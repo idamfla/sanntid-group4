@@ -77,7 +77,7 @@ func (ses *Session) handleOutgoing(outPkt outgoingMessage, behavior SessionBehav
 	}
 
 	if outPkt.PktType == packet.PKT_T_IAmMaster {
-		ses.setSelfAsMaster(true)
+		ses.setSelfAsMaster()
 		ses.setIsSynced(true)
 	}
 
