@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-// returns session from session map. if no hits, a new server is made
+// returns session from session map. if no hits, a new server is made. NB! this functions contains locks
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) SessionHandler {
 	srv.mu.Lock()
 	ses, exists := srv.sessions[sessionID]
@@ -40,98 +40,91 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
-		srv.mu.Lock()
-		if srv.searchingForMaster {
-			srv.mu.Unlock()
-			return
-		}
-		srv.mu.Unlock()
-		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
+		ses = srv.handleWhoIsMaster(sessionID)
 
 	case packet.PKT_T_IAmMaster:
-		srv.mu.Lock()
+		ses = srv.handleIAmMaster(incPkt)
 
-		key := incPkt.Packet.Header.SenderAddr
-		peer, exists := srv.peers[key]
-
-		if !exists || peer == nil {
-			srv.mu.Unlock()
-			return
-		}
-
-		oldMstr := srv.getMasterPeerLocked()
-
-		// already know this master
-		if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
-			srv.isSynced = true
-			srv.mu.Unlock()
-			return
-		}
-
-		// new master
-		if oldMstr != nil {
-			oldMstr.SetMaster(false)
-		}
-
-		peer.SetMaster(true)
-
-		srv.isSynced = false
-		peer.SetIsSynced(true)
-
-		srv.mu.Unlock()
-
-		srv.QueueSyncRequest()
-		ses = srv.getOrCreateWhoIsMasterSession(sessionID)
-
-		// if !srv.IsMaster() {
-		// 	fmt.Println(srv.ID, "from", incPkt.Packet.Header.SenderAddr, incPkt.Packet.Header.PktType, srv.ID, "is not master") // TODO db remove later
-		// }
+	case packet.PKT_T_SyncComplete:
+		ses = srv.handleSyncComplete(senderAddr, incPkt)
 
 	default:
-		if pktType == packet.PKT_T_SyncComplete {
-			srv.mu.Lock()
-			recipientAddr := incPkt.Packet.Payload.Addr
-			selfAddr := srv.recvConn.LocalAddr().String()
-
-			if selfAddr == recipientAddr {
-				srv.isSynced = true
-			}
-
-			if peer, exists := srv.peers[recipientAddr]; exists {
-				peer.SetIsSynced(true)
-			}
-			srv.mu.Unlock()
-			if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
-				fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
-				return
-			}
+		if packet.IsBroadcastPkt(pktType) && srv.isSynced == false {
+			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+			return
 		}
 
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}
 
-	if pktType == packet.PKT_T_MasterAck && !srv.isMaster {
-
-	} else {
-		fmt.Printf(
-			`%s, Session %d:
-	sent from : %s
-	to        : %s
-	reply sock: %s
-	pktType   : %s
-	payload   : %+v
-`,
-			srv.ID,
-			incPkt.Packet.Header.SessionID,
-			incPkt.Addr.String(),
-			incPkt.Packet.Header.RecipientAddr,
-			senderAddr.String(),
-			pktType,
-			incPkt.Packet.Payload,
-		)
-	}
+	srv.printIncMsg(senderAddr, pktType, incPkt) // TODO DB
 
 	ses.ReceivePacket(incPkt.Packet)
+}
+
+func (srv *Server) handleWhoIsMaster(sessionID uint32) SessionHandler {
+	srv.mu.Lock()
+	if srv.searchingForMaster {
+		srv.mu.Unlock()
+		return nil
+	}
+	srv.mu.Unlock()
+	return srv.getOrCreateWhoIsMasterSession(sessionID)
+}
+
+func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
+	srv.mu.Lock()
+
+	sessionID := incPkt.Packet.Header.SessionID
+	peerID := incPkt.Packet.Header.SenderAddr
+	peer, exists := srv.peers[peerID]
+
+	if !exists || peer == nil {
+		srv.mu.Unlock()
+		return nil
+	}
+
+	oldMstr := srv.getMasterPeerLocked()
+
+	// already know this master
+	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
+		srv.isSynced = true
+		srv.mu.Unlock()
+		return nil
+	}
+
+	// new master
+	if oldMstr != nil {
+		oldMstr.SetMaster(false)
+	}
+
+	peer.SetMaster(true)
+
+	srv.isSynced = false
+	peer.SetIsSynced(true)
+
+	srv.mu.Unlock()
+
+	srv.QueueSyncRequest()
+	return srv.getOrCreateWhoIsMasterSession(sessionID)
+}
+
+func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPacket) SessionHandler {
+	srv.mu.Lock()
+	sessionID := incPkt.Packet.Header.SessionID
+	recipientAddr := incPkt.Packet.Payload.Addr
+	selfAddr := srv.recvConn.LocalAddr().String()
+
+	if selfAddr == recipientAddr {
+		srv.isSynced = true
+	}
+
+	if peer, exists := srv.peers[recipientAddr]; exists {
+		peer.SetIsSynced(true)
+	}
+	srv.mu.Unlock()
+
+	return srv.getOrCreateSession(senderAddr, sessionID)
 }
 
 // helper function, not called directly: *unsafe*
@@ -219,5 +212,28 @@ func (srv *Server) PrintSessions() {
 
 	for id := range srv.sessions {
 		fmt.Println(" -", id)
+	}
+}
+
+func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketType, incPkt incomingPacket) {
+	if pktType == packet.PKT_T_MasterAck && !srv.isMaster {
+
+	} else {
+		fmt.Printf(
+			`%s, Session %d:
+	sent from : %s
+	to        : %s
+	reply sock: %s
+	pktType   : %s
+	payload   : %+v
+`,
+			srv.ID,
+			incPkt.Packet.Header.SessionID,
+			incPkt.Addr.String(),
+			incPkt.Packet.Header.RecipientAddr,
+			senderAddr.String(),
+			pktType,
+			incPkt.Packet.Payload,
+		)
 	}
 }

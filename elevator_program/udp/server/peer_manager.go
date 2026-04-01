@@ -84,7 +84,7 @@ func (srv *Server) getPeerCount() int {
 	return count
 }
 
-func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) {
+func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) { // TODO should this be flushed to a catchup session, have it wait for the ack before sending next thing, then lastly have the flush done?
 	defer srv.wg.Done()
 
 	for {
