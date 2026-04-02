@@ -1,74 +1,33 @@
 package server
 
-import (
-	"sync"
-)
-
-type ServerState struct {
-	IsMaster           bool
-	SearchingForMaster bool
-	IsSynced           bool
-	mu                 sync.Mutex
+func (srv *Server) ResetState() {
+	srv.state.Reset()
 }
 
-func (ss *ServerState) Reset() {
-	ss.lock()
-	defer ss.unlock()
-
-	ss.IsMaster = false
-	ss.IsSynced = false
-	ss.SearchingForMaster = false
+func (srv *Server) IsMaster() bool {
+	return srv.state.GetIsMaster()
 }
 
-func (ss *ServerState) GetIsMaster() bool {
-	ss.lock()
-	defer ss.unlock()
-	return ss.IsMaster
+func (srv *Server) SetSelfAsMaster() {
+	srv.state.SetMaster()
 }
 
-func (ss *ServerState) SetMaster() {
-	ss.lock()
-	defer ss.unlock()
-
-	ss.IsMaster = true
-	ss.IsSynced = true
-	ss.SearchingForMaster = false
+func (srv *Server) setMasterSearch() {
+	srv.state.SetMasterSearch()
 }
 
-func (ss *ServerState) SetMasterSearch() {
-	ss.lock()
-	defer ss.unlock()
-	ss.SearchingForMaster = true
+func (srv *Server) isSearchingForMaster() bool {
+	return srv.state.IsSearchingForMaster()
 }
 
-func (ss *ServerState) IsSearchingForMaster() bool {
-	ss.lock()
-	defer ss.unlock()
-	return ss.SearchingForMaster
+func (srv *Server) clearMasterSearch() {
+	srv.state.ClearMasterSearch()
 }
 
-func (ss *ServerState) ClearMasterSearch() {
-	ss.lock()
-	defer ss.unlock()
-	ss.SearchingForMaster = false
+func (srv *Server) isSynced() bool {
+	return srv.state.GetIsSynced()
 }
 
-func (ss *ServerState) GetIsSynced() bool {
-	ss.lock()
-	defer ss.unlock()
-	return ss.IsSynced
-}
-
-func (ss *ServerState) SetIsSynced(isSynced bool) {
-	ss.lock()
-	defer ss.unlock()
-	ss.IsSynced = isSynced
-}
-
-func (ss *ServerState) lock() {
-	ss.mu.Lock()
-}
-
-func (ss *ServerState) unlock() {
-	ss.mu.Unlock()
+func (srv *Server) SetIsSynced(isSynced bool) {
+	srv.state.SetIsSynced(isSynced)
 }

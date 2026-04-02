@@ -3,7 +3,6 @@ package server
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/peerinfo"
 	"fmt"
 	"net"
 	"time"
@@ -22,14 +21,14 @@ func (srv *Server) activePeerCount() int {
 	return count
 }
 
-func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*peerinfo.PeerInfo, bool) {
+func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*PeerView, bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	key := addr.String()
 	peer, exists := srv.peers[key]
 	if !exists {
-		peer = peerinfo.NewPeer(addr)
+		peer = NewPeer(addr)
 		srv.peers[key] = peer
 		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)
 		return peer, true
@@ -55,14 +54,14 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
 	}
 }
 
-func (srv *Server) GetMasterPeer() *peerinfo.PeerInfo {
+func (srv *Server) GetMasterPeer() *PeerView {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	return srv.getMasterPeerLocked()
 }
 
-func (srv *Server) getMasterPeerLocked() *peerinfo.PeerInfo {
+func (srv *Server) getMasterPeerLocked() *PeerView {
 	for _, p := range srv.peers {
 		if p.IsMaster {
 			return p
@@ -84,7 +83,7 @@ func (srv *Server) getPeerCount() int {
 	return count
 }
 
-func (srv *Server) flushPeerPendingMsg(peer *peerinfo.PeerInfo) { // TODO should this be flushed to a catchup session, have it wait for the ack before sending next thing, then lastly have the flush done?
+func (srv *Server) flushPeerPendingMsg(peer *PeerView) { // TODO should this be flushed to a catchup session, have it wait for the ack before sending next thing, then lastly have the flush done?
 	defer srv.wg.Done()
 
 	for {

@@ -3,7 +3,6 @@ package server
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/peerinfo"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -24,16 +23,19 @@ type SessionHandler interface {
 }
 
 type Server struct {
-	ID            string
-	state         *ServerState
+	ID string
+
+	state   *ServerState
+	network *ServerNetwork
+
 	incPktCh      chan incomingPacket
 	outgoingMsgCh chan outgoingMessage
-	network       *ServerNetwork
-	sessions      map[uint32]SessionHandler
-	peers         map[string]*peerinfo.PeerInfo
-	bcSeq         uint32
-	mu            sync.Mutex
-	closeReq      chan uint32
+
+	sessions map[uint32]SessionHandler
+	peers    map[string]*PeerView
+	bcSeq    uint32
+	mu       sync.Mutex
+	closeReq chan uint32
 
 	stop      chan struct{}
 	wg        sync.WaitGroup
@@ -62,7 +64,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		outgoingMsgCh:     make(chan outgoingMessage, CHANNEL_BUF),
 		network:           network,
 		sessions:          make(map[uint32]SessionHandler),
-		peers:             make(map[string]*peerinfo.PeerInfo),
+		peers:             make(map[string]*PeerView),
 		closeReq:          make(chan uint32, CHANNEL_BUF),
 		stop:              make(chan struct{}, CHANNEL_BUF),
 		elevator:          toElevator,

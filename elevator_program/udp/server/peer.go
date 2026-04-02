@@ -1,4 +1,4 @@
-package peerinfo
+package server
 
 import (
 	"elevator_program/message"
@@ -6,11 +6,7 @@ import (
 	"time"
 )
 
-const (
-	CHANNEL_BUF = 32
-)
-
-type PeerInfo struct {
+type PeerView struct {
 	Addr      *net.UDPAddr
 	LastSeen  time.Time
 	IsSynced  bool
@@ -19,8 +15,8 @@ type PeerInfo struct {
 	EMsgQueue chan message.ElevatorMessage
 }
 
-func NewPeer(addr *net.UDPAddr) *PeerInfo {
-	return &PeerInfo{
+func NewPeer(addr *net.UDPAddr) *PeerView {
+	return &PeerView{
 		Addr:      addr,
 		LastSeen:  time.Now(),
 		IsSynced:  false,
@@ -30,15 +26,15 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 	}
 }
 
-func (peer *PeerInfo) SetMaster(isMaster bool) {
+func (peer *PeerView) SetMaster(isMaster bool) {
 	peer.IsMaster = isMaster
 }
 
-func (peer *PeerInfo) SetIsSynced(isSynced bool) {
+func (peer *PeerView) SetIsSynced(isSynced bool) {
 	peer.IsSynced = true
 }
 
-func (peer *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
+func (peer *PeerView) QueueMessage(msg message.ElevatorMessage) {
 	select {
 	case peer.EMsgQueue <- msg:
 	default:
