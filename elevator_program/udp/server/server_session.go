@@ -30,14 +30,13 @@ func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32)
 	return srv.createSession(senderAddr, &sessionID)
 }
 
-func (srv *Server) getOrCreateWhoIsMasterSession(sessionID uint32) SessionHandler {
-	bs, exists := srv.getSession(sessionID)
+func (srv *Server) getOrCreateMasterElectionSession() SessionHandler {
+	bs, exists := srv.getSession(MASTER_ELECTION_SESSSION_ID)
 	if exists {
 		return bs
 	}
 
 	return srv.createMasterElectionSession()
-	// return srv.createBroadcastSession(&sessionID, session.BS_T_WhoIsMasterBroadcast, 0)
 }
 
 func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
@@ -70,17 +69,16 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	ses.ReceivePacket(incPkt.Packet)
 }
 
-func (srv *Server) handleWhoIsMaster(sessionID uint32) SessionHandler {
+func (srv *Server) handleWhoIsMaster() SessionHandler {
 	if srv.isSearchingForMaster() {
 		return nil
 	}
-	return srv.getOrCreateWhoIsMasterSession(sessionID)
+	return srv.getOrCreateMasterElectionSession()
 }
 
 func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	srv.mu.Lock()
 
-	sessionID := incPkt.Packet.Header.SessionID
 	peerID := incPkt.Packet.Header.SenderAddr
 	peer, exists := srv.peers[peerID]
 
@@ -111,7 +109,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	srv.mu.Unlock()
 
 	srv.QueueSyncRequest()
-	return srv.getOrCreateWhoIsMasterSession(sessionID)
+	return srv.getOrCreateMasterElectionSession()
 }
 
 func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPacket) SessionHandler {

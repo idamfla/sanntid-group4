@@ -30,12 +30,15 @@ func (srv *Server) Send(
 	return nil
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
 		return err
 	}
+
+	pktType := outMsg.PktType
+	eMsg := outMsg.EMsg
 
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDirectMsg(pktType, eMsg)
@@ -43,10 +46,12 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
 	quorum := srv.getPeerCount()
 	bs := srv.createBroadcastSession(quorum)
-	// bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
+
+	pktType := outMsg.PktType
+	eMsg := outMsg.EMsg
 
 	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
@@ -59,7 +64,7 @@ func (srv *Server) startWhoIsMasterMsg() { // TODO this need chaning
 }
 
 // deciding how to output messages from the server, what type of session should start
-func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
+func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_WhoIsMaster: // TODO this need changing
@@ -80,7 +85,7 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 }
 
 func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
-	srv.startSession(outMsg.RemoteAddr, outMsg.PktType, outMsg.EMsg)
+	srv.startSession(outMsg.RemoteAddr, outMsg)
 }
 
 func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
@@ -95,7 +100,7 @@ func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startSession(mstr.Addr, outMsg.PktType, outMsg.EMsg)
+	srv.startSession(mstr.Addr, outMsg)
 }
 
 func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
@@ -112,7 +117,7 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startStateBroadcast(packet.PKT_T_BroadcastUpdate, outMsg.EMsg)
+	srv.startStateBroadcast(outMsg)
 }
 
 func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
@@ -120,7 +125,7 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
 	}
 
-	srv.startStateBroadcast(packet.PKT_T_SyncComplete, outMsg.EMsg)
+	srv.startStateBroadcast(outMsg)
 }
 
 func (srv *Server) dispatchWhoIsMaster() { // TODO this need changing ...

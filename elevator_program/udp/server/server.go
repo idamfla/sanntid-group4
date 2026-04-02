@@ -85,29 +85,10 @@ func (srv *Server) Start() {
 		srv.ID, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
+	srv.createMasterElectionSession()
+
 	go srv.run()
 	go srv.sendTaskLoop()
-}
-
-func (srv *Server) run() {
-	defer srv.wg.Done()
-	for {
-		select {
-		case <-srv.stop:
-			return
-
-		case id := <-srv.closeReq:
-			srv.closeSession(id)
-
-		case incPkt := <-srv.incPktCh:
-			srv.routeIncPkt(incPkt)
-
-		case outMsg := <-srv.outgoingMsgCh:
-			srv.wg.Add(1)
-			go srv.dispatchMessage(outMsg)
-
-		}
-	}
 }
 
 func (srv *Server) Close() {
@@ -129,4 +110,25 @@ func (srv *Server) Close() {
 
 func (srv *Server) GetCloseReqCh() chan uint32 {
 	return srv.closeReq
+}
+
+func (srv *Server) run() {
+	defer srv.wg.Done()
+	for {
+		select {
+		case <-srv.stop:
+			return
+
+		case id := <-srv.closeReq:
+			srv.closeSession(id)
+
+		case incPkt := <-srv.incPktCh:
+			srv.routeIncPkt(incPkt)
+
+		case outMsg := <-srv.outgoingMsgCh:
+			srv.wg.Add(1)
+			go srv.handleOutPkt(outMsg)
+
+		}
+	}
 }

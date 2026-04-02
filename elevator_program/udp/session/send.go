@@ -64,12 +64,12 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			return
 
 		case outPkt := <-ses.outgoingMsgCh:
-			ses.handleOutgoing(outPkt, behavior)
+			ses.handleOutPkt(outPkt, behavior)
 		}
 	}
 }
 
-func (ses *Session) handleOutgoing(outPkt outgoingMessage, behavior SessionBehavior) {
+func (ses *Session) handleOutPkt(outPkt outgoingMessage, behavior SessionBehavior) {
 	err := ses.send(outPkt)
 	if err != nil {
 		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
