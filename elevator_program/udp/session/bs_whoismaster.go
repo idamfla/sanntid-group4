@@ -4,7 +4,6 @@ import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 )
 
 type WhoIsMasterBroadcast struct {
@@ -12,12 +11,10 @@ type WhoIsMasterBroadcast struct {
 	election *Election
 }
 
-func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, closeReq chan<- uint32, tx ServerAPI) *WhoIsMasterBroadcast {
+func NewWhoIsMasterBroadcast(id uint32, srv ServerAPI) *WhoIsMasterBroadcast {
 	ws := &WhoIsMasterBroadcast{
-		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, 0),
+		BaseBroadcastSession: NewBaseBroadcastSession(id, srv, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
-		// electionStarted: false,
-		// masterFound:     make(chan struct{}, 1),
 	}
 	return ws
 }
@@ -89,7 +86,7 @@ func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
 	}
 
 	ws.SendReply(packet.PKT_T_MasterAck)
-	ws.scheduleSessionClose()
+	// ws.scheduleSessionClose()
 }
 
 func (ws *WhoIsMasterBroadcast) handleMasterAck() {
@@ -98,7 +95,7 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 	if ws.countResponders() >= ws.expectedResponses {
 		ws.hasLastPkt = false
 		ws.stopResponseTimer()
-		ws.requestClose()
+		// ws.requestClose()
 	}
 }
 

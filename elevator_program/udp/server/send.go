@@ -13,7 +13,7 @@ func (srv *Server) Send(
 	pktType packet.PacketType,
 	eMsg message.ElevatorMessage,
 ) error {
-	senderAddr := srv.getRecvString()
+	senderAddr := srv.GetRecvString()
 
 	data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg)
 	if err != nil {
@@ -155,7 +155,7 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 func (srv *Server) QueueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,
-		Addr:     srv.getRecvString(),
+		Addr:     srv.GetRecvString(),
 		EMsgType: message.EMSG_T_NewToChannel,
 	})
 }

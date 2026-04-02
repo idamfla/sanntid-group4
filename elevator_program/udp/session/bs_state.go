@@ -4,7 +4,6 @@ import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 )
 
 type StateBroadcast struct {
@@ -13,14 +12,11 @@ type StateBroadcast struct {
 
 func NewStateBroadcast(
 	id uint32,
-	selfAddr string,
-	addr *net.UDPAddr,
-	closeReq chan<- uint32,
 	tx ServerAPI,
 	expected int,
 ) *StateBroadcast {
 	sbs := &StateBroadcast{
-		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, expected),
+		BaseBroadcastSession: NewBaseBroadcastSession(id, tx, expected),
 	}
 
 	return sbs

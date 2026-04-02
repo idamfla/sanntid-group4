@@ -1,7 +1,6 @@
 package session
 
 import (
-	"net"
 	"sync"
 )
 
@@ -22,14 +21,15 @@ type BaseBroadcastSession struct {
 
 func NewBaseBroadcastSession(
 	id uint32,
-	selfAddr string,
-	addr *net.UDPAddr,
-	closeReq chan<- uint32,
-	tx ServerAPI,
+	srv ServerAPI,
 	expectedResponses int,
 ) *BaseBroadcastSession {
+	selfAddr := srv.GetRecvString()
+	addr := srv.GetBroadcastAddr()
+	closeReq := srv.GetCloseReqCh()
+
 	bbs := &BaseBroadcastSession{
-		Session:           NewSession(id, addr, closeReq, tx),
+		Session:           NewSession(id, addr, closeReq, srv),
 		selfAddr:          selfAddr,
 		expectedResponses: expectedResponses,
 		responders:        make(map[string]bool),

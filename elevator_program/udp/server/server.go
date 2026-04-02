@@ -81,7 +81,7 @@ func (srv *Server) Start() {
 	fmt.Printf(`Server %s: listening on %s
 			%s
 `,
-		srv.ID, srv.getRecvString(), srv.getBroadcastConn().LocalAddr().String(),
+		srv.ID, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
 	go srv.run()
@@ -124,4 +124,8 @@ func (srv *Server) Close() {
 		fmt.Println(srv.ID, "is synced:", srv.isSynced())
 		srv.PrintPeers()
 	})
+}
+
+func (srv *Server) GetCloseReqCh() chan uint32 {
+	return srv.closeReq
 }

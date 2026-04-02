@@ -6,7 +6,7 @@ func (srv *Server) getRecvConn() *net.UDPConn {
 	return srv.network.GetRecvConn()
 }
 
-func (srv *Server) getRecvString() string {
+func (srv *Server) GetRecvString() string {
 	return srv.getRecvAddr().String()
 }
 
@@ -26,6 +26,6 @@ func (srv *Server) getBroadcastConn() *net.UDPConn {
 	return srv.network.GetBroadcastConn()
 }
 
-func (srv *Server) getBroadcastAddr() *net.UDPAddr {
+func (srv *Server) GetBroadcastAddr() *net.UDPAddr {
 	return srv.network.GetBroadcastAddr()
 }

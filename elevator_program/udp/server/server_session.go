@@ -117,7 +117,7 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPa
 	srv.mu.Lock()
 	sessionID := incPkt.Packet.Header.SessionID
 	recipientAddr := incPkt.Packet.Payload.Addr
-	selfAddr := srv.getRecvString()
+	selfAddr := srv.GetRecvString()
 
 	if selfAddr == recipientAddr {
 		srv.SetIsSynced(true)
@@ -162,9 +162,9 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 	case session.BS_T_StateBroadcast:
 		bs = session.NewStateBroadcast(
 			id,
-			srv.getRecvString(),
-			srv.getBroadcastAddr(),
-			srv.closeReq,
+			// srv.GetRecvString(),
+			// srv.GetBroadcastAddr(),
+			// srv.closeReq,
 			srv,
 			expectedResponses,
 		)
@@ -172,9 +172,9 @@ func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.Broa
 	case session.BS_T_WhoIsMasterBroadcast:
 		bs = session.NewWhoIsMasterBroadcast(
 			id,
-			srv.getRecvString(),
-			srv.getBroadcastAddr(),
-			srv.closeReq,
+			// srv.GetRecvString(),
+			// srv.GetBroadcastAddr(),
+			// srv.closeReq,
 			srv,
 		)
 	}

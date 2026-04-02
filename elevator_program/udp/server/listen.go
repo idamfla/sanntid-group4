@@ -80,7 +80,7 @@ func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 		return nil, err
 	}
 
-	if replyAddr == srv.getRecvString() {
+	if replyAddr == srv.GetRecvString() {
 		err := fmt.Errorf("Server is receiving message from itself")
 		return nil, err
 	}

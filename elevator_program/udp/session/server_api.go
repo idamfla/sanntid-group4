@@ -3,6 +3,7 @@ package session
 import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
+	"net"
 )
 
 type ServerAPI interface {
@@ -11,6 +12,9 @@ type ServerAPI interface {
 	IsMaster() bool
 	SetSelfAsMaster()
 	SetIsSynced(isSynced bool)
+	GetRecvString() string
+	GetBroadcastAddr() *net.UDPAddr
+	GetCloseReqCh() chan uint32
 }
 
 func (ses *Session) send(outPkt outgoingMessage) error {
