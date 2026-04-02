@@ -32,7 +32,7 @@ type Server struct {
 	outgoingMsgCh chan outgoingMessage
 
 	sessions map[uint32]SessionHandler
-	peers    map[string]*PeerView
+	peers    map[string]*PeerInfo
 	bcSeq    uint32
 	mu       sync.Mutex
 	closeReq chan uint32
@@ -64,7 +64,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		outgoingMsgCh:     make(chan outgoingMessage, CHANNEL_BUF),
 		network:           network,
 		sessions:          make(map[uint32]SessionHandler),
-		peers:             make(map[string]*PeerView),
+		peers:             make(map[string]*PeerInfo),
 		closeReq:          make(chan uint32, CHANNEL_BUF),
 		stop:              make(chan struct{}, CHANNEL_BUF),
 		elevator:          toElevator,

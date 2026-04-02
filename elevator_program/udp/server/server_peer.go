@@ -21,7 +21,7 @@ func (srv *Server) activePeerCount() int {
 	return count
 }
 
-func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*PeerView, bool) {
+func (srv *Server) getOrCreatePeer(addr *net.UDPAddr) (*PeerInfo, bool) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
@@ -54,14 +54,14 @@ func (srv *Server) registerOrUpdatePeer(addr *net.UDPAddr, forceSync bool) {
 	}
 }
 
-func (srv *Server) GetMasterPeer() *PeerView {
+func (srv *Server) GetMasterPeer() *PeerInfo {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
 	return srv.getMasterPeerLocked()
 }
 
-func (srv *Server) getMasterPeerLocked() *PeerView {
+func (srv *Server) getMasterPeerLocked() *PeerInfo {
 	for _, p := range srv.peers {
 		if p.IsMaster {
 			return p
@@ -83,7 +83,7 @@ func (srv *Server) getPeerCount() int {
 	return count
 }
 
-func (srv *Server) flushPeerPendingMsg(peer *PeerView) { // TODO should this be flushed to a catchup session, have it wait for the ack before sending next thing, then lastly have the flush done?
+func (srv *Server) flushPeerPendingMsg(peer *PeerInfo) { // TODO should this be flushed to a catchup session, have it wait for the ack before sending next thing, then lastly have the flush done?
 	defer srv.wg.Done()
 
 	for {

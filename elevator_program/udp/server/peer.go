@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type PeerView struct {
+type PeerInfo struct {
 	Addr      *net.UDPAddr
 	LastSeen  time.Time
 	IsSynced  bool
@@ -15,8 +15,8 @@ type PeerView struct {
 	EMsgQueue chan message.ElevatorMessage
 }
 
-func NewPeer(addr *net.UDPAddr) *PeerView {
-	return &PeerView{
+func NewPeer(addr *net.UDPAddr) *PeerInfo {
+	return &PeerInfo{
 		Addr:      addr,
 		LastSeen:  time.Now(),
 		IsSynced:  false,
@@ -26,15 +26,15 @@ func NewPeer(addr *net.UDPAddr) *PeerView {
 	}
 }
 
-func (peer *PeerView) SetMaster(isMaster bool) {
+func (peer *PeerInfo) SetMaster(isMaster bool) {
 	peer.IsMaster = isMaster
 }
 
-func (peer *PeerView) SetIsSynced(isSynced bool) {
+func (peer *PeerInfo) SetIsSynced(isSynced bool) {
 	peer.IsSynced = true
 }
 
-func (peer *PeerView) QueueMessage(msg message.ElevatorMessage) {
+func (peer *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
 	select {
 	case peer.EMsgQueue <- msg:
 	default:
