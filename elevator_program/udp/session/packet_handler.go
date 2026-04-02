@@ -50,12 +50,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_RequestTaskExecution:
 		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
 
-	// case packet.PKT_T_StateSnapshot:
-	// 	ses.handleSnapshot()
-
-	// case packet.PKT_T_SnapshotAck:
-	// 	ses.startCatchup(ses.peerAddr)
-
 	case packet.PKT_T_CatchupUpdate:
 		ses.handleCatchup()
 
@@ -64,9 +58,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 
 	case packet.PKT_T_CatchupAck, packet.PKT_T_SnapshotAck:
 		ses.requestClose()
-
-	// case packet.PKT_T_SyncComplete:
-	// 	ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
 		ses.handleSlaveUpdate(pkt.Payload)
@@ -123,10 +114,6 @@ func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is
 	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
 	ses.scheduleSessionClose()
 }
-
-// func (ses *Session) startCatchup(peerAddr *net.UDPAddr) {
-// 	ses.tx.StartPeerCatchup(peerAddr)
-// }
 
 // queue order of having elevator change its states, from master
 func (ses *Session) QueueElevatorStateTask() {
