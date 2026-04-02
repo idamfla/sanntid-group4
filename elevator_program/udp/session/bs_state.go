@@ -12,11 +12,11 @@ type StateBroadcast struct {
 
 func NewStateBroadcast(
 	id uint32,
-	tx ServerAPI,
+	srv ServerAPI,
 	expected int,
 ) *StateBroadcast {
 	sbs := &StateBroadcast{
-		BaseBroadcastSession: NewBaseBroadcastSession(id, tx, expected),
+		BaseBroadcastSession: NewBaseBroadcastSession(id, srv, expected),
 	}
 
 	return sbs
