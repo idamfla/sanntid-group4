@@ -43,14 +43,20 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 	case message.EMSG_T_TaskUpdate:
-		if e.Ip == eMsg.Addr && eMsg.BtnStatus == types.Running {
+		if eMsg.BtnStatus == types.Running {
+			// Use SetRequestAsTarget for ALL Running updates (not just own).
+			// This ensures the slave reverts the old target to Pending,
+			// keeping hall request state in sync with the master.
 			e.System.SetRequestAsTarget(eMsg.Addr, eMsg.Task)
 		} else {
 			e.System.Mutex.Lock()
 			e.System.SetRequestStatus(eMsg.Addr, eMsg.BtnStatus, eMsg.Task)
 			e.System.Mutex.Unlock()
 		}
-		e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+		// // Don't set cab lamps for other elevators' cab requests
+		if !(eMsg.Addr != e.Ip && eMsg.Task.Button == elevio.BT_Cab) {
+			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
+		}
 
 		fmt.Println("yooooooo \n\n\n\n\n\n\n", eMsg.BtnStatus, eMsg.Addr)
 
@@ -118,6 +124,11 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			}
 		}
 		eMsg.EMsgType = message.EMSG_T_ButtonPress
+		e.System.Mutex.RLock()
+		hallCopy := make([][2]types.ButtonStatus, len(e.System.HallRequests)) // TODO don't think we need this anymore
+		copy(hallCopy, e.System.HallRequests)
+		e.System.Mutex.RUnlock()
+		eMsg.HallRequests = hallCopy
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_TaskUpdate:
@@ -142,18 +153,20 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		case types.NotActive:
 			c.TaskMonitor.FinishTask(taskKey)
 
-			if e.Ip == eMsg.Addr { // TODO could create a function for this, save some space
-				e.System.Mutex.RLock()
-				hallRequests, elevs := e.System.Snapshot()
-				e.System.Mutex.RUnlock()
-				task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
-				if task.Floor != -1 {
-					eMsg.EMsgType = message.EMSG_T_TaskUpdate
-					eMsg.Addr = e.Ip
-					eMsg.Task = task
-					eMsg.BtnStatus = types.Running
-					e.SendToCoordinator <- eMsg
+			// Assign next Pending task to the elevator that just became free.
+			e.System.Mutex.RLock()
+			hallRequests, elevs := e.System.Snapshot()
+			e.System.Mutex.RUnlock()
+			task := e.GetNextTargetFloor(elevs[eMsg.Addr], hallRequests)
+			if task.Floor != -1 {
+				assignMsg := message.ElevatorMessage{
+					EMsgType:  message.EMSG_T_TaskUpdate,
+					ID:        e.Id,
+					Addr:      eMsg.Addr,
+					Task:      task,
+					BtnStatus: types.Running,
 				}
+				e.SendToCoordinator <- assignMsg
 			}
 		}
 
@@ -166,6 +179,12 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		if task.Floor != -1 {
 			eMsg.Task = task
 			eMsg.BtnStatus = types.Running
+
+			// Need this to clear any ghost running states
+			hallcopy := make([][2]types.ButtonStatus, len(hallRequests)) // TODO hallcopy seams kind of unødvendig, cann't i just use hallRequests
+			copy(hallcopy, hallRequests)
+			eMsg.HallRequests = hallcopy // TODO don't think i need this anymore
+
 			fmt.Println("I have found a new task!! ", eMsg)
 			e.SendToCoordinator <- eMsg
 		}

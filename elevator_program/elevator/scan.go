@@ -72,7 +72,7 @@ func (e *Elevator) getClosestFloor(elevator types.ElevatorsStatus, hallRequests 
 	for f := 0; f < numFloors; f++ {
 		dist := utilities.Abs(f - floor)
 
-		if elevator.CabRequests[f] != types.NotActive {
+		if elevator.CabRequests[f] != types.NotActive && elevator.CabRequests[f] != types.Running {
 			if closest.Floor == -1 || dist < minDist {
 				closest.Floor = f
 				closest.Button = elevio.BT_Cab

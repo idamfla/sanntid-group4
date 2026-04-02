@@ -5,19 +5,16 @@ import (
 	"elevator_program/elevator"
 	"elevator_program/elevio"
 	"elevator_program/message"
+	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
-const (
-	// localIP  = "10.100.23.27"
-	localIP  = "192.168.10.156" //"127.0.0.1" // "172.20.10.9"
-	receiver = "10.100.23.22"
-)
-
-func closeProgram(e1 *coordinator.Coordinator) {
+func closeProgram(c *coordinator.Coordinator) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -25,23 +22,44 @@ func closeProgram(e1 *coordinator.Coordinator) {
 
 	fmt.Println("\nCtrl+C pressed")
 
-	e1.Close()
-	// e2.Close()
+	c.Close()
 
 	fmt.Println("Servers shut down cleanly")
 }
 
 func main() {
-	ip_address := "localhost"
-	port := "15657"
+	id := flag.String("id", "A", "Elevator ID")
+	simPort := flag.Int("simport", 15657, "Simulator TCP port")
+	udpPort := flag.Int("port", 9000, "UDP port for this elevator")
+	localIP := flag.String("ip", "127.0.0.1", "Local IP address")
+	flag.Parse()
 
-	elevio.Init(ip_address+":"+port, 4)
+	// Log to both terminal and file logs/elevator_<id>.log
+	os.MkdirAll("logs", 0755)
+	logFile, err := os.Create(fmt.Sprintf("logs/elevator_%s.log", *id))
+	if err != nil {
+		log.Fatal("Could not create log file:", err)
+	}
+	defer logFile.Close()
+
+	// Create a pipe to capture all fmt.Print* output
+	origStdout := os.Stdout
+	pr, pw, _ := os.Pipe()
+	os.Stdout = pw
+
+	// Tee pipe output to both original terminal and log file
+	go func() {
+		mw := io.MultiWriter(origStdout, logFile)
+		io.Copy(mw, pr)
+	}()
+
+	elevio.Init(fmt.Sprintf("localhost:%d", *simPort), 4)
 
 	e1 := elevator.Elevator{}
-	e1.InitElevator("A", 4, 3, localIP, 9000)
+	e1.InitElevator(*id, 4, 3, *localIP, *udpPort)
 	c1 := coordinator.Coordinator{}
 	c1.InitCoordinator()
-	err := c1.StartServer(localIP, 9000, "A")
+	err = c1.StartServer(*localIP, *udpPort, *id)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -49,19 +67,6 @@ func main() {
 	c1.Start(&e1)
 
 	fmt.Println(&e1)
-
-	// e2 := elevator.Elevator{}
-	// e2.InitElevator("B", 4, 3, localIP, 9001)
-	// c2 := coordinator.Coordinator{}
-	// c2.InitCoordinator()
-	// err = c2.StartServer(localIP, 9001, "B")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	// c2.Start(&e2)
-
-	// fmt.Println(&e2)
 
 	defer closeProgram(&c1)
 

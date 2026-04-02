@@ -17,12 +17,11 @@ const (
 	TASK_READY_TIMEOUT       = 2 * time.Second
 	MASTER_ELECTION_TIMEOUT  = 500 * time.Millisecond
 
-	OtherBroadcastIP = "172.20.10.15"
-	NtnuBroadcastIP  = "10.22.119.255"
-	// HomeBroadcastIP  = "192.168.50.255"
-	// BroadcastIP      = OtherBroadcastIP
-	HomeBroadcastIP = "192.168.10.255" // This is for thoab
-	BroadcastIP     = HomeBroadcastIP
+	OtherBroadcastIP    = "172.20.10.15"
+	NtnuBroadcastIP     = "10.22.119.255"
+	HomeBroadcastIP     = "192.168.10.255"
+	LoopbackBroadcastIP = "127.255.255.255"
+	BroadcastIP         = LoopbackBroadcastIP // Change to HomeBroadcastIP for network
 	BROADCAST_PORT  = 3000
 )
 

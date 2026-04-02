@@ -7,7 +7,7 @@ import (
 )
 
 func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, int) {
-	if elev.State == types.ES_Idle {
+	if elev.State == types.ES_Idle || elev.Target.Floor == -1 {
 		return true, utilities.Abs(newTarget.Floor - elev.CurrentFloor)
 	}
 
@@ -61,7 +61,7 @@ func (e *Elevator) ClosestToTarget(elevatorRegistry map[string]types.ElevatorsSt
 }
 
 func (e *Elevator) IsNewTargetBetterCab(target elevio.ButtonEvent, elevatorStatus types.ElevatorsStatus) bool {
-	if elevatorStatus.State == types.ES_Idle {
+	if elevatorStatus.State == types.ES_Idle || elevatorStatus.Target.Floor == -1 {
 		return true
 	}
 

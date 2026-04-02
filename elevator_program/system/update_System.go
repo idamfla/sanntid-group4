@@ -33,9 +33,11 @@ func (s *System) SetRequestStatus(ip string, status types.ButtonStatus, btnEvent
 
 	if status == types.NotActive {
 		elevatorCopy := s.Elevators[ip]
-		elevatorCopy.Target = elevio.ButtonEvent{
-			Button: elevio.BT_HallUp,
-			Floor:  -1,
+		if elevatorCopy.Target.Floor == f && elevatorCopy.Target.Button == b {
+			elevatorCopy.Target = elevio.ButtonEvent{
+				Button: elevio.BT_HallUp,
+				Floor:  -1,
+			}
 		}
 		s.Elevators[ip] = elevatorCopy
 	}
