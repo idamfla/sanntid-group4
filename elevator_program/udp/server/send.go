@@ -45,22 +45,24 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketTy
 // Initiate the broadcast message chain
 func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	quorum := srv.getPeerCount()
-	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
+	bs := srv.createBroadcastSession(quorum)
+	// bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
 
 	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
-func (srv *Server) startWhoIsMasterMsg() {
-	bs := srv.createBroadcastSession(nil, session.BS_T_WhoIsMasterBroadcast, 0)
+func (srv *Server) startWhoIsMasterMsg() { // TODO this need chaning
+	// bs := srv.createBroadcastSession(nil, session.BS_T_WhoIsMasterBroadcast, 0)
+	ws := srv.createMasterElectionSession()
 
-	bs.QueueWhoIsMasterMsg()
+	ws.QueueWhoIsMasterMsg()
 }
 
 // deciding how to output messages from the server, what type of session should start
 func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsMaster:
+	case packet.PKT_T_WhoIsMaster: // TODO this need changing
 		srv.dispatchWhoIsMaster()
 
 	case packet.PKT_T_BroadcastUpdate:
@@ -121,7 +123,7 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 	srv.startStateBroadcast(packet.PKT_T_SyncComplete, outMsg.EMsg)
 }
 
-func (srv *Server) dispatchWhoIsMaster() {
+func (srv *Server) dispatchWhoIsMaster() { // TODO this need changing ...
 	if srv.isSearchingForMaster() {
 		return
 	}

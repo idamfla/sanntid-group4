@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	CHANNEL_BUF = 32
+	CHANNEL_BUF                 = 32
+	MASTER_ELECTION_SESSSION_ID = uint32(1)
 )
 
 type SessionHandler interface {

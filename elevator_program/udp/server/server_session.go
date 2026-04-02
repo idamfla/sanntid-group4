@@ -36,7 +36,8 @@ func (srv *Server) getOrCreateWhoIsMasterSession(sessionID uint32) SessionHandle
 		return bs
 	}
 
-	return srv.createBroadcastSession(&sessionID, session.BS_T_WhoIsMasterBroadcast, 0)
+	return srv.createMasterElectionSession()
+	// return srv.createBroadcastSession(&sessionID, session.BS_T_WhoIsMasterBroadcast, 0)
 }
 
 func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
@@ -47,10 +48,10 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	switch pktType {
 	case packet.PKT_T_WhoIsMaster:
-		ses = srv.handleWhoIsMaster(sessionID)
+		ses = srv.handleWhoIsMaster(sessionID) // TODO need to change ...
 
 	case packet.PKT_T_IAmMaster:
-		ses = srv.handleIAmMaster(incPkt)
+		ses = srv.handleIAmMaster(incPkt) // TODO need to change ...
 
 	case packet.PKT_T_SyncComplete:
 		ses = srv.handleSyncComplete(senderAddr, incPkt)
@@ -147,42 +148,50 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 	return ses
 }
 
-func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
+// func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
+// 	// generate unique id
+// 	var id uint32
+// 	if sessionID != nil {
+// 		id = *sessionID
+// 	} else {
+// 		id = srv.generateSessionIDLocked()
+// 	}
+
+// 	var bs SessionHandler
+
+// 	switch bsType {
+// 	case session.BS_T_StateBroadcast:
+// 		bs = session.NewStateBroadcast(id, srv, expectedResponses)
+
+// 	case session.BS_T_WhoIsMasterBroadcast:
+// 		bs = session.NewWhoIsMasterBroadcast(id, srv)
+// 	}
+
+// 	srv.addSession(id, bs)
+// 	bs.Start()
+
+//		return bs
+//	}
+
+func (srv *Server) createBroadcastSession(expectedResponses int) SessionHandler {
 	// generate unique id
-	var id uint32
-	if sessionID != nil {
-		id = *sessionID
-	} else {
-		id = srv.generateSessionIDLocked()
-	}
+	id := srv.generateSessionIDLocked()
+	sbs := session.NewStateBroadcast(id, srv, expectedResponses)
 
-	var bs SessionHandler
+	srv.addSession(id, sbs)
+	sbs.Start()
 
-	switch bsType {
-	case session.BS_T_StateBroadcast:
-		bs = session.NewStateBroadcast(
-			id,
-			// srv.GetRecvString(),
-			// srv.GetBroadcastAddr(),
-			// srv.closeReq,
-			srv,
-			expectedResponses,
-		)
+	return sbs
+}
+func (srv *Server) createMasterElectionSession() SessionHandler {
+	id := MASTER_ELECTION_SESSSION_ID
 
-	case session.BS_T_WhoIsMasterBroadcast:
-		bs = session.NewWhoIsMasterBroadcast(
-			id,
-			// srv.GetRecvString(),
-			// srv.GetBroadcastAddr(),
-			// srv.closeReq,
-			srv,
-		)
-	}
+	ws := session.NewWhoIsMasterBroadcast(id, srv)
 
-	srv.addSession(id, bs)
-	bs.Start()
+	srv.addSession(id, ws)
+	ws.Start()
 
-	return bs
+	return ws
 }
 
 func (srv *Server) closeSession(sessionID uint32) {
