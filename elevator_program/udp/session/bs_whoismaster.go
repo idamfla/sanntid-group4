@@ -24,7 +24,7 @@ func (ws *WhoIsAliveBroadcast) Start() {
 	ws.wg.Add(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
-	fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
+	// fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
 
 	ws.queueWhoIsAliveMsg()
 }
@@ -33,13 +33,17 @@ func (ws *WhoIsAliveBroadcast) Close() {
 	ws.BaseBroadcastSession.Close()
 }
 
-func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
+func (ws *WhoIsAliveBroadcast) GetID() uint32 { return ws.BaseBroadcastSession.GetID() }
+
+func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) {
+	ws.BaseBroadcastSession.ReceivePacket(pkt)
+}
 
 func (ws *WhoIsAliveBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
 func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	ws.BaseBroadcastSession.Session.QueueDirectMsg(pktType, eMsg)
+	ws.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
 }
 
 func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {

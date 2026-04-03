@@ -26,7 +26,7 @@ func (sbs *StateBroadcast) Start() {
 	sbs.wg.Add(2)
 	go sbs.listen(sbs)
 	go sbs.sendLoop(sbs)
-	fmt.Printf("State broadcast session %d started\n", sbs.ID)
+	// fmt.Printf("State broadcast session %d started\n", sbs.ID)
 }
 
 func (sbs *StateBroadcast) Close() {
@@ -34,7 +34,11 @@ func (sbs *StateBroadcast) Close() {
 
 }
 
-func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) { sbs.Session.ReceivePacket(pkt) }
+func (sbs *StateBroadcast) GetID() uint32 { return sbs.BaseBroadcastSession.GetID() }
+
+func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) {
+	sbs.BaseBroadcastSession.ReceivePacket(pkt)
+}
 
 func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	var pktT packet.PacketType
@@ -49,7 +53,7 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 }
 
 func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	sbs.BaseBroadcastSession.Session.QueueDirectMsg(pktType, eMsg)
+	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {

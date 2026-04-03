@@ -8,7 +8,7 @@ import (
 type SessionHandler interface {
 	Start()
 	Close()
-	// SendReply(pkt packet.PacketType)
+	GetID() uint32
 	ReceivePacket(pkt packet.Packet)
 	QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) // TODO this should be handled by the masterElect ses ... make this always use the same session, session 1
 	QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage)

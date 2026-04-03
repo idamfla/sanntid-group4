@@ -65,10 +65,5 @@ func (ss *ServerState) SetIsSynced(isSynced bool) {
 	ss.IsSynced = isSynced
 }
 
-func (ss *ServerState) lock() {
-	ss.mu.Lock()
-}
-
-func (ss *ServerState) unlock() {
-	ss.mu.Unlock()
-}
+func (ss *ServerState) lock()   { ss.mu.Lock() }
+func (ss *ServerState) unlock() { ss.mu.Unlock() }
