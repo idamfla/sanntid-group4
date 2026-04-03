@@ -31,6 +31,7 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 		e.TurnToMaster() // TODO it is a bit waste to have it here
 		c.handleAsMaster(e, msg)
 	} else {
+		e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
 		c.handleAsSlave(e, msg)
 	}
 }
@@ -58,22 +59,15 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
-		fmt.Println("yooooooo \n\n\n\n\n\n\n", eMsg.BtnStatus, eMsg.Addr)
-
-		e.System.Mutex.RLock()
-		fmt.Println("What is my id and ip??", e.Id, e.Ip) // TODO I need to change so everything analyses ip/addr instead of id,
-		e.System.Mutex.RUnlock()
-
-		if eMsg.BtnStatus == types.NotActive && e.Ip == eMsg.Addr { // TODO I think this may prevent raceconditions but something is wrong
-			fmt.Println("THISISIS")
-			requestMsg := message.ElevatorMessage{
-				EMsgType: message.EMSG_T_TaskRequest,
-				ID:       e.Id,
-				Addr:     e.Ip,
-				Task:     eMsg.Task,
-			}
-			e.SendToCoordinator <- requestMsg
-		}
+		// if eMsg.BtnStatus == types.NotActive && e.Ip == eMsg.Addr {
+		// 	requestMsg := message.ElevatorMessage{
+		// 		EMsgType: message.EMSG_T_TaskRequest,
+		// 		ID:       e.Id,
+		// 		Addr:     e.Ip,
+		// 		Task:     eMsg.Task,
+		// 	}
+		// 	e.SendToCoordinator <- requestMsg
+		// }
 
 	case message.EMSG_T_NewToChannel:
 		// if e.ConnectedToMaster() {
@@ -124,11 +118,11 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			}
 		}
 		eMsg.EMsgType = message.EMSG_T_ButtonPress
-		e.System.Mutex.RLock()
-		hallCopy := make([][2]types.ButtonStatus, len(e.System.HallRequests)) // TODO don't think we need this anymore
-		copy(hallCopy, e.System.HallRequests)
-		e.System.Mutex.RUnlock()
-		eMsg.HallRequests = hallCopy
+		// e.System.Mutex.RLock()
+		// hallCopy := make([][2]types.ButtonStatus, len(e.System.HallRequests)) // TODO don't think we need this anymore
+		// copy(hallCopy, e.System.HallRequests)
+		// e.System.Mutex.RUnlock()
+		// eMsg.HallRequests = hallCopy
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_TaskUpdate:

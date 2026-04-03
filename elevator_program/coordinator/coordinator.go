@@ -16,9 +16,11 @@ type Coordinator struct {
 	Server        *server.Server
 	msgRecieveCh  chan session.ElevatorPacket
 	msgSendCh     chan message.ElevatorMessage
-	wg            sync.WaitGroup
 	portRegistery map[string]int
 	TaskMonitor   TaskMonitor
+
+	wg   sync.WaitGroup
+	stop chan struct{}
 }
 
 func (c *Coordinator) InitCoordinator() {
@@ -43,6 +45,7 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	go c.MessageListener(e)
 	go c.sendListener(e)
 	go c.Server.Start()
+	// go c.stateMonitor(e)
 }
 
 func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {

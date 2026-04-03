@@ -37,15 +37,10 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.mu.Lock()
 	e.Id = eMsg.ID
 	e.Ip = eMsg.Addr
-	e.IsMaster = false
+	// e.IsMaster = false
 	e.connectedToMaster = true
-	e.mu.Unlock()
 	e.exitOfflineMode()
-	e.System.Mutex.Lock()
-	// for id, elevator := range e.System.Elevators {
-	// 	e.IpRegistery[elevator.Ip] = id
-	// }
-	e.System.Mutex.Unlock()
+	e.mu.Unlock()
 }
 
 func (e *Elevator) ClearTarget() {
@@ -64,6 +59,14 @@ func (e *Elevator) TurnToMaster() {
 	e.mu.Lock()
 	e.IsOnline = true
 	e.IsMaster = true
+	e.connectedToMaster = true
+	e.mu.Unlock()
+}
+
+func (e *Elevator) TurnToSlave() {
+	e.mu.Lock()
+	e.IsOnline = true
+	e.IsMaster = false
 	e.connectedToMaster = true
 	e.mu.Unlock()
 }
