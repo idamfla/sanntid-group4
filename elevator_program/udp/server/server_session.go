@@ -22,6 +22,10 @@ func (srv *Server) getSession(id uint32) (SessionHandler, bool) {
 
 // returns session from session map. if no hits, a new server is made. NB! this functions contains locks
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sessionID uint32) SessionHandler {
+	if sessionID == MASTER_ELECTION_SESSSION_ID {
+		return srv.getOrCreateMasterElectionSession()
+	}
+
 	ses, exists := srv.getSession(sessionID)
 	if exists {
 		return ses
@@ -46,8 +50,8 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	var ses SessionHandler
 
 	switch pktType {
-	case packet.PKT_T_WhoIsMaster:
-		ses = srv.handleWhoIsMaster() // TODO need to change ...
+	case packet.PKT_T_WhoIsAlive:
+		ses = srv.handleWhoIsAlive() // TODO need to change ...
 
 	case packet.PKT_T_IAmMaster:
 		ses = srv.handleIAmMaster(incPkt) // TODO need to change ...
@@ -64,12 +68,16 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		ses = srv.getOrCreateSession(senderAddr, sessionID)
 	}
 
+	if ses == nil {
+		return
+	}
+
 	srv.printIncMsg(senderAddr, pktType, incPkt) // TODO DB
 
 	ses.ReceivePacket(incPkt.Packet)
 }
 
-func (srv *Server) handleWhoIsMaster() SessionHandler {
+func (srv *Server) handleWhoIsAlive() SessionHandler {
 	if srv.isSearchingForMaster() {
 		return nil
 	}
@@ -84,6 +92,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 
 	if !exists || peer == nil {
 		srv.mu.Unlock()
+		fmt.Println("Session dosent exist or peer is nil") // TODO db
 		return nil
 	}
 
@@ -93,6 +102,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
 		srv.SetIsSynced(true)
 		srv.mu.Unlock()
+		fmt.Println(srv.ID, "already know master, ignoring") // TODO db
 		return nil
 	}
 
@@ -102,9 +112,9 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	}
 
 	peer.SetMaster(true)
+	peer.SetIsSynced(true)
 
 	srv.SetIsSynced(false)
-	peer.SetIsSynced(true)
 
 	srv.mu.Unlock()
 
@@ -138,38 +148,13 @@ func (srv *Server) createSession(remoteAddr *net.UDPAddr, sessionID *uint32) *se
 		id = srv.generateSessionIDLocked()
 	}
 
-	ses := session.NewSession(id, remoteAddr, srv.closeReq, srv)
+	ses := session.NewSession(id, remoteAddr, srv)
 	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
 
 	srv.addSession(id, ses)
 	ses.Start()
 	return ses
 }
-
-// func (srv *Server) createBroadcastSession(sessionID *uint32, bsType session.BroadcastSessionType, expectedResponses int) SessionHandler {
-// 	// generate unique id
-// 	var id uint32
-// 	if sessionID != nil {
-// 		id = *sessionID
-// 	} else {
-// 		id = srv.generateSessionIDLocked()
-// 	}
-
-// 	var bs SessionHandler
-
-// 	switch bsType {
-// 	case session.BS_T_StateBroadcast:
-// 		bs = session.NewStateBroadcast(id, srv, expectedResponses)
-
-// 	case session.BS_T_WhoIsMasterBroadcast:
-// 		bs = session.NewWhoIsMasterBroadcast(id, srv)
-// 	}
-
-// 	srv.addSession(id, bs)
-// 	bs.Start()
-
-//		return bs
-//	}
 
 func (srv *Server) createBroadcastSession(expectedResponses int) SessionHandler {
 	// generate unique id

@@ -30,30 +30,8 @@ func (ses *Session) GenerateDataPacket(
 	return data, nil
 }
 
-func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-	select {
-	case ses.outgoingMsgCh <- outgoingMessage{
-		PktType: pktType,
-		EMsg:    eMsg,
-	}:
-	default:
-		fmt.Println("Can't queue message, sessions messageQueue is full")
-	}
-}
-
-func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-}
-
-func (ses *Session) QueueWhoIsMasterMsg() {
-	ses.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
-}
-
 // for the SessionBehavior, does nothing
 func (ses *Session) OnSend(pktType packet.PacketType) {}
-
-func (ses *Session) SendReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
-}
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
 	defer ses.wg.Done()

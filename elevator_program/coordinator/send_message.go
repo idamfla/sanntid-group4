@@ -72,7 +72,7 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 	case message.EMSG_T_NewToChannel:
 		ip = localIP // broadcastIp
 		port = 9000  //p.portRegistery["broadcast"]
-		msgPacket = packet.PROTO_PKT_T_WhoIsMaster
+		// msgPacket = packet.PROTO_PKT_T_WhoIsMaster
 		fmt.Println("Trying to send new to channel")
 	}
 	c.QueueMessage(udp.MustUDPAddr(ip, port), msgPacket, eMsg)

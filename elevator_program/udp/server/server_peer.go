@@ -130,6 +130,19 @@ func (srv *Server) setMasterPeer(peerID string, isMaster bool) {
 
 }
 
+func (srv *Server) clearAllPeerActive() {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	for key, peer := range srv.peers {
+		if peer == nil {
+			fmt.Printf("%s -> nil\n", key)
+			continue
+		}
+
+		peer.ClearMaster()
+	}
+}
+
 func (srv *Server) PrintPeers() {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()

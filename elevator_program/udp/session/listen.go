@@ -36,7 +36,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 				retryCounter++
 				if retryCounter > udp.MAX_RETRIES {
 					fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
-					ses.QueueWhoIsMasterMsg() // TODO test that this actually work as fault tol ...
+					ses.QueueWhoIsAliveMsg() // TODO test that this actually work as fault tol ...
 					ses.requestClose()
 					return
 				}

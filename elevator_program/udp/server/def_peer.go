@@ -30,6 +30,14 @@ func (peer *PeerInfo) SetMaster(isMaster bool) {
 	peer.IsMaster = isMaster
 }
 
+// func (peer *PeerInfo) SetMaster() {
+// 	peer.IsMaster = true
+// }
+
+func (peer *PeerInfo) ClearMaster() {
+	peer.IsMaster = false
+}
+
 func (peer *PeerInfo) SetIsSynced(isSynced bool) {
 	peer.IsSynced = true
 }

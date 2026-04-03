@@ -20,8 +20,9 @@ type SessionBehavior interface {
 
 type Session struct {
 	ID       uint32
+	selfAddr string
 	peerAddr *net.UDPAddr // addr of original sender
-	peerID   string
+	peerID   string       // TODO have a function for this instead ...
 
 	seq uint32 // TODO remove ... maybe??
 
@@ -52,11 +53,11 @@ type Session struct {
 
 func NewSession(id uint32,
 	peerAddr *net.UDPAddr,
-	closeReq chan<- uint32,
-	transmitter ServerAPI,
+	srv ServerAPI,
 ) *Session {
 	ses := &Session{
 		ID:       id,
+		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
 		peerID:   peerAddr.String(),
 		// seq:                seq, // TODO have it set on init ...
@@ -70,10 +71,10 @@ func NewSession(id uint32,
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
-		srv:       transmitter,
+		srv:       srv,
 
 		stop:     make(chan struct{}, CHANNEL_BUF),
-		closeReq: closeReq,
+		closeReq: srv.GetCloseReqCh(),
 	}
 
 	return ses
@@ -114,9 +115,9 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 }
 
 func (ses *Session) startResponseTimer() {
-	ses.responseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
-		fmt.Println("Elevator(s) did not respond in time ...")
-		ses.QueueWhoIsMasterMsg()
+	ses.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
+		fmt.Println("Peer did not respond in time ...")
+		ses.QueueWhoIsAliveMsg()
 		ses.stopResponseTimer()
 		ses.requestClose()
 	})

@@ -1,8 +1,6 @@
 package server
 
 import (
-	"elevator_program/message"
-	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -13,15 +11,6 @@ const (
 	CHANNEL_BUF                 = 32
 	MASTER_ELECTION_SESSSION_ID = uint32(1)
 )
-
-type SessionHandler interface {
-	Start()
-	Close()
-	SendReply(pkt packet.PacketType)
-	ReceivePacket(pkt packet.Packet)
-	QueueWhoIsMasterMsg()
-	QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage)
-}
 
 type Server struct {
 	ID string

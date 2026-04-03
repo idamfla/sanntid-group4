@@ -8,6 +8,7 @@ import (
 
 type ServerAPI interface {
 	Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	QueueWhoIsAliveMsg()
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
 	SetSelfAsMaster()

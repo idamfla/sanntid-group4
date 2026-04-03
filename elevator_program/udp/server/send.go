@@ -56,19 +56,19 @@ func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could p
 	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
-func (srv *Server) startWhoIsMasterMsg() { // TODO this need chaning
-	// bs := srv.createBroadcastSession(nil, session.BS_T_WhoIsMasterBroadcast, 0)
-	ws := srv.createMasterElectionSession()
+// func (srv *Server) startWhoIsMasterMsg() { // TODO this need chaning, maybe just rename
+// 	ws := srv.getOrCreateMasterElectionSession()
 
-	ws.QueueWhoIsMasterMsg()
-}
+// 	// ws.QueueWhoIsAliveMsg()
+// }
 
 // deciding how to output messages from the server, what type of session should start
 func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsMaster: // TODO this need changing
-		srv.dispatchWhoIsMaster()
+	case packet.PKT_T_WhoIsAlive: // TODO this need changing
+		srv.QueueWhoIsAliveMsg()
+	// 	srv.dispatchWhoIsAlive()
 
 	case packet.PKT_T_BroadcastUpdate:
 		srv.dispatchBroadcastUpdate(outMsg)
@@ -128,22 +128,22 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 	srv.startStateBroadcast(outMsg)
 }
 
-func (srv *Server) dispatchWhoIsMaster() { // TODO this need changing ...
-	if srv.isSearchingForMaster() {
-		return
-	}
+// func (srv *Server) dispatchWhoIsAlive() { // TODO this need changing ... could some of this be handled right before routing to session?
+// 	if srv.isSearchingForMaster() {
+// 		return
+// 	}
 
-	srv.ResetState()
-	srv.setMasterSearch()
+// 	// srv.ResetState()
+// 	srv.setMasterSearch()
 
-	srv.mu.Lock()
-	if peer := srv.getMasterPeerLocked(); peer != nil {
-		peer.SetMaster(false)
-	}
-	srv.mu.Unlock()
+// 	// srv.mu.Lock()
+// 	// if peer := srv.getMasterPeerLocked(); peer != nil {
+// 	// 	peer.SetMaster(false)
+// 	// }
+// 	// srv.mu.Unlock()
 
-	srv.startWhoIsMasterMsg()
-}
+// 	// srv.startWhoIsMasterMsg()
+// }
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
@@ -165,6 +165,11 @@ func (srv *Server) QueueSyncRequest() {
 		Addr:     srv.GetRecvString(),
 		EMsgType: message.EMSG_T_NewToChannel,
 	})
+}
+
+func (srv *Server) QueueWhoIsAliveMsg() { // TODO this is for debugging
+	ws := srv.getOrCreateMasterElectionSession()
+	ws.QueueWhoIsAliveMsg()
 }
 
 // --- helper ---

@@ -110,21 +110,21 @@ func main() {
 
 	eC := elevtest.NewElev("C")
 
-	// err = eC.StartServer(myIP, 9002)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	err = eC.StartServer(myIP, 9002)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	eA.Start()
 	eB.Start()
-	// eC.Start()
+	eC.Start()
 
-	eA.QueueMessage(
-		nil,
-		packet.PROTO_PKT_T_WhoIsMaster,
-		message.ElevatorMessage{},
-	)
+	// eA.QueueMessage(
+	// 	nil,
+	// 	packet.PROTO_PKT_T_WhoIsAlive,
+	// 	message.ElevatorMessage{},
+	// )
 	// eC.QueueMessage(
 	// 	udp.MustUDPAddr(myIP, 9001),
 	// 	packet.PROTO_PKT_T_SlaveUpdate,
@@ -143,13 +143,5 @@ func main() {
 
 // TODO
 /*
-- make peer sync
-- send snapshot msg
-- make peer track seq number
-- make sure all is orginized enough, folder-vise etc.
-- handle new msg, nb some only send forth ack and then do work before starting completely new session
-	- check if it is only stopping because it uses old logic, it does send the whole exchange before crashing
-- remove master
-- should "I am master" prompt you to remove old master if there are any?
-- start server with start seq
+- A appeers to close the masterElectSession ...
 */

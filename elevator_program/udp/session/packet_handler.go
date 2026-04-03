@@ -16,16 +16,14 @@ func (ses *Session) ReceivePacket(pkt packet.Packet) {
 	}
 }
 
-func (ses *Session) HandlePacket(pkt packet.Packet) error {
+func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename HandleIncPkt
 	h := pkt.Header
 
-	if h.Seq != ses.seq+1 { // TODO should i retry?
+	if h.Seq != ses.seq+1 {
 		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d)...\n",
 			ses.ID, h.Seq, ses.seq+1)
 		fmt.Println(err)
-		// return ses.sendRetry(ses.lastOutPkt)
 		return err
-
 	}
 
 	ses.seq = pkt.Header.Seq
@@ -62,8 +60,11 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 	case packet.PKT_T_SlaveUpdate:
 		ses.handleSlaveUpdate(pkt.Payload)
 
-	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete: // CatchupDone signifies that someone has rejoind the network and is up to date
-		ses.handleStateBSUpdate(h.PktType)
+	case packet.PKT_T_BroadcastUpdate:
+		ses.handleStateBSUpdate()
+
+	case packet.PKT_T_SyncComplete:
+		ses.handleSyncComplete(pkt.Payload.Addr)
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
 		ses.requestClose()
@@ -87,14 +88,14 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error {
 func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
 	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
 	ses.notifyTaskReady()
-	ses.SendReply(packet.PKT_T_RequestTaskExecutionAck)
+	ses.queueReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.scheduleSessionClose()
 }
 
 func (ses *Session) handleSnapshot() {
 	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
-	ses.SendReply(packet.PKT_T_SnapshotAck)
+	ses.queueReply(packet.PKT_T_SnapshotAck)
 
 	ses.scheduleSessionClose()
 }
@@ -102,7 +103,7 @@ func (ses *Session) handleSnapshot() {
 func (ses *Session) handleCatchup() {
 	ses.QueueElevatorStateTask()
 	ses.notifyTaskReady()
-	ses.SendReply(packet.PKT_T_CatchupAck)
+	ses.queueReply(packet.PKT_T_CatchupAck)
 
 	ses.scheduleSessionClose()
 }
@@ -111,7 +112,7 @@ func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is
 	// ses.QueueServerMsg(ses.pendingPkt.Payload)
 	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
 	ses.notifyTaskReady()
-	ses.SendReply(packet.PKT_T_SlaveUpdateAck)
+	ses.queueReply(packet.PKT_T_SlaveUpdateAck)
 	ses.scheduleSessionClose()
 }
 
@@ -136,15 +137,17 @@ func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, 
 	ses.queueElevatorTask(emsg, nil)
 }
 
-func (ses *Session) handleStateBSUpdate(pktType packet.PacketType) {
-	switch pktType {
-	case packet.PKT_T_BroadcastUpdate:
-		ses.SendReply(packet.PKT_T_BroadcastAck)
-	case packet.PKT_T_SyncComplete:
-		ses.SendReply(packet.PKT_T_SyncAck)
-	}
-
+func (ses *Session) handleStateBSUpdate() {
+	ses.queueReply(packet.PKT_T_BroadcastAck)
 	ses.QueueElevatorStateTask()
+}
+
+func (ses *Session) handleSyncComplete(addr string) {
+	if addr == ses.selfAddr {
+		fmt.Println("this is me ...") // TODO idk, do something special
+		ses.QueueElevatorStateTask()
+	}
+	ses.queueReply(packet.PKT_T_SyncAck)
 }
 
 func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
@@ -155,9 +158,9 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_SyncCommit:
-		ses.SendReply(packet.PKT_T_SyncDone)
+		ses.queueReply(packet.PKT_T_SyncDone)
 	case packet.PKT_T_BroadcastCommit:
-		ses.SendReply(packet.PKT_T_BroadcastDone)
+		ses.queueReply(packet.PKT_T_BroadcastDone)
 	}
 
 	ses.pendingPkt = nil
@@ -177,7 +180,7 @@ func (ses *Session) notifyTaskReady() {
 // --- elevator interaction
 func (ses *Session) waitForElevatorDoneWithReply() error {
 	if err := ses.waitForElevatorDone(); err != nil {
-		ses.SendReply(packet.PKT_T_ElevatorFailed)
+		ses.queueReply(packet.PKT_T_ElevatorFailed)
 		fmt.Println(err)
 		return err
 	}

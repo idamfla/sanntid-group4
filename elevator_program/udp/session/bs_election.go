@@ -1,6 +1,7 @@
 package session
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
@@ -46,33 +47,35 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 		return
 
 	case <-timer.C:
-		fmt.Printf("No master found, electing ... There are %d candidates\n", ws.countResponders())
-		ws.mu.Lock()
+		e.runElection(ws)
+	}
+}
 
-		lowest := ""
-		for addr := range ws.responders {
-			select {
-			case <-ws.stop:
-				ws.mu.Unlock()
-				return
-			default:
-			}
+func (e *Election) runElection(ws *WhoIsMasterBroadcast) {
+	fmt.Printf("No master found, electing ... There are %d candidates\n", ws.countTotalResponders())
 
-			if lowest == "" || addr < lowest {
-				lowest = addr
-			}
-		}
+	lowest, err := ws.runElection()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-		amMaster := lowest == ws.selfAddr
-		ws.mu.Unlock()
+	amMaster := lowest == ws.selfAddr
 
-		fmt.Printf("New master elected: %s\n", lowest)
+	fmt.Printf("New master elected: %s\n", lowest)
 
-		if amMaster {
-			// I am the new master
-			ws.expectedResponses = ws.countResponders()
-			ws.resetResponders()
-			ws.SendReply(packet.PKT_T_IAmMaster)
+	if amMaster {
+		// I am the new master
+		ws.expectedResponses = ws.countResponders()
+		ws.resetResponders()
+		ws.queueReply(packet.PKT_T_IAmMaster)
+	} else {
+		select {
+		case <-e.masterFound:
+			fmt.Println("Master found in another election, aborting")
+			return
+		default:
+			ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: lowest, Addr: lowest})
 		}
 	}
 }

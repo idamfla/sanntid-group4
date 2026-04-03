@@ -16,7 +16,7 @@ func (srv *Server) setMasterSearch() {
 	srv.state.SetMasterSearch()
 }
 
-func (srv *Server) isSearchingForMaster() bool {
+func (srv *Server) isSearchingForMaster() bool { // TODO this could probably be part of the masterElectSession
 	return srv.state.IsSearchingForMaster()
 }
 

@@ -34,7 +34,7 @@ func (sbs *StateBroadcast) Close() {
 
 }
 
-func (sbs *StateBroadcast) SendReply(pkt packet.PacketType) { sbs.Session.SendReply(pkt) }
+func (sbs *StateBroadcast) queueReply(pkt packet.PacketType) { sbs.Session.queueReply(pkt) }
 
 func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) { sbs.Session.ReceivePacket(pkt) }
 
@@ -50,8 +50,8 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 	sbs.QueueDirectMsg(pktT, eMsg)
 }
 
-func (sbs *StateBroadcast) QueueWhoIsMasterMsg() {
-	sbs.Session.QueueWhoIsMasterMsg()
+func (sbs *StateBroadcast) QueueWhoIsAliveMsg() {
+	sbs.Session.QueueWhoIsAliveMsg()
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
@@ -78,10 +78,14 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 
 	}
 
-	sbs.seq = h.Seq
 	sbs.addResponder(peerID)
 
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
+
+	if isQuorum {
+		sbs.seq = h.Seq
+	}
+
 	switch pktType {
 	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
 		fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
@@ -106,9 +110,9 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_BroadcastAck:
-		sbs.SendReply(packet.PKT_T_BroadcastCommit)
+		sbs.queueReply(packet.PKT_T_BroadcastCommit)
 	case packet.PKT_T_SyncAck:
-		sbs.SendReply(packet.PKT_T_SyncCommit)
+		sbs.queueReply(packet.PKT_T_SyncCommit)
 	}
 
 	sbs.resetResponders()
@@ -118,8 +122,4 @@ func (sbs *StateBroadcast) handleStateBSDone() {
 	sbs.hasLastPkt = false
 	sbs.stopResponseTimer()
 	sbs.requestClose()
-}
-
-func (sbs *StateBroadcast) countResponders() int {
-	return sbs.BaseBroadcastSession.countResponders() - 1
 }
