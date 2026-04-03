@@ -22,7 +22,6 @@ type Session struct {
 	ID       uint32
 	selfAddr string
 	peerAddr *net.UDPAddr // addr of original sender
-	peerID   string       // TODO have a function for this instead ...
 
 	seq uint32 // TODO remove ... maybe??
 
@@ -59,7 +58,6 @@ func NewSession(id uint32,
 		ID:       id,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
-		peerID:   peerAddr.String(),
 		// seq:                seq, // TODO have it set on init ...
 		pendingPkt:    &packet.Packet{},
 		lastOutPkt:    outgoingMessage{},
@@ -112,6 +110,11 @@ func (ses *Session) GetSeq() uint32 {
 
 func (ses *Session) GetPeerAddr() *net.UDPAddr {
 	return ses.peerAddr
+}
+
+// just the string version of the addr
+func (ses *Session) getPeerID() string {
+	return ses.GetPeerAddr().String()
 }
 
 func (ses *Session) startResponseTimer() {
