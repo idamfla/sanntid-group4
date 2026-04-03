@@ -89,7 +89,7 @@ func (bsType BroadcastSessionType) String() string {
 func (bbs *BaseBroadcastSession) startResponseTimer() {
 	bbs.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
 		fmt.Printf("Peer(s) did not respond in time ... %d/%d\n", bbs.countResponders(), bbs.expectedResponses)
-		bbs.QueueWhoIsAliveMsg()
+		bbs.queueWhoIsAliveMsg()
 		bbs.stopResponseTimer()
 		bbs.requestClose()
 	})

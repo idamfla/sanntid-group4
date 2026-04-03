@@ -117,7 +117,7 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 func (ses *Session) startResponseTimer() {
 	ses.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
 		fmt.Println("Peer did not respond in time ...")
-		ses.QueueWhoIsAliveMsg()
+		ses.queueWhoIsAliveMsg()
 		ses.stopResponseTimer()
 		ses.requestClose()
 	})

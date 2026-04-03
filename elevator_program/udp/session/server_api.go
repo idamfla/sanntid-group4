@@ -35,6 +35,10 @@ func (ses *Session) sendRetry(outPkt outgoingMessage) error {
 		outPkt.EMsg)
 }
 
+func (ses *Session) queueWhoIsAliveMsg() {
+	ses.srv.QueueWhoIsAliveMsg()
+}
+
 func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
 	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
 }

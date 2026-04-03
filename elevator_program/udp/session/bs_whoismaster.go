@@ -26,7 +26,7 @@ func (ws *WhoIsMasterBroadcast) Start() {
 	go ws.sendLoop(ws)
 	fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
 
-	ws.QueueWhoIsAliveMsg()
+	ws.queueWhoIsAliveMsg()
 }
 
 func (ws *WhoIsMasterBroadcast) Close() {
@@ -40,8 +40,8 @@ func (ws *WhoIsMasterBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.Re
 func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
-func (ws *WhoIsMasterBroadcast) QueueWhoIsAliveMsg() { // TODO this should not exsist outside of session ...
-	ws.BaseBroadcastSession.Session.QueueDirectMsg(packet.PKT_T_WhoIsAlive, message.ElevatorMessage{})
+func (ws *WhoIsMasterBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
+	ws.BaseBroadcastSession.Session.QueueDirectMsg(pktType, eMsg)
 }
 
 func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
@@ -119,7 +119,7 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 func (ws *WhoIsMasterBroadcast) startResponseTimer() {
 	ws.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
 		fmt.Printf("Peer(s) did not respond masterElectSession in time ... %d/%d\n", ws.countResponders(), ws.expectedResponses)
-		ws.QueueWhoIsAliveMsg()
+		ws.queueWhoIsAliveMsg()
 		ws.stopResponseTimer()
 	})
 }

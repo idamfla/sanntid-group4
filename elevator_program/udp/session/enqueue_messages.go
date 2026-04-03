@@ -20,10 +20,6 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.Eleva
 func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
-func (ses *Session) QueueWhoIsAliveMsg() {
-	ses.QueueDirectMsg(packet.PKT_T_WhoIsAlive, message.ElevatorMessage{})
-}
-
 func (ses *Session) queueReply(pktType packet.PacketType) {
 	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
 }

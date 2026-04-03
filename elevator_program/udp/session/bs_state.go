@@ -50,8 +50,8 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 	sbs.QueueDirectMsg(pktT, eMsg)
 }
 
-func (sbs *StateBroadcast) QueueWhoIsAliveMsg() {
-	sbs.Session.QueueWhoIsAliveMsg()
+func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
+	sbs.BaseBroadcastSession.Session.QueueDirectMsg(pktType, eMsg)
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {

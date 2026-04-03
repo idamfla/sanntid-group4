@@ -167,11 +167,6 @@ func (srv *Server) QueueSyncRequest() {
 	})
 }
 
-func (srv *Server) QueueWhoIsAliveMsg() { // TODO this is for debugging
-	ws := srv.getOrCreateMasterElectionSession()
-	ws.QueueWhoIsAliveMsg()
-}
-
 // --- helper ---
 func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
 	local := srv.getRecvUDPAddr()
