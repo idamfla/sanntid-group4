@@ -169,7 +169,7 @@ func (srv *Server) createBroadcastSession(expectedResponses int) SessionHandler 
 func (srv *Server) createMasterElectionSession() SessionHandler {
 	id := MASTER_ELECTION_SESSSION_ID
 
-	ws := session.NewWhoIsMasterBroadcast(id, srv)
+	ws := session.NewWhoIsAliveBroadcast(id, srv)
 
 	srv.addSession(id, ws)
 	ws.Start()

@@ -7,20 +7,20 @@ import (
 	"fmt"
 )
 
-type WhoIsMasterBroadcast struct {
+type WhoIsAliveBroadcast struct {
 	*BaseBroadcastSession
 	election *Election
 }
 
-func NewWhoIsMasterBroadcast(id uint32, srv ServerAPI) *WhoIsMasterBroadcast {
-	ws := &WhoIsMasterBroadcast{
+func NewWhoIsAliveBroadcast(id uint32, srv ServerAPI) *WhoIsAliveBroadcast {
+	ws := &WhoIsAliveBroadcast{
 		BaseBroadcastSession: NewBaseBroadcastSession(id, srv, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
 	}
 	return ws
 }
 
-func (ws *WhoIsMasterBroadcast) Start() {
+func (ws *WhoIsAliveBroadcast) Start() {
 	ws.wg.Add(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
@@ -29,33 +29,29 @@ func (ws *WhoIsMasterBroadcast) Start() {
 	ws.queueWhoIsAliveMsg()
 }
 
-func (ws *WhoIsMasterBroadcast) Close() {
+func (ws *WhoIsAliveBroadcast) Close() {
 	ws.BaseBroadcastSession.Close()
 }
 
-func (ws *WhoIsMasterBroadcast) queueReply(pkt packet.PacketType) { ws.Session.queueReply(pkt) }
+func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
 
-func (ws *WhoIsMasterBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
-
-func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+func (ws *WhoIsAliveBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
-func (ws *WhoIsMasterBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
+func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
 	ws.BaseBroadcastSession.Session.QueueDirectMsg(pktType, eMsg)
 }
 
-func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
+func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsAlive:
 		ws.startElection()
-		// ws.queueReply(packet.PKT_T_IAmAlive)
-		fmt.Println("sending whoIsAlive")
 	case packet.PKT_T_IAmMaster:
 		ws.startResponseTimer()
 	}
 }
 
-func (ws *WhoIsMasterBroadcast) HandlePacket(pkt packet.Packet) error {
+func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
 	peerID := pkt.Header.SenderAddr
 	ws.addResponder(peerID)
 
@@ -79,16 +75,15 @@ func (ws *WhoIsMasterBroadcast) HandlePacket(pkt packet.Packet) error {
 	return nil
 }
 
-func (ws *WhoIsMasterBroadcast) handleWhoIsAlive() {
+func (ws *WhoIsAliveBroadcast) handleWhoIsAlive() {
 	if ws.isMaster() {
 		ws.queueReply(packet.PKT_T_IAmMaster)
 	} else {
 		ws.queueReply(packet.PKT_T_IAmAlive)
 	}
-	// ws.election.Start(ws) // TODO only the one that askes whoIsAlive can find who is the master, it will be broadcasted and the one that has that addr will send the iAmMaster
 }
 
-func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
+func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	select {
 	case ws.election.masterFound <- struct{}{}:
 	default:
@@ -97,7 +92,7 @@ func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
-func (ws *WhoIsMasterBroadcast) handleElectedMasterIs(pkt packet.Packet) {
+func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	addr := pkt.Payload.Addr
 	if addr == ws.selfAddr {
 		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
@@ -105,7 +100,7 @@ func (ws *WhoIsMasterBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	}
 }
 
-func (ws *WhoIsMasterBroadcast) handleMasterAck() {
+func (ws *WhoIsAliveBroadcast) handleMasterAck() {
 	if ws.isMaster() {
 		fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
 
@@ -117,7 +112,7 @@ func (ws *WhoIsMasterBroadcast) handleMasterAck() {
 	}
 }
 
-func (ws *WhoIsMasterBroadcast) startResponseTimer() {
+func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 	ws.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
 		fmt.Printf("Peer(s) did not respond masterElectSession in time ... %d/%d\n", ws.countResponders(), ws.expectedResponses)
 		ws.queueWhoIsAliveMsg()
@@ -125,9 +120,9 @@ func (ws *WhoIsMasterBroadcast) startResponseTimer() {
 	})
 }
 
-func (ws *WhoIsMasterBroadcast) startElection() { ws.election.Start(ws) }
+func (ws *WhoIsAliveBroadcast) startElection() { ws.election.Start(ws) }
 
-func (ws *WhoIsMasterBroadcast) runElection() (string, error) {
+func (ws *WhoIsAliveBroadcast) runElection() (string, error) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 

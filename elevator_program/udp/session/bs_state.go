@@ -34,8 +34,6 @@ func (sbs *StateBroadcast) Close() {
 
 }
 
-func (sbs *StateBroadcast) queueReply(pkt packet.PacketType) { sbs.Session.queueReply(pkt) }
-
 func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) { sbs.Session.ReceivePacket(pkt) }
 
 func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {

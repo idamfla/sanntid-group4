@@ -56,19 +56,12 @@ func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could p
 	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
-// func (srv *Server) startWhoIsMasterMsg() { // TODO this need chaning, maybe just rename
-// 	ws := srv.getOrCreateMasterElectionSession()
-
-// 	// ws.QueueWhoIsAliveMsg()
-// }
-
 // deciding how to output messages from the server, what type of session should start
 func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_WhoIsAlive: // TODO this need changing
 		srv.QueueWhoIsAliveMsg()
-	// 	srv.dispatchWhoIsAlive()
 
 	case packet.PKT_T_BroadcastUpdate:
 		srv.dispatchBroadcastUpdate(outMsg)
@@ -94,7 +87,7 @@ func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 	mstr := srv.getMasterPeerLocked()
 	if mstr == nil {
 		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
-		// srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsMaster, message.ElevatorMessage{}) // TODO fault tol, FAULT_T_LostMaster, queue who is master
+		srv.QueueWhoIsAliveMsg()
 		srv.mu.Unlock()
 		return
 	}
@@ -127,23 +120,6 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 
 	srv.startStateBroadcast(outMsg)
 }
-
-// func (srv *Server) dispatchWhoIsAlive() { // TODO this need changing ... could some of this be handled right before routing to session?
-// 	if srv.isSearchingForMaster() {
-// 		return
-// 	}
-
-// 	// srv.ResetState()
-// 	srv.setMasterSearch()
-
-// 	// srv.mu.Lock()
-// 	// if peer := srv.getMasterPeerLocked(); peer != nil {
-// 	// 	peer.SetMaster(false)
-// 	// }
-// 	// srv.mu.Unlock()
-
-// 	// srv.startWhoIsMasterMsg()
-// }
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)

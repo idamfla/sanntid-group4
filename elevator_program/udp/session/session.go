@@ -105,16 +105,3 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 func (ses *Session) getPeerID() string {
 	return ses.GetPeerAddr().String()
 }
-
-// func (ses *Session) startResponseTimer() {
-// 	ses.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
-// 		fmt.Println("Peer did not respond in time ...")
-// 		ses.queueWhoIsAliveMsg()
-// 		ses.stopResponseTimer()
-// 		ses.requestClose()
-// 	})
-// }
-
-// func (ses *Session) stopResponseTimer() {
-// 	ses.responseTimer.Stop()
-// }

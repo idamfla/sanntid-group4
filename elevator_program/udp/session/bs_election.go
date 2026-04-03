@@ -17,7 +17,7 @@ type Election struct {
 }
 
 // Start launches the election if not already started
-func (e *Election) Start(ws *WhoIsMasterBroadcast) {
+func (e *Election) Start(ws *WhoIsAliveBroadcast) {
 	e.mu.Lock()
 	if e.started {
 		e.mu.Unlock()
@@ -31,7 +31,7 @@ func (e *Election) Start(ws *WhoIsMasterBroadcast) {
 }
 
 // run contains the election logic
-func (e *Election) run(ws *WhoIsMasterBroadcast) {
+func (e *Election) run(ws *WhoIsAliveBroadcast) {
 	defer ws.wg.Done()
 
 	defer e.clearStarted()
@@ -52,7 +52,7 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 	}
 }
 
-func (e *Election) runElection(ws *WhoIsMasterBroadcast) {
+func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
 	fmt.Printf("No master found, electing ... There are %d candidate(s)\n", ws.countTotalResponders())
 
 	if ws.countResponders() == 0 {
