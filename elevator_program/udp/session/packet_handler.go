@@ -64,7 +64,7 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 		ses.handleStateBSUpdate()
 
 	case packet.PKT_T_SyncComplete:
-		ses.handleSyncComplete(pkt.Payload.Addr)
+		ses.handleSyncComplete()
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
 		ses.requestClose()
@@ -142,11 +142,8 @@ func (ses *Session) handleStateBSUpdate() {
 	ses.QueueElevatorStateTask()
 }
 
-func (ses *Session) handleSyncComplete(addr string) {
-	if addr == ses.selfAddr {
-		fmt.Println("this is me ...") // TODO idk, do something special
-		ses.QueueElevatorStateTask()
-	}
+func (ses *Session) handleSyncComplete() {
+	ses.QueueElevatorStateTask()
 	ses.queueReply(packet.PKT_T_SyncAck)
 }
 
