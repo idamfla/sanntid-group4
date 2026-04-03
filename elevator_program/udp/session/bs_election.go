@@ -27,14 +27,15 @@ func (e *Election) Start(ws *WhoIsMasterBroadcast) {
 	e.mu.Unlock()
 
 	ws.wg.Add(1)
-	go func() {
-		defer ws.wg.Done()
-		e.run(ws)
-	}()
+	go e.run(ws)
 }
 
 // run contains the election logic
 func (e *Election) run(ws *WhoIsMasterBroadcast) {
+	defer ws.wg.Done()
+
+	defer e.clearStarted()
+
 	timer := time.NewTimer(udp.MASTER_ELECTION_TIMEOUT)
 	defer timer.Stop()
 
@@ -52,7 +53,15 @@ func (e *Election) run(ws *WhoIsMasterBroadcast) {
 }
 
 func (e *Election) runElection(ws *WhoIsMasterBroadcast) {
-	fmt.Printf("No master found, electing ... There are %d candidates\n", ws.countTotalResponders())
+	fmt.Printf("No master found, electing ... There are %d candidate(s)\n", ws.countTotalResponders())
+
+	if ws.countResponders() == 0 {
+		fmt.Printf(` But no one's listening
+ And that's just lonely
+`)
+		ws.queueWhoIsAliveMsg()
+		return
+	}
 
 	lowest, err := ws.runElection()
 	if err != nil {
@@ -78,4 +87,10 @@ func (e *Election) runElection(ws *WhoIsMasterBroadcast) {
 			ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: lowest, Addr: lowest})
 		}
 	}
+}
+
+func (e *Election) clearStarted() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.started = false
 }

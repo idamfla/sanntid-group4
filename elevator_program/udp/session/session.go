@@ -1,10 +1,7 @@
 package session
 
 import (
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
-	"elevator_program/utilities"
-	"fmt"
 	"net"
 	"sync"
 )
@@ -34,11 +31,7 @@ type Session struct {
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan outgoingMessage
 
-	// --- lifesycle ---
-	responseTimer *utilities.Timer
-
 	// --- external systems ---
-	// elev     chan<- ElevatorPacket // TODO remove when server handles elevator communication
 	elevDone  chan struct{}
 	taskReady chan struct{}
 	srv       ServerAPI // <-- session uses this to reply
@@ -65,8 +58,6 @@ func NewSession(id uint32,
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
-		responseTimer: utilities.NewTimer(),
-
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
 		srv:       srv,
@@ -86,8 +77,6 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		ses.stopResponseTimer()
-
 		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
@@ -112,20 +101,20 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 	return ses.peerAddr
 }
 
-// just the string version of the addr
+// just the string version of the peerAddr
 func (ses *Session) getPeerID() string {
 	return ses.GetPeerAddr().String()
 }
 
-func (ses *Session) startResponseTimer() {
-	ses.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
-		fmt.Println("Peer did not respond in time ...")
-		ses.queueWhoIsAliveMsg()
-		ses.stopResponseTimer()
-		ses.requestClose()
-	})
-}
+// func (ses *Session) startResponseTimer() {
+// 	ses.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
+// 		fmt.Println("Peer did not respond in time ...")
+// 		ses.queueWhoIsAliveMsg()
+// 		ses.stopResponseTimer()
+// 		ses.requestClose()
+// 	})
+// }
 
-func (ses *Session) stopResponseTimer() {
-	ses.responseTimer.Stop()
-}
+// func (ses *Session) stopResponseTimer() {
+// 	ses.responseTimer.Stop()
+// }

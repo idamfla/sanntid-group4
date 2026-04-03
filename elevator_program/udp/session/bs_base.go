@@ -2,6 +2,7 @@ package session
 
 import (
 	"elevator_program/udp"
+	"elevator_program/utilities"
 	"fmt"
 	"sync"
 )
@@ -15,9 +16,9 @@ const (
 
 type BaseBroadcastSession struct {
 	*Session
-	// selfAddr          string
 	expectedResponses int
 	responders        map[string]bool
+	responseTimer     *utilities.Timer
 	mu                sync.Mutex
 }
 
@@ -33,6 +34,7 @@ func NewBaseBroadcastSession(
 		Session:           NewSession(id, addr, srv),
 		expectedResponses: expectedResponses,
 		responders:        make(map[string]bool),
+		responseTimer:     utilities.NewTimer(),
 	}
 	bbs.responders[selfAddr] = true
 	return bbs
@@ -93,4 +95,8 @@ func (bbs *BaseBroadcastSession) startResponseTimer() {
 		bbs.stopResponseTimer()
 		bbs.requestClose()
 	})
+}
+
+func (bbs *BaseBroadcastSession) stopResponseTimer() {
+	bbs.responseTimer.Stop()
 }
