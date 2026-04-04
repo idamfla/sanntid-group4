@@ -17,6 +17,8 @@ func (ses *Session) ReceivePacket(pkt packet.Packet) {
 }
 
 func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename HandleIncPkt
+	ses.stopShutdownTimer()
+
 	h := pkt.Header
 
 	if h.Seq != ses.seq+1 {
@@ -89,7 +91,7 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
 	ses.notifyTaskReady()
 	ses.queueReply(packet.PKT_T_RequestTaskExecutionAck)
-	ses.scheduleSessionClose()
+	ses.startShutdownTimer()
 }
 
 func (ses *Session) handleSnapshot() {
@@ -97,7 +99,7 @@ func (ses *Session) handleSnapshot() {
 	ses.notifyTaskReady()
 	ses.queueReply(packet.PKT_T_SnapshotAck)
 
-	ses.scheduleSessionClose()
+	ses.startShutdownTimer()
 }
 
 func (ses *Session) handleCatchup() {
@@ -105,7 +107,7 @@ func (ses *Session) handleCatchup() {
 	ses.notifyTaskReady()
 	ses.queueReply(packet.PKT_T_CatchupAck)
 
-	ses.scheduleSessionClose()
+	ses.startShutdownTimer()
 }
 
 func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is the emsg_t the same as teh eMsg's type?
@@ -113,7 +115,7 @@ func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is
 	ses.QueueElevatorWorkTask(message.EMSG_T_StatusReport, eMsg)
 	ses.notifyTaskReady()
 	ses.queueReply(packet.PKT_T_SlaveUpdateAck)
-	ses.scheduleSessionClose()
+	ses.startShutdownTimer()
 }
 
 // queue order of having elevator change its states, from master
@@ -162,7 +164,7 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	ses.pendingPkt = nil
 
-	ses.scheduleSessionClose()
+	ses.startShutdownTimer()
 }
 
 func (ses *Session) notifyTaskReady() {

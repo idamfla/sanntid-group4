@@ -3,9 +3,9 @@ package session
 import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"elevator_program/utilities"
 	"net"
 	"sync"
-	"time"
 )
 
 const (
@@ -28,6 +28,9 @@ type Session struct {
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
 	lastOutPkt outgoingMessage
 	hasLastPkt bool
+
+	// --- timer ---
+	shutdownTimer *utilities.Timer
 
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
@@ -57,6 +60,7 @@ func NewSession(id uint32,
 		pendingPkt:    &packet.Packet{},
 		lastOutPkt:    outgoingMessage{},
 		hasLastPkt:    false,
+		shutdownTimer: utilities.NewTimer(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
@@ -79,6 +83,10 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
+		if ses.shutdownTimer != nil {
+			ses.shutdownTimer.Stop()
+		}
+
 		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
@@ -108,9 +116,19 @@ func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
 }
 
-func (ses *Session) scheduleSessionClose() { // TODO need to be able to abort ...
-	time.Sleep(udp.SHUTDOWN_TIMEOUT)
-	ses.requestClose()
+// func (ses *Session) scheduleSessionClose() { // TODO need to be able to abort ...
+// 	time.Sleep(udp.SHUTDOWN_TIMEOUT)
+// 	ses.requestClose()
+// }
+
+func (ses *Session) startShutdownTimer() {
+	ses.shutdownTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {
+		ses.requestClose()
+	})
+}
+
+func (ses *Session) stopShutdownTimer() {
+	ses.shutdownTimer.Stop()
 }
 
 func (ses *Session) requestClose() {
