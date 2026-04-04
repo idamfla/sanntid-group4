@@ -179,6 +179,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 			fmt.Println("MOTOR WATCHDOG: motor appears stuck, resetting to uninitialized")
 			elevio.SetMotorDirection(elevio.MD_Stop)
 			elevatorState.State = types.ES_Uninitialized
+			e.resetMotorWatchdog()
 
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]
@@ -314,6 +315,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 			fmt.Println("MOTOR WATCHDOG: motor appears stuck, resetting to uninitialized")
 			elevio.SetMotorDirection(elevio.MD_Stop)
 			elevatorStatus.State = types.ES_Uninitialized
+			e.resetMotorWatchdog()
 
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]

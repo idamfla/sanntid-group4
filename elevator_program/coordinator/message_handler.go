@@ -28,8 +28,8 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if c.Server.IsMaster() {
-		e.TurnToMaster() // TODO it is a bit waste to have it here
-		c.handleAsMaster(e, msg)
+		e.TurnToMaster()         // TODO it is a bit waste to have it here
+		c.handleAsMaster(e, msg) // TODO when a new master is elected, it needs to reset the timer on every running task, so no task is lost
 	} else {
 		e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
 		c.handleAsSlave(e, msg)
@@ -60,16 +60,13 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 	case message.EMSG_T_NewToChannel:
-		// if e.ConnectedToMaster() {
-		// 	e.IpRegistery[eMsg.Addr] = eMsg.ID
-		// 	e.System.SetStatusReport(eMsg.ID, eMsg.Elevators[eMsg.ID])
-		// } else if e.Id == eMsg.ID {
-		e.SetConnectionState(eMsg)
-		e.System.InitializeFromSystemState(eMsg)
-		// e.System.Mutex.RLock()
-		// fmt.Println("I have synced !!!! \n\n\n\n\n\n", e.System)
-		// e.System.Mutex.RUnlock()
-		// }
+		if e.ConnectedToMaster() {
+			e.SetConnectionState(eMsg)
+			e.System.InitializeFromSystemState(eMsg)
+		} else {
+			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+			copy(e.System.HallRequests, eMsg.HallRequests) // TODO need to check if this works
+		}
 	}
 }
 
@@ -179,7 +176,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.IsOnline = true
 		e.System.Mutex.Unlock()
 		eMsg := e.System.RegisterAndSyncElevator(eMsg, numFloors)
-		// e.IpRegistery[eMsg.Addr] = id
 
 		fmt.Println("Before syncing \n\n\n\n\n", eMsg)
 		// e.System.Mutex.RLock()

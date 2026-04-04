@@ -76,6 +76,7 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 	e.NumFloors = numFloors
 
 	e.IsMaster = false
+	e.connectedToMaster = false
 
 	e.System.InitSystem(id, ip, numFloors)
 

@@ -57,11 +57,26 @@ func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 		}
 		s.Elevators[ip] = e
 	}
+
+	// Update buttonlamp
+	for f, row := range s.HallRequests {
+		for b, btnStatus := range row {
+			if btnStatus != types.NotActive {
+				button := elevio.ButtonType(b)
+				elevio.SetButtonLamp(button, f, true)
+			}
+		}
+	}
+
+	for f, btnStatus := range s.Elevators[msg.Addr].CabRequests {
+		if btnStatus != types.NotActive {
+			elevio.SetButtonLamp(elevio.BT_Cab, f, true)
+		}
+	}
 }
 
 func (s *System) RegisterAndSyncElevator(
 	eMsg message.ElevatorMessage,
-	// ipRegistery map[string]string,
 	numFloors int,
 ) message.ElevatorMessage {
 
@@ -89,14 +104,34 @@ func (s *System) RegisterAndSyncElevator(
 	if _, ok := s.Elevators[eMsg.Addr]; ok {
 		old := s.Elevators[eMsg.Addr].CabRequests
 
-		newElevator.CabRequests = make([]types.ButtonStatus, len(old))
-		copy(newElevator.CabRequests, old)
+		for i := range numFloors {
+			if old[i] != types.NotActive || eMsg.Elevators[eMsg.Addr].CabRequests[i] != types.NotActive { // TODO does the new one be able to turn something to running??
+				newElevator.CabRequests[i] = types.Pending
+			}
+		}
 	}
-
-	s.Elevators[eMsg.Addr] = newElevator
+	// TODO need this one for syncing
+	// else {
+	// 	copy(newElevator.CabRequests, eMsg.Elevators[eMsg.Addr].CabRequests)
+	// }
 
 	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
-	copy(hallCopy, s.HallRequests)
+	copy(hallCopy, s.HallRequests) // TODO temp for without syncing
+
+	// TODO need this one for syncing
+	// for f, row := range s.HallRequests {
+	// 	for b, btnStatus := range row {
+	// 		if btnStatus == types.Running {
+	// 			hallCopy[f][b] = types.Running
+	// 		} else if btnStatus == types.Pending || eMsg.HallRequests[f][b] != types.NotActive {
+	// 			hallCopy[f][b] = types.Pending
+	// 		}
+	// 	}
+	// }
+
+	s.HallRequests = hallCopy
+
+	s.Elevators[eMsg.Addr] = newElevator
 
 	elevCopy := make(map[string]types.ElevatorsStatus)
 	for ip, e := range s.Elevators {
