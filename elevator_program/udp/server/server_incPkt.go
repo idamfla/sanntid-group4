@@ -48,8 +48,8 @@ func (srv *Server) handleWhoIsAlive() SessionHandler {
 }
 
 func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
-	peerID := incPkt.Packet.Header.SenderAddr
-	peer, exists := srv.getPeer(peerID)
+	peerKey := incPkt.Packet.Header.SenderAddr
+	peer, exists := srv.getPeer(peerKey)
 
 	if !exists || peer == nil {
 		fmt.Println("Peer dosent exist") // TODO db

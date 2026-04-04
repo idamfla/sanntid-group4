@@ -55,15 +55,15 @@ func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 }
 
 func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
-	peerID := pkt.Header.SenderAddr
-	ws.addResponder(peerID)
+	peerKey := pkt.Header.SenderAddr
+	ws.addResponder(peerKey)
 
 	switch pkt.Header.PktType {
 	case packet.PKT_T_WhoIsAlive:
 		ws.handleWhoIsAlive()
 
 	case packet.PKT_T_IAmAlive:
-		fmt.Println("from:", peerID, pkt.Header.PktType)
+		fmt.Println("from:", peerKey, pkt.Header.PktType)
 
 	case packet.PKT_T_IAmMaster:
 		ws.handleIAmMaster()

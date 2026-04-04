@@ -104,7 +104,7 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 }
 
 // just the string version of the peerAddr
-func (ses *Session) getPeerID() string {
+func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
 }
 

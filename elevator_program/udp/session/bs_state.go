@@ -69,7 +69,7 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 	pktType := h.PktType
-	peerID := h.SenderAddr
+	peerKey := h.SenderAddr
 
 	if h.Seq != sbs.seq+1 {
 		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
@@ -79,7 +79,7 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 
 	}
 
-	sbs.addResponder(peerID)
+	sbs.addResponder(peerKey)
 
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
 

@@ -128,7 +128,7 @@ func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, 
 		emsg = eMsg
 	} else {
 		emsg = message.ElevatorMessage{
-			ID:       ses.getPeerID(),
+			ID:       ses.getPeerAddrString(),
 			Addr:     ses.peerAddr.String(),
 			EMsgType: eMsgType,
 		}
