@@ -16,5 +16,5 @@ type SessionHandler interface {
 
 func (srv *Server) QueueWhoIsAliveMsg() {
 	ws := srv.getOrCreateMasterElectionSession()
-	ws.QueueDirectMsg(packet.PKT_T_WhoIsAlive, message.ElevatorMessage{})
+	ws.QueueDirectMsg(packet.PKT_T_WhoIsAlive, message.ElevatorMessage{ID: srv.GetID()})
 }

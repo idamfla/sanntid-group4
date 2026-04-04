@@ -68,7 +68,18 @@ func (srv *Server) routeIncPkt(incPkt incomingPacket) { // TODO rename handleInc
 		return
 	}
 
-	srv.registerOrUpdatePeer(senderAddr, false)
+	srv.updatePeer(senderAddr, incPkt.Packet.Payload.ID)
+	// srv.registerOrUpdatePeer(senderAddr, false) // TODO what seperates this from a normal getOrCreate ...?
+	// peer, isNew := srv.getOrCreatePeer(senderAddr)
+	// wasRevived := !isNew && !peer.Active
+	// if wasRevived {
+	// 	peer.Active = true
+	// 	// peer.LastSeen = time.Now()
+	// }
+
+	// if (forceSync || isNew || wasRevived) && srv.IsMaster() { // TODO force sync??
+	// 	fmt.Println("sync peer")
+	// }
 
 	srv.deliverToSession(senderAddr, incPkt)
 }

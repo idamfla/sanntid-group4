@@ -48,45 +48,39 @@ func (srv *Server) handleWhoIsAlive() SessionHandler {
 }
 
 func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
-	srv.mu.Lock()
-
 	peerID := incPkt.Packet.Header.SenderAddr
-	peer, exists := srv.peers[peerID]
+	peer, exists := srv.getPeer(peerID)
 
 	if !exists || peer == nil {
-		srv.mu.Unlock()
 		fmt.Println("Peer dosent exist") // TODO db
 		return nil
 	}
 
-	oldMstr := srv.getMasterPeerUnsafe()
+	oldMstr := srv.getMasterPeer()
 
 	// already know this master
-	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
+	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
 		srv.SetIsSynced(true)
-		srv.mu.Unlock()
 		fmt.Println(srv.ID, "already know master, ignoring") // TODO db
 		return nil
 	}
 
 	// new master
 	if oldMstr != nil {
-		oldMstr.SetMaster(false)
+		oldMstr.ClearMaster()
 	}
 
-	peer.SetMaster(true)
-	peer.SetIsSynced(true)
+	peer.SetMaster()
+	peer.SetSynced()
 
 	srv.SetIsSynced(false)
-
-	srv.mu.Unlock()
 
 	srv.queueSyncRequest()
 	return srv.getOrCreateMasterElectionSession()
 }
 
 func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPacket) SessionHandler {
-	srv.mu.Lock()
+	// srv.mu.Lock()
 	sessionID := incPkt.Packet.Header.SessionID
 	recipientAddr := incPkt.Packet.Payload.Addr
 	selfAddr := srv.GetRecvString()
@@ -95,10 +89,12 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPa
 		srv.SetIsSynced(true)
 	}
 
-	if peer, exists := srv.peers[recipientAddr]; exists {
-		peer.SetIsSynced(true)
+	if peer, exists := srv.getPeer(recipientAddr); exists {
+		// if peer, exists := srv.peers[recipientAddr]; exists {
+		peer.SetSynced()
+		// peer.SetIsSynced(true)
 	}
-	srv.mu.Unlock()
+	// srv.mu.Unlock()
 
 	return srv.getOrCreateSession(senderAddr, &sessionID)
 }

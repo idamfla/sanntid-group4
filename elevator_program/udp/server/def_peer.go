@@ -2,49 +2,99 @@ package server
 
 import (
 	"elevator_program/message"
+	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
 type PeerInfo struct {
+	ID        string
 	Addr      *net.UDPAddr
 	LastSeen  time.Time
 	IsSynced  bool
 	Active    bool
 	IsMaster  bool
-	EMsgQueue chan message.ElevatorMessage
+	EMsgQueue chan message.ElevatorMessage // TODO might fade out
+	mu        sync.Mutex
 }
 
-func NewPeer(addr *net.UDPAddr) *PeerInfo {
+func NewPeer(id string, addr *net.UDPAddr) *PeerInfo {
 	return &PeerInfo{
+		ID:        id,
 		Addr:      addr,
 		LastSeen:  time.Now(),
 		IsSynced:  false,
 		Active:    true,
 		IsMaster:  false,
-		EMsgQueue: make(chan message.ElevatorMessage, CHANNEL_BUF), // TODO make all channels bufferd ... how much?
+		EMsgQueue: make(chan message.ElevatorMessage, CHANNEL_BUF),
 	}
 }
 
-func (peer *PeerInfo) SetMaster(isMaster bool) {
-	peer.IsMaster = isMaster
+func (p *PeerInfo) GetAddr() *net.UDPAddr { return p.Addr }
+func (p *PeerInfo) GetAddrString() string { return p.GetAddr().String() }
+
+func (p *PeerInfo) IsActive() bool {
+	p.lock()
+	defer p.unlock()
+	return p.IsActive()
 }
 
-// func (peer *PeerInfo) SetMaster() {
-// 	peer.IsMaster = true
+func (p *PeerInfo) SetActiveNow() {
+	p.lock()
+	defer p.unlock()
+	p.Active = true
+	p.LastSeen = time.Now()
+}
+
+func (p *PeerInfo) ClearActive() {
+	p.lock()
+	defer p.unlock()
+	p.Active = false
+}
+
+func (p *PeerInfo) SetMaster() {
+	p.lock()
+	defer p.unlock()
+	p.IsMaster = true
+}
+func (p *PeerInfo) ClearMaster() {
+	p.lock()
+	defer p.unlock()
+	p.IsMaster = false
+}
+
+func (p *PeerInfo) SetSynced() {
+	p.lock()
+	defer p.unlock()
+	p.IsSynced = true
+}
+func (p *PeerInfo) ClearSynced() {
+	p.lock()
+	defer p.unlock()
+	p.IsSynced = false
+}
+
+// func (p *PeerInfo) UpdateLastSeen() {
+// 	p.lock()
+// 	defer p.unlock()
+// 	p.LastSeen = time.Now()
 // }
 
-func (peer *PeerInfo) ClearMaster() {
-	peer.IsMaster = false
-}
-
-func (peer *PeerInfo) SetIsSynced(isSynced bool) {
-	peer.IsSynced = true
-}
-
-func (peer *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
+func (p *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
 	select {
-	case peer.EMsgQueue <- msg:
+	case p.EMsgQueue <- msg:
 	default:
+		fmt.Println("p EMsgQueue is full ... dropping packet")
 	}
 }
+
+func (p *PeerInfo) Snapshot() (id string, addr *net.UDPAddr, isMaster, active, synced bool, lastSeen time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.ID, p.Addr, p.IsMaster, p.Active, p.IsSynced, p.LastSeen
+}
+
+func (p *PeerInfo) lock()   { p.mu.Lock() }
+func (p *PeerInfo) unlock() { p.mu.Unlock() }

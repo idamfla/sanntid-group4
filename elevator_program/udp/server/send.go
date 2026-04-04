@@ -34,7 +34,7 @@ func (srv *Server) Send(
 func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsAlive: // TODO this need changing
+	case packet.PKT_T_WhoIsAlive:
 		srv.QueueWhoIsAliveMsg()
 
 	case packet.PKT_T_BroadcastUpdate:
@@ -56,16 +56,12 @@ func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
 }
 
 func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
-	srv.mu.Lock()
-
-	mstr := srv.getMasterPeerUnsafe()
+	mstr := srv.getMasterPeer()
 	if mstr == nil {
 		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
 		srv.QueueWhoIsAliveMsg()
-		srv.mu.Unlock()
 		return
 	}
-	srv.mu.Unlock()
 
 	srv.startSession(mstr.Addr, outMsg)
 }
@@ -75,14 +71,14 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
 	}
 
-	// if some peers are syncing
-	srv.mu.Lock()
-	for _, p := range srv.peers {
-		if p.Active && !p.IsSynced {
-			p.QueueMessage(outMsg.EMsg)
-		}
-	}
-	srv.mu.Unlock()
+	// if some peers are syncing // TODO make this universal, no msg when we are trying to sync alive-unsynced-peers
+	// srv.mu.Lock()
+	// for _, p := range srv.peers {
+	// 	if p.Active && !p.IsSynced {
+	// 		p.QueueMessage(outMsg.EMsg)
+	// 	}
+	// }
+	// srv.mu.Unlock()
 
 	srv.startStateBroadcast(outMsg)
 }
@@ -102,7 +98,7 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage)
 
 // Initiate the broadcast message chain
 func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
-	quorum := srv.getPeerCount()
+	quorum := srv.countActivePeers()
 	bs := srv.createBroadcastSession(quorum)
 	bs.QueueStateBSUpdateMsg(outMsg.PktType, outMsg.EMsg)
 }
@@ -121,6 +117,7 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 	}
 }
 
+// TODO syncing flow is changing ...
 func (srv *Server) queueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,

@@ -18,13 +18,13 @@ type Server struct {
 	state    *ServerState
 	network  *ServerNetwork
 	sessions *SessionManager
+	peers    *PeerManager
 
 	incPktCh      chan incomingPacket
 	outgoingMsgCh chan outgoingMessage
 
-	peers    map[string]*PeerInfo
-	bcSeq    uint32
-	mu       sync.Mutex
+	bcSeq uint32
+
 	closeReq chan uint32
 
 	stop      chan struct{}
@@ -53,9 +53,10 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		incPktCh:      make(chan incomingPacket, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 		network:       network,
-		// sessions:          make(map[uint32]SessionHandler),
-		sessions:          NewSessionManager(),
-		peers:             make(map[string]*PeerInfo),
+
+		sessions: NewSessionManager(),
+		peers:    NewPeerManager(),
+		// peers:             make(map[string]*PeerInfo),
 		closeReq:          make(chan uint32, CHANNEL_BUF),
 		stop:              make(chan struct{}, CHANNEL_BUF),
 		elevator:          toElevator,
@@ -95,6 +96,8 @@ func (srv *Server) Close() {
 		srv.PrintPeers()
 	})
 }
+
+func (srv *Server) GetID() string { return srv.ID }
 
 func (srv *Server) GetCloseReqCh() chan uint32 {
 	return srv.closeReq

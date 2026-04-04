@@ -21,5 +21,5 @@ func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg messag
 }
 
 func (ses *Session) queueReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
+	ses.QueueDirectMsg(pktType, message.ElevatorMessage{ID: ses.getSrvID()})
 }

@@ -97,7 +97,6 @@ func (sm *SessionManager) getSession(sesID uint32) (SessionHandler, bool) {
 	return sh, exists
 }
 
-// TODO have a print of who closed it
 func (sm *SessionManager) closeSession(sesID uint32) {
 	sm.lock()
 
@@ -146,7 +145,6 @@ func generateID() (uint32, error) {
 
 // --- helpers ---
 
-// TODO have a print of who closed it
 func (sm *SessionManager) countSessions() int {
 	sm.lock()
 	defer sm.unlock()
