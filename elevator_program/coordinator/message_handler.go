@@ -59,16 +59,6 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
-		// if eMsg.BtnStatus == types.NotActive && e.Ip == eMsg.Addr {
-		// 	requestMsg := message.ElevatorMessage{
-		// 		EMsgType: message.EMSG_T_TaskRequest,
-		// 		ID:       e.Id,
-		// 		Addr:     e.Ip,
-		// 		Task:     eMsg.Task,
-		// 	}
-		// 	e.SendToCoordinator <- requestMsg
-		// }
-
 	case message.EMSG_T_NewToChannel:
 		// if e.ConnectedToMaster() {
 		// 	e.IpRegistery[eMsg.Addr] = eMsg.ID
@@ -198,6 +188,6 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_SyncedElevator:
-		fmt.Println("I am not supposed to do anything here, i am a stupid bird \n\n\n")
+		fmt.Println("I am not supposed to do anything here, \n\n\n")
 	}
 }

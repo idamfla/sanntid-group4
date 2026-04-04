@@ -187,6 +187,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 	if elevatorState.State != e.System.Elevators[e.Ip].State {
 		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = elevatorState.State
+		elevatorCopy.IsAlive = true // TODO i am not sure if i need it here, but just want to be sure
 		e.System.Elevators[e.Ip] = elevatorCopy
 
 		eMsg := message.ElevatorMessage{
@@ -203,9 +204,9 @@ func (e *Elevator) updateElevatorStateOnline() {
 		e.System.Mutex.Unlock()
 	}
 
-	if e.shouldMarkRecoveryVerified() {
-		e.markRecoveryVerified()
-	}
+	// if e.shouldMarkRecoveryVerified() {
+	// 	e.markRecoveryVerified()
+	// }
 }
 
 func (e *Elevator) updateElevatorStateOffline() {
@@ -301,12 +302,12 @@ func (e *Elevator) updateElevatorStateOffline() {
 		return
 	}
 
-	if e.shouldMarkRecoveryVerified() {
-		e.markRecoveryVerified()
-	}
+	// if e.shouldMarkRecoveryVerified() {
+	// 	e.markRecoveryVerified()
+	// }
 	elevio.SetMotorDirection(dir)
 
-	e.checkOfflineRestart()
+	// e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
 	e.System.Elevators[e.Ip] = elevatorStatus
@@ -365,23 +366,4 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	}
 
 	e.SendToCoordinator <- finishedMsg
-
-	// e.mu.Lock()
-	// isMaster := e.IsMaster
-	// e.mu.Unlock()
-	// if isMaster {
-	// 	task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
-
-	// 	if task.Floor != -1 {
-	// 		assignMsg := message.ElevatorMessage{ // TODO this may cause errors
-	// 			EMsgType:  message.EMSG_T_TaskUpdate,
-	// 			ID:        e.Id,
-	// 			Addr:      e.Ip,
-	// 			Task:      task,
-	// 			BtnStatus: types.Running,
-	// 		}
-	// 		e.SendToCoordinator <- assignMsg
-	// 	}
-
-	// }
 }

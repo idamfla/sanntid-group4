@@ -39,7 +39,7 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.Ip = eMsg.Addr
 	// e.IsMaster = false
 	e.connectedToMaster = true
-	e.exitOfflineMode()
+	e.IsOnline = true
 	e.mu.Unlock()
 }
 
@@ -57,7 +57,7 @@ func (e *Elevator) ClearTarget() {
 
 func (e *Elevator) TurnToMaster() {
 	e.mu.Lock()
-	e.IsOnline = true
+	// e.IsOnline = true
 	e.IsMaster = true
 	e.connectedToMaster = true
 	e.mu.Unlock()
@@ -65,7 +65,7 @@ func (e *Elevator) TurnToMaster() {
 
 func (e *Elevator) TurnToSlave() {
 	e.mu.Lock()
-	e.IsOnline = true
+	// e.IsOnline = true
 	e.IsMaster = false
 	e.connectedToMaster = true
 	e.mu.Unlock()

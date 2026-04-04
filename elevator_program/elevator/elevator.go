@@ -51,9 +51,9 @@ type Elevator struct {
 
 	wg sync.WaitGroup
 
-	recoveryCfg RecoveryConfig
+	// recoveryCfg RecoveryConfig
 
-	restartReason         RestartReason
+	// restartReason         RestartReason
 	softRestartInProgress bool
 	softRestartAttempts   int
 
@@ -83,8 +83,8 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-	e.recoveryCfg = DefaultRecoveryConfig
-	e.restartReason = RestartReasonNone
+	// e.recoveryCfg = DefaultRecoveryConfig
+	// e.restartReason = RestartReasonNone
 	e.IsOnline = false
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
@@ -112,7 +112,7 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
-	go e.fault_loop()
+	// go e.fault_loop()
 
 	e.isRunning = true
 }

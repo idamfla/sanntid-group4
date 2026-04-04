@@ -50,7 +50,7 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 			}
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
 
-			eMsg := message.ElevatorMessage{
+			eMsg := message.ElevatorMessage{ // TODO it could become undone if it is the only request left and noone presses any more buttons
 				EMsgType:  message.EMSG_T_TaskUpdate,
 				ID:        e.Id,
 				Addr:      taskKey.Owner,

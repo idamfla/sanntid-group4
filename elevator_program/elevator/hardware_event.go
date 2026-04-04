@@ -49,6 +49,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		e.System.Mutex.Lock()
 		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = types.ES_EmergencyStop
+		elevatorCopy.IsAlive = true // TODO maybe don't need
 		e.System.Elevators[e.Ip] = elevatorCopy
 		eMsg := message.ElevatorMessage{
 			EMsgType:  message.EMSG_T_StatusReport,
@@ -129,6 +130,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
+			elevatorCopy.IsAlive = true
 			e.System.Elevators[e.Ip] = elevatorCopy
 			_, elevs := e.System.Snapshot()
 			e.System.Mutex.Unlock()
