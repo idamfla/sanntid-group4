@@ -194,21 +194,3 @@ func (ses *Session) waitForElevatorDone() error {
 		return fmt.Errorf("Elevator failed to commit …")
 	}
 }
-
-func (ses *Session) scheduleSessionClose() {
-	go func() {
-		select {
-		case <-ses.stop:
-			return
-		case <-time.After(udp.SHUTDOWN_TIMEOUT):
-			ses.requestClose()
-		}
-	}()
-}
-
-func (ses *Session) requestClose() {
-	select {
-	case <-ses.stop:
-	case ses.closeReq <- ses.ID:
-	}
-}

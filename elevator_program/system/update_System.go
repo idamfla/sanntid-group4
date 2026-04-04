@@ -81,8 +81,9 @@ func (s *System) RegisterAndSyncElevator(
 			Floor:  -1,
 			Button: elevio.BT_HallUp,
 		},
-		CabRequests: make([]types.ButtonStatus, numFloors),
-		IsAlive:     true,
+		CabRequests:    make([]types.ButtonStatus, numFloors),
+		IsAlive:        true,
+		IsMotorWorking: true,
 	}
 
 	if _, ok := s.Elevators[eMsg.Addr]; ok {

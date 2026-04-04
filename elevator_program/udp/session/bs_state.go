@@ -26,7 +26,6 @@ func (sbs *StateBroadcast) Start() {
 	sbs.wg.Add(2)
 	go sbs.listen(sbs)
 	go sbs.sendLoop(sbs)
-	// fmt.Printf("State broadcast session %d started\n", sbs.ID)
 }
 
 func (sbs *StateBroadcast) Close() {
@@ -91,16 +90,17 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 		sbs.seq = h.Seq
 	}
 
+	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
 	switch pktType {
 	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
-		fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
+		// fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
 
 		if isQuorum {
 			sbs.handleStateBSAck(pktType)
 		}
 
 	case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncDone:
-		fmt.Printf("bcDone: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
+		// fmt.Printf("bcDone: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
 
 		if isQuorum {
 			sbs.handleStateBSDone()

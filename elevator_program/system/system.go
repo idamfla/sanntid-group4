@@ -29,7 +29,8 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 			Floor:  -1,
 			Button: elevio.BT_HallUp,
 		},
-		State: types.ES_Uninitialized,
+		State:          types.ES_Uninitialized,
+		IsMotorWorking: true,
 	}
 }
 

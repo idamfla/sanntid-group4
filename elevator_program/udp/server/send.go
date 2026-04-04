@@ -30,32 +30,6 @@ func (srv *Server) Send(
 	return nil
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage) error {
-	if srv.isLocalAddr(remoteAddr) {
-		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
-		fmt.Println(err)
-		return err
-	}
-
-	pktType := outMsg.PktType
-	eMsg := outMsg.EMsg
-
-	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueDirectMsg(pktType, eMsg)
-	return nil
-}
-
-// Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
-	quorum := srv.getPeerCount()
-	bs := srv.createBroadcastSession(quorum)
-
-	pktType := outMsg.PktType
-	eMsg := outMsg.EMsg
-
-	bs.QueueStateBSUpdateMsg(pktType, eMsg)
-}
-
 // deciding how to output messages from the server, what type of session should start
 func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
@@ -84,7 +58,7 @@ func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
 func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 	srv.mu.Lock()
 
-	mstr := srv.getMasterPeerLocked()
+	mstr := srv.getMasterPeerUnsafe()
 	if mstr == nil {
 		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
 		srv.QueueWhoIsAliveMsg()
@@ -120,6 +94,18 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 	srv.startStateBroadcast(outMsg)
 }
 
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
+	ses := srv.createSession(remoteAddr, nil)
+	ses.QueueDirectMsg(outMsg.PktType, outMsg.EMsg)
+}
+
+// Initiate the broadcast message chain
+func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
+	quorum := srv.getPeerCount()
+	bs := srv.createBroadcastSession(quorum)
+	bs.QueueStateBSUpdateMsg(outMsg.PktType, outMsg.EMsg)
+}
+
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 
@@ -134,7 +120,7 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 	}
 }
 
-func (srv *Server) QueueSyncRequest() {
+func (srv *Server) queueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,
 		Addr:     srv.GetRecvString(),

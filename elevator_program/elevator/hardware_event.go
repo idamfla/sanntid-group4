@@ -65,7 +65,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		connected := e.connectedToMaster
 		e.mu.Unlock()
 		if !connected {
-			println("Not connected to master, cannot accept buttonpress")
+			println("Not connected to master, cannot accept buttonpress") // TODO not sure if we need this one
 			return
 		}
 		task := elevio.ButtonEvent{
@@ -122,6 +122,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.mu.Unlock()
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.resetMotorWatchdog()
 			e.mu.Lock()
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false
@@ -130,7 +131,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
-			elevatorCopy.IsAlive = true
+			elevatorCopy.IsMotorWorking = true
 			e.System.Elevators[e.Ip] = elevatorCopy
 			_, elevs := e.System.Snapshot()
 			e.System.Mutex.Unlock()
@@ -171,8 +172,11 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			e.System.Elevators[e.Ip].CabRequests[hwEvent.Floor] = types.Pending
 			e.System.Mutex.Unlock()
 		} else {
-			fmt.Println("Elevator is offline, can not accept order")
-			return
+			// fmt.Println("Elevator is offline, can not accept order")
+			// return
+			e.System.Mutex.Lock()
+			e.System.HallRequests[hwEvent.Floor][hwEvent.Button] = types.Pending
+			e.System.Mutex.Unlock()
 		}
 		elevio.SetButtonLamp(hwEvent.Button, hwEvent.Floor, true)
 
@@ -183,6 +187,7 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			e.mu.Unlock()
 		} else {
 			elevio.SetFloorIndicator(hwEvent.Floor)
+			e.resetMotorWatchdog()
 			e.mu.Lock()
 			e.currentFloor = hwEvent.Floor
 			e.inBetweenFloors = false

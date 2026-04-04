@@ -4,7 +4,6 @@ import (
 	"elevator_program/coordinator"
 	"elevator_program/elevator"
 	"elevator_program/elevio"
-	"elevator_program/message"
 	"flag"
 	"fmt"
 	"io"
@@ -72,9 +71,9 @@ func main() {
 
 	e1.RunElevatorProgram()
 
-	msg := message.ElevatorMessage{
-		EMsgType: message.EMSG_T_NewToChannel,
-		ID:       e1.Id,
-	}
-	e1.SendToCoordinator <- msg
+	// msg := message.ElevatorMessage{
+	// 	EMsgType: message.EMSG_T_NewToChannel,
+	// 	ID:       e1.Id,
+	// }
+	// e1.SendToCoordinator <- msg
 }

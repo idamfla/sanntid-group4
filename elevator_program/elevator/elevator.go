@@ -39,7 +39,7 @@ type Elevator struct {
 	FaultMsg chan message.FaultMessage
 
 	IsMaster          bool
-	connectedToMaster bool
+	connectedToMaster bool // TODO i am not sure what we actually do with this one?
 	IsOnline          bool
 
 	System          system.System
@@ -51,16 +51,19 @@ type Elevator struct {
 
 	wg sync.WaitGroup
 
+	motorWatchdogFloor int
+	motorWatchdogTimer time.Time
+
 	// recoveryCfg RecoveryConfig
 
 	// restartReason         RestartReason
-	softRestartInProgress bool
-	softRestartAttempts   int
+	// softRestartInProgress bool
+	// softRestartAttempts   int
 
-	recoveryAwaitingProof bool
-	recoveryVerified      bool
-	lastRecoveryAttempt   time.Time
-	recoveryMu            sync.Mutex
+	// recoveryAwaitingProof bool
+	// recoveryVerified      bool
+	// lastRecoveryAttempt   time.Time
+	// recoveryMu            sync.Mutex
 }
 
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) {

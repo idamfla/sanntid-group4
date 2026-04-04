@@ -15,13 +15,13 @@ const (
 type Server struct {
 	ID string
 
-	state   *ServerState
-	network *ServerNetwork
+	state    *ServerState
+	network  *ServerNetwork
+	sessions *SessionManager
 
 	incPktCh      chan incomingPacket
 	outgoingMsgCh chan outgoingMessage
 
-	sessions map[uint32]SessionHandler
 	peers    map[string]*PeerInfo
 	bcSeq    uint32
 	mu       sync.Mutex
@@ -48,12 +48,13 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 	}
 
 	srv := &Server{
-		ID:                id,
-		state:             &ServerState{},
-		incPktCh:          make(chan incomingPacket, CHANNEL_BUF),
-		outgoingMsgCh:     make(chan outgoingMessage, CHANNEL_BUF),
-		network:           network,
-		sessions:          make(map[uint32]SessionHandler),
+		ID:            id,
+		state:         &ServerState{},
+		incPktCh:      make(chan incomingPacket, CHANNEL_BUF),
+		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
+		network:       network,
+		// sessions:          make(map[uint32]SessionHandler),
+		sessions:          NewSessionManager(),
 		peers:             make(map[string]*PeerInfo),
 		closeReq:          make(chan uint32, CHANNEL_BUF),
 		stop:              make(chan struct{}, CHANNEL_BUF),
@@ -88,9 +89,7 @@ func (srv *Server) Close() {
 
 		srv.wg.Wait() // wait for goroutines
 
-		for sesID := range srv.sessions {
-			srv.closeSession(sesID)
-		}
+		srv.sessions.Close() // TODO make function closeAllSessions
 
 		fmt.Println(srv.ID, "is synced:", srv.isSynced())
 		srv.PrintPeers()

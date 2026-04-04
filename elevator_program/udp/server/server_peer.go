@@ -56,10 +56,10 @@ func (srv *Server) GetMasterPeer() *PeerInfo {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 
-	return srv.getMasterPeerLocked()
+	return srv.getMasterPeerUnsafe()
 }
 
-func (srv *Server) getMasterPeerLocked() *PeerInfo {
+func (srv *Server) getMasterPeerUnsafe() *PeerInfo {
 	for _, p := range srv.peers {
 		if p.IsMaster {
 			return p

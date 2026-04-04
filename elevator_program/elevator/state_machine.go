@@ -123,6 +123,13 @@ func (e *Elevator) updateElevatorStateOnline() {
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
 			elevatorState.State = types.ES_Idle
+
+			e.System.Mutex.Lock()
+			elevatorCopy := e.System.Elevators[e.Ip]
+			elevatorCopy.IsMotorWorking = true
+			e.System.Elevators[e.Ip] = elevatorCopy
+			e.System.Mutex.Unlock()
+
 			e.mu.Lock()
 			e.doorState = DS_Opening
 			e.mu.Unlock()
@@ -141,7 +148,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 				},
 			}
 			e.SendToCoordinator <- eMsg
-		}
+		} // TODO maybe have a check if it is motorstop in init, but don't think we need it
 
 	case types.ES_Idle:
 		e.System.Mutex.RLock()
@@ -152,6 +159,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 			dir = e.getMotion(targetFloor)
 			if dir != elevio.MD_Stop {
 				elevatorState.State = types.ES_Moving
+				e.resetMotorWatchdog()
 			} else {
 				e.mu.Lock()
 				if e.doorState == DS_Closed {
@@ -166,6 +174,20 @@ func (e *Elevator) updateElevatorStateOnline() {
 		e.System.Mutex.RLock()
 		targetFloor := e.System.Elevators[e.Ip].Target.Floor
 		e.System.Mutex.RUnlock()
+
+		if !e.checkMotorWatchdog() {
+			fmt.Println("MOTOR WATCHDOG: motor appears stuck, resetting to uninitialized")
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			elevatorState.State = types.ES_Uninitialized
+
+			e.System.Mutex.Lock()
+			elevatorCopy := e.System.Elevators[e.Ip]
+			elevatorCopy.IsMotorWorking = false
+			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+			e.System.Elevators[e.Ip] = elevatorCopy
+			e.System.Mutex.Unlock()
+			return
+		}
 
 		dir = e.getMotion(targetFloor)
 
@@ -251,6 +273,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 			dir = e.getMotion(elevatorStatus.Target.Floor)
 			if dir != elevio.MD_Stop {
 				elevatorStatus.State = types.ES_Moving
+				e.resetMotorWatchdog()
 			}
 		}
 
@@ -283,9 +306,24 @@ func (e *Elevator) updateElevatorStateOffline() {
 		dir = e.getMotion(elevatorStatus.Target.Floor)
 		if dir != elevio.MD_Stop {
 			elevatorStatus.State = types.ES_Moving
+			e.resetMotorWatchdog()
 		}
 
 	case types.ES_Moving:
+		if !e.checkMotorWatchdog() {
+			fmt.Println("MOTOR WATCHDOG: motor appears stuck, resetting to uninitialized")
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			elevatorStatus.State = types.ES_Uninitialized
+
+			e.System.Mutex.Lock()
+			elevatorCopy := e.System.Elevators[e.Ip]
+			elevatorCopy.IsMotorWorking = false
+			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+			e.System.Elevators[e.Ip] = elevatorCopy
+			e.System.Mutex.Unlock()
+			return
+		}
+
 		dir = e.getMotion(elevatorStatus.Target.Floor)
 
 		if dir == elevio.MD_Stop {

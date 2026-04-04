@@ -1,9 +1,11 @@
 package session
 
 import (
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
@@ -100,4 +102,16 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 // just the string version of the peerAddr
 func (ses *Session) getPeerID() string {
 	return ses.GetPeerAddr().String()
+}
+
+func (ses *Session) scheduleSessionClose() { // TODO need to be able to abort ...
+	time.Sleep(udp.SHUTDOWN_TIMEOUT)
+	ses.requestClose()
+}
+
+func (ses *Session) requestClose() {
+	select {
+	case <-ses.stop:
+	case ses.closeReq <- ses.ID:
+	}
 }
