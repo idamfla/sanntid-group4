@@ -9,62 +9,59 @@ import (
 )
 
 func (srv *Server) Send(
-	remoteAddr *net.UDPAddr,
-	seq uint32,
-	sessionID uint32,
+	ses *session.Session,
 	pktType packet.PacketType,
 	eMsg message.ElevatorMessage,
 ) error {
+	senderAddr := srv.GetRecvString()
 
-	pkt := packet.Packet{
-		Header: packet.Header{
-			Seq:           seq,
-			SessionID:     sessionID,
-			PktType:       pktType,
-			RecipientAddr: remoteAddr.String(),
-			SenderAddr:    srv.recvConn.LocalAddr().String(),
-		},
-		Payload: eMsg,
+	data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg)
+	if err != nil {
+		fmt.Println("Encode error:", err)
+		return err
 	}
 
-	if pktType == packet.PKT_T_IAmMaster {
-		srv.setSelfAsMaster(true)
-		srv.isSynced = true
+	_, err = srv.getSendConn().WriteToUDP(data, ses.GetPeerAddr())
+	if err != nil {
+		fmt.Println("Send error:", err)
+		return err
 	}
 
-	return packet.SendPacket(srv.sendConn, remoteAddr, pkt)
+	return nil
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, pktType packet.PacketType, eMsg message.ElevatorMessage) error {
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage) error {
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
 		return err
 	}
 
+	pktType := outMsg.PktType
+	eMsg := outMsg.EMsg
+
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDirectMsg(pktType, eMsg)
 	return nil
 }
 
-func (srv *Server) startStateBroadcast(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+// Initiate the broadcast message chain
+func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
 	quorum := srv.getPeerCount()
-	bs := srv.createBroadcastSession(nil, session.BS_T_StateBroadcast, quorum)
+	bs := srv.createBroadcastSession(quorum)
+
+	pktType := outMsg.PktType
+	eMsg := outMsg.EMsg
 
 	bs.QueueStateBSUpdateMsg(pktType, eMsg)
 }
 
-func (srv *Server) startWhoIsMasterMsg() {
-	bs := srv.createBroadcastSession(nil, session.BS_T_WhoIsMasterBroadcast, 0)
-
-	bs.QueueWhoIsMasterMsg()
-}
-
-func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
+// deciding how to output messages from the server, what type of session should start
+func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsMaster:
-		srv.dispatchWhoIsMaster()
+	case packet.PKT_T_WhoIsAlive: // TODO this need changing
+		srv.QueueWhoIsAliveMsg()
 
 	case packet.PKT_T_BroadcastUpdate:
 		srv.dispatchBroadcastUpdate(outMsg)
@@ -81,7 +78,7 @@ func (srv *Server) dispatchMessage(outMsg outgoingMessage) {
 }
 
 func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
-	srv.startSession(outMsg.RemoteAddr, outMsg.PktType, outMsg.EMsg)
+	srv.startSession(outMsg.RemoteAddr, outMsg)
 }
 
 func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
@@ -89,13 +86,14 @@ func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 
 	mstr := srv.getMasterPeerLocked()
 	if mstr == nil {
-		fmt.Println(srv.ID, "dosen't know who master is")
+		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
+		srv.QueueWhoIsAliveMsg()
 		srv.mu.Unlock()
 		return
 	}
 	srv.mu.Unlock()
 
-	srv.startSession(mstr.Addr, outMsg.PktType, outMsg.EMsg)
+	srv.startSession(mstr.Addr, outMsg)
 }
 
 func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
@@ -111,7 +109,7 @@ func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
 	}
 	srv.mu.Unlock()
 
-	srv.startStateBroadcast(packet.PKT_T_BroadcastUpdate, outMsg.EMsg)
+	srv.startStateBroadcast(outMsg)
 }
 
 func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
@@ -119,26 +117,7 @@ func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
 		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
 	}
 
-	srv.startStateBroadcast(packet.PKT_T_SyncComplete, outMsg.EMsg)
-}
-
-func (srv *Server) dispatchWhoIsMaster() {
-	srv.mu.Lock()
-
-	if srv.searchingForMaster {
-		srv.mu.Unlock()
-		return
-	}
-	srv.isMaster = false
-	srv.isSynced = false
-	srv.searchingForMaster = true
-
-	if peer := srv.getMasterPeerLocked(); peer != nil {
-		peer.SetMaster(false)
-	}
-	srv.mu.Unlock()
-
-	srv.startWhoIsMasterMsg()
+	srv.startStateBroadcast(outMsg)
 }
 
 func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
@@ -158,12 +137,12 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 func (srv *Server) QueueSyncRequest() {
 	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
 		ID:       srv.ID,
-		Addr:     srv.recvConn.LocalAddr().String(),
+		Addr:     srv.GetRecvString(),
 		EMsgType: message.EMSG_T_NewToChannel,
 	})
 }
 
 func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
-	local := srv.recvConn.LocalAddr().(*net.UDPAddr)
+	local := srv.getRecvUDPAddr()
 	return addr.IP.Equal(local.IP) && addr.Port == local.Port
 }

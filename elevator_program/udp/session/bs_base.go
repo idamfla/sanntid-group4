@@ -1,7 +1,9 @@
 package session
 
 import (
-	"net"
+	"elevator_program/udp"
+	"elevator_program/utilities"
+	"fmt"
 	"sync"
 )
 
@@ -14,25 +16,25 @@ const (
 
 type BaseBroadcastSession struct {
 	*Session
-	selfAddr          string
 	expectedResponses int
 	responders        map[string]bool
+	responseTimer     *utilities.Timer
 	mu                sync.Mutex
 }
 
 func NewBaseBroadcastSession(
 	id uint32,
-	selfAddr string,
-	addr *net.UDPAddr,
-	closeReq chan<- uint32,
-	tx PacketSender,
+	srv ServerAPI,
 	expectedResponses int,
 ) *BaseBroadcastSession {
+	selfAddr := srv.GetRecvString()
+	addr := srv.GetBroadcastAddr()
+
 	bbs := &BaseBroadcastSession{
-		Session:           NewSession(id, addr, closeReq, tx),
-		selfAddr:          selfAddr,
+		Session:           NewSession(id, addr, srv),
 		expectedResponses: expectedResponses,
 		responders:        make(map[string]bool),
+		responseTimer:     utilities.NewTimer(),
 	}
 	bbs.responders[selfAddr] = true
 	return bbs
@@ -45,6 +47,10 @@ func (bbs *BaseBroadcastSession) addResponder(addr string) {
 }
 
 func (bbs *BaseBroadcastSession) countResponders() int {
+	return bbs.countTotalResponders() - 1
+}
+
+func (bbs *BaseBroadcastSession) countTotalResponders() int {
 	bbs.mu.Lock()
 	defer bbs.mu.Unlock()
 	return len(bbs.responders)
@@ -65,4 +71,17 @@ func (bsType BroadcastSessionType) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func (bbs *BaseBroadcastSession) startResponseTimer() {
+	bbs.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
+		fmt.Printf("Peer(s) did not respond in time ... %d/%d\n", bbs.countResponders(), bbs.expectedResponses)
+		bbs.queueWhoIsAliveMsg()
+		bbs.stopResponseTimer()
+		bbs.requestClose()
+	})
+}
+
+func (bbs *BaseBroadcastSession) stopResponseTimer() {
+	bbs.responseTimer.Stop()
 }

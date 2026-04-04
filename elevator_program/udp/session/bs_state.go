@@ -4,7 +4,6 @@ import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 )
 
 type StateBroadcast struct {
@@ -13,14 +12,11 @@ type StateBroadcast struct {
 
 func NewStateBroadcast(
 	id uint32,
-	selfAddr string,
-	addr *net.UDPAddr,
-	closeReq chan<- uint32,
-	tx PacketSender,
+	srv ServerAPI,
 	expected int,
 ) *StateBroadcast {
 	sbs := &StateBroadcast{
-		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, expected),
+		BaseBroadcastSession: NewBaseBroadcastSession(id, srv, expected),
 	}
 
 	return sbs
@@ -30,7 +26,7 @@ func (sbs *StateBroadcast) Start() {
 	sbs.wg.Add(2)
 	go sbs.listen(sbs)
 	go sbs.sendLoop(sbs)
-	fmt.Printf("State broadcast session %d started\n", sbs.ID)
+	// fmt.Printf("State broadcast session %d started\n", sbs.ID)
 }
 
 func (sbs *StateBroadcast) Close() {
@@ -38,9 +34,11 @@ func (sbs *StateBroadcast) Close() {
 
 }
 
-func (sbs *StateBroadcast) SendReply(pkt packet.PacketType) { sbs.Session.SendReply(pkt) }
+func (sbs *StateBroadcast) GetID() uint32 { return sbs.BaseBroadcastSession.GetID() }
 
-func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) { sbs.Session.ReceivePacket(pkt) }
+func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) {
+	sbs.BaseBroadcastSession.ReceivePacket(pkt)
+}
 
 func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	var pktT packet.PacketType
@@ -55,8 +53,8 @@ func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg
 	sbs.QueueDirectMsg(pktT, eMsg)
 }
 
-func (sbs *StateBroadcast) QueueWhoIsMasterMsg() {
-	sbs.Session.QueueWhoIsMasterMsg()
+func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
+	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
@@ -85,10 +83,14 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 
 	}
 
-	sbs.seq = h.Seq
 	sbs.addResponder(peerID)
 
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
+
+	if isQuorum {
+		sbs.seq = h.Seq
+	}
+
 	switch pktType {
 	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
 		fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
@@ -113,9 +115,9 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_BroadcastAck:
-		sbs.SendReply(packet.PKT_T_BroadcastCommit)
+		sbs.queueReply(packet.PKT_T_BroadcastCommit)
 	case packet.PKT_T_SyncAck:
-		sbs.SendReply(packet.PKT_T_SyncCommit)
+		sbs.queueReply(packet.PKT_T_SyncCommit)
 	}
 
 	sbs.resetResponders()

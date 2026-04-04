@@ -13,5 +13,5 @@ type ElevatorPacket struct {
 type outgoingMessage struct {
 	PktType packet.PacketType
 	EMsg    message.ElevatorMessage
-	Done    chan struct{}
+	Done    chan struct{} // TODO rename, Could be ready or something ...
 }

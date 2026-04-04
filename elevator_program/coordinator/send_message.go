@@ -38,7 +38,7 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
 
 	case message.EMSG_T_NewToChannel:
-		msgPacket = packet.PROTO_PKT_T_WhoIsMaster
+		// msgPacket = packet.PROTO_PKT_T_WhoIsAlive // TODO ask ida how election works now
 	}
 	c.QueueMessage(nil, msgPacket, eMsg)
 }

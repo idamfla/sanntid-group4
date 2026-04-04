@@ -75,7 +75,7 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	return pc.(*net.UDPConn), nil
 }
 
-func (srv *Server) routeInkPkt(incPkt incomingPacket) {
+func (srv *Server) routeIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
@@ -93,7 +93,7 @@ func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 		return nil, err
 	}
 
-	if replyAddr == srv.recvConn.LocalAddr().String() {
+	if replyAddr == srv.GetRecvString() {
 		err := fmt.Errorf("Server is receiving message from itself")
 		return nil, err
 	}

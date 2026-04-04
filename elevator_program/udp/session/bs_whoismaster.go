@@ -2,104 +2,146 @@ package session
 
 import (
 	"elevator_program/message"
+	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 )
 
-type WhoIsMasterBroadcast struct {
+type WhoIsAliveBroadcast struct {
 	*BaseBroadcastSession
 	election *Election
 }
 
-func NewWhoIsMasterBroadcast(id uint32, selfAddr string, addr *net.UDPAddr, closeReq chan<- uint32, tx PacketSender) *WhoIsMasterBroadcast {
-	ws := &WhoIsMasterBroadcast{
-		BaseBroadcastSession: NewBaseBroadcastSession(id, selfAddr, addr, closeReq, tx, 0),
+func NewWhoIsAliveBroadcast(id uint32, srv ServerAPI) *WhoIsAliveBroadcast {
+	ws := &WhoIsAliveBroadcast{
+		BaseBroadcastSession: NewBaseBroadcastSession(id, srv, 0),
 		election:             &Election{masterFound: make(chan struct{}, 1)},
 	}
 	return ws
 }
 
-func (ws *WhoIsMasterBroadcast) Start() {
+func (ws *WhoIsAliveBroadcast) Start() {
 	ws.wg.Add(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
-	fmt.Printf("'Who Is Master'-broadcast session %d started\n", ws.ID)
+	// fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
+
+	ws.queueWhoIsAliveMsg()
 }
 
-func (ws *WhoIsMasterBroadcast) Close() {
+func (ws *WhoIsAliveBroadcast) Close() {
 	ws.BaseBroadcastSession.Close()
 }
 
-func (ws *WhoIsMasterBroadcast) SendReply(pkt packet.PacketType) { ws.Session.SendReply(pkt) }
+func (ws *WhoIsAliveBroadcast) GetID() uint32 { return ws.BaseBroadcastSession.GetID() }
 
-func (ws *WhoIsMasterBroadcast) ReceivePacket(pkt packet.Packet) { ws.Session.ReceivePacket(pkt) }
-
-func (ws *WhoIsMasterBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) {
+	ws.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (ws *WhoIsMasterBroadcast) QueueWhoIsMasterMsg() {
-	ws.Session.QueueWhoIsMasterMsg()
+func (ws *WhoIsAliveBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 }
 
-func (ws *WhoIsMasterBroadcast) OnSend(pktType packet.PacketType) {
+func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
+	ws.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
+}
+
+func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
-	case packet.PKT_T_WhoIsMaster:
-		ws.election.Start(ws)
-		ws.SendReply(packet.PKT_T_IAmAlive)
+	case packet.PKT_T_WhoIsAlive:
+		ws.startElection()
 	case packet.PKT_T_IAmMaster:
 		ws.startResponseTimer()
 	}
 }
 
-func (ws *WhoIsMasterBroadcast) HandlePacket(pkt packet.Packet) error {
+func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
 	peerID := pkt.Header.SenderAddr
 	ws.addResponder(peerID)
 
 	switch pkt.Header.PktType {
-	case packet.PKT_T_WhoIsMaster:
-		ws.handleWhoIsMaster()
+	case packet.PKT_T_WhoIsAlive:
+		ws.handleWhoIsAlive()
 
 	case packet.PKT_T_IAmAlive:
-		fmt.Println(peerID, pkt.Header.PktType)
+		fmt.Println("from:", peerID, pkt.Header.PktType)
 
 	case packet.PKT_T_IAmMaster:
 		ws.handleIAmMaster()
 
+	case packet.PKT_T_ElectedMasterIs:
+		ws.handleElectedMasterIs(pkt)
+
 	case packet.PKT_T_MasterAck:
-		if ws.isMaster() {
-			ws.handleMasterAck()
-		}
+		ws.handleMasterAck()
 	}
 
 	return nil
 }
 
-func (ws *WhoIsMasterBroadcast) handleWhoIsMaster() {
-	ws.SendReply(packet.PKT_T_IAmAlive)
-	ws.election.Start(ws)
+func (ws *WhoIsAliveBroadcast) handleWhoIsAlive() {
+	if ws.isMaster() {
+		ws.queueReply(packet.PKT_T_IAmMaster)
+	} else {
+		ws.queueReply(packet.PKT_T_IAmAlive)
+	}
 }
 
-func (ws *WhoIsMasterBroadcast) handleIAmMaster() {
+func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	select {
 	case ws.election.masterFound <- struct{}{}:
 	default:
 	}
 
-	ws.SendReply(packet.PKT_T_MasterAck)
-	ws.scheduleSessionClose()
+	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
-func (ws *WhoIsMasterBroadcast) handleMasterAck() {
-	fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
-
-	if ws.countResponders() >= ws.expectedResponses {
-		ws.hasLastPkt = false
-		ws.stopResponseTimer()
-		ws.requestClose()
+func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
+	addr := pkt.Payload.Addr
+	if addr == ws.selfAddr {
+		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
+		ws.queueReply(packet.PKT_T_IAmMaster)
 	}
 }
 
-func (ws *WhoIsMasterBroadcast) isMaster() bool {
-	return ws.tx.IsMaster()
+func (ws *WhoIsAliveBroadcast) handleMasterAck() {
+	if ws.isMaster() {
+		fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
+
+		if ws.countResponders() >= ws.expectedResponses {
+			ws.hasLastPkt = false
+			ws.stopResponseTimer()
+			// ws.requestClose()
+		}
+	}
+}
+
+func (ws *WhoIsAliveBroadcast) startResponseTimer() {
+	ws.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
+		fmt.Printf("Peer(s) did not respond masterElectSession in time ... %d/%d\n", ws.countResponders(), ws.expectedResponses)
+		ws.queueWhoIsAliveMsg()
+		ws.stopResponseTimer()
+	})
+}
+
+func (ws *WhoIsAliveBroadcast) startElection() { ws.election.Start(ws) }
+
+func (ws *WhoIsAliveBroadcast) runElection() (string, error) {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+
+	lowest := ""
+	for addr := range ws.responders {
+		select {
+		case <-ws.stop:
+			err := fmt.Errorf("Election abortet since session stopped")
+			return lowest, err
+		default:
+		}
+
+		if lowest == "" || addr < lowest {
+			lowest = addr
+		}
+	}
+	return lowest, nil
 }

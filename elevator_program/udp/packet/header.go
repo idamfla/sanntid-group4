@@ -4,11 +4,13 @@ type PacketType int
 
 const (
 	PKT_T_Heartbeat PacketType = iota
-	PKT_T_IAmAlive
 	PKT_T_LostConn
 
-	PKT_T_WhoIsMaster
-	PKT_T_IAmMaster
+	PKT_T_WhoIsAlive
+	PKT_T_IAmAlive
+	PKT_T_IAmMaster // respond with MasterAck, if mstr not known
+
+	PKT_T_ElectedMasterIs // if this is you, respond with IAmMaster
 	PKT_T_MasterAck
 
 	PKT_T_Snapshot
@@ -39,15 +41,15 @@ const (
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)
-	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)
-	PROTO_PKT_T_WhoIsMaster          ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsMaster)
-	PROTO_PKT_T_Snapshot             ProtocolPacketType = ProtocolPacketType(PKT_T_Snapshot)
-	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)
-	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)
-	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)
-	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)
-	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution)
+	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
+	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
+	PROTO_PKT_T_WhoIsAlive           ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsAlive)           //broadcast TODO this should be automatic ...
+	PROTO_PKT_T_Snapshot             ProtocolPacketType = ProtocolPacketType(PKT_T_Snapshot)             // master -> slave
+	PROTO_PKT_T_CatchupUpdate        ProtocolPacketType = ProtocolPacketType(PKT_T_CatchupUpdate)        // master -> slave
+	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)         // master -> slave
+	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
+	PROTO_PKT_T_SlaveUpdate          ProtocolPacketType = ProtocolPacketType(PKT_T_SlaveUpdate)          // slave -> master
+	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
 )
 
 type Header struct {
@@ -65,11 +67,12 @@ func (p PacketType) String() string {
 	case PKT_T_LostConn:
 		return "Lost connection ..."
 
+	case PKT_T_WhoIsAlive:
+		return "Who is alive"
 	case PKT_T_IAmAlive:
 		return "I am alive"
-
-	case PKT_T_WhoIsMaster:
-		return "Who is master"
+	case PKT_T_ElectedMasterIs:
+		return "Elected master is"
 	case PKT_T_IAmMaster:
 		return "I am master"
 	case PKT_T_MasterAck:

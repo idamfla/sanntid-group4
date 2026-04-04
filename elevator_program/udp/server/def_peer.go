@@ -1,13 +1,9 @@
-package peerinfo
+package server
 
 import (
 	"elevator_program/message"
 	"net"
 	"time"
-)
-
-const (
-	CHANNEL_BUF = 32
 )
 
 type PeerInfo struct {
@@ -32,6 +28,14 @@ func NewPeer(addr *net.UDPAddr) *PeerInfo {
 
 func (peer *PeerInfo) SetMaster(isMaster bool) {
 	peer.IsMaster = isMaster
+}
+
+// func (peer *PeerInfo) SetMaster() {
+// 	peer.IsMaster = true
+// }
+
+func (peer *PeerInfo) ClearMaster() {
+	peer.IsMaster = false
 }
 
 func (peer *PeerInfo) SetIsSynced(isSynced bool) {

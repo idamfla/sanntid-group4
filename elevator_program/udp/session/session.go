@@ -1,12 +1,7 @@
 package session
 
 import (
-	"elevator_program/message"
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
-	"elevator_program/udp/peerinfo"
-	"elevator_program/udp/timer"
-	"fmt"
 	"net"
 	"sync"
 )
@@ -15,14 +10,6 @@ const (
 	CHANNEL_BUF = 32
 )
 
-type PacketSender interface {
-	Send(remoteAddr *net.UDPAddr, seq uint32, sessionID uint32, msgType packet.PacketType, eMsg message.ElevatorMessage) error
-	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
-	QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage)
-	IsMaster() bool
-	GetMasterPeer() *peerinfo.PeerInfo
-}
-
 type SessionBehavior interface {
 	HandlePacket(pkt packet.Packet) error
 	OnSend(pktType packet.PacketType)
@@ -30,10 +17,10 @@ type SessionBehavior interface {
 
 type Session struct {
 	ID       uint32
-	peerAddr *net.UDPAddr
-	peerID   string
+	selfAddr string
+	peerAddr *net.UDPAddr // addr of original sender
 
-	seq uint32
+	seq uint32 // TODO remove ... maybe??
 
 	pendingPkt *packet.Packet
 	lastOutPkt outgoingMessage
@@ -42,11 +29,10 @@ type Session struct {
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan outgoingMessage
 
-	responseTimer *timer.Timer
-
+	// --- external systems ---
 	elevDone  chan struct{}
 	taskReady chan struct{}
-	tx        PacketSender
+	srv       ServerAPI // <-- session uses this to reply
 
 	closeReq  chan<- uint32
 	stop      chan struct{}
@@ -56,27 +42,25 @@ type Session struct {
 
 func NewSession(id uint32,
 	peerAddr *net.UDPAddr,
-	closeReq chan<- uint32,
-	transmitter PacketSender,
+	srv ServerAPI,
 ) *Session {
 	ses := &Session{
-		ID:            id,
-		peerAddr:      peerAddr,
-		peerID:        peerAddr.String(),
+		ID:       id,
+		selfAddr: srv.GetRecvString(),
+		peerAddr: peerAddr,
+		// seq:                seq, // TODO have it set on init ...
 		pendingPkt:    &packet.Packet{},
 		lastOutPkt:    outgoingMessage{},
 		hasLastPkt:    false,
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
-		responseTimer: timer.NewTimer(),
-
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
-		tx:        transmitter,
+		srv:       srv,
 
 		stop:     make(chan struct{}, CHANNEL_BUF),
-		closeReq: closeReq,
+		closeReq: srv.GetCloseReqCh(),
 	}
 
 	return ses
@@ -90,8 +74,7 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
-		ses.stopResponseTimer()
-
+		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
 
@@ -102,15 +85,19 @@ func (ses *Session) Close() {
 	})
 }
 
-func (ses *Session) startResponseTimer() {
-	ses.responseTimer.Restart(udp.BROADCAST_ACK_TIMEOUT, func() {
-		fmt.Println("Elevator(s) did not respond in time ...")
-		ses.QueueWhoIsMasterMsg()
-		ses.stopResponseTimer()
-		ses.requestClose()
-	})
+func (ses *Session) GetID() uint32 {
+	return ses.ID
 }
 
-func (ses *Session) stopResponseTimer() {
-	ses.responseTimer.Stop()
+func (ses *Session) GetSeq() uint32 {
+	return ses.seq
+}
+
+func (ses *Session) GetPeerAddr() *net.UDPAddr {
+	return ses.peerAddr
+}
+
+// just the string version of the peerAddr
+func (ses *Session) getPeerID() string {
+	return ses.GetPeerAddr().String()
 }

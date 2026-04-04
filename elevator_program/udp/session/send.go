@@ -6,48 +6,32 @@ import (
 	"fmt"
 )
 
-func (ses *Session) send(outPkt outgoingMessage) error {
-	ses.seq++
-	ses.lastOutPkt = outPkt
-	return ses.tx.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
-		outPkt.PktType,
-		outPkt.EMsg,
-	)
-}
-
-func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-	select {
-	case ses.outgoingMsgCh <- outgoingMessage{
-		PktType: pktType,
-		EMsg:    eMsg,
-	}:
-	default:
-		fmt.Println("Can't queue message, sessions messageQueue is full")
+func (ses *Session) GenerateDataPacket(
+	senderAddr string,
+	pktType packet.PacketType,
+	eMsg message.ElevatorMessage,
+) ([]byte, error) {
+	pkt := packet.Packet{
+		Header: packet.Header{
+			Seq:           ses.seq,
+			SessionID:     ses.ID,
+			PktType:       pktType,
+			RecipientAddr: ses.peerAddr.String(),
+			SenderAddr:    senderAddr,
+		},
+		Payload: eMsg,
 	}
+
+	data, err := pkt.EncodePacket()
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
-func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-}
-
-func (ses *Session) QueueWhoIsMasterMsg() {
-	ses.QueueDirectMsg(packet.PKT_T_WhoIsMaster, message.ElevatorMessage{})
-}
-
-func (ses *Session) SendReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
-}
-
-func (ses *Session) sendRetry(outPkt outgoingMessage) error {
-	return ses.tx.Send(
-		ses.peerAddr,
-		ses.seq,
-		ses.ID,
-		outPkt.PktType,
-		outPkt.EMsg)
-}
+// for the SessionBehavior, does nothing
+func (ses *Session) OnSend(pktType packet.PacketType) {}
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
 	defer ses.wg.Done()
@@ -58,14 +42,22 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 			return
 
 		case outPkt := <-ses.outgoingMsgCh:
-			err := ses.send(outPkt)
-			if err != nil {
-				fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
-			}
-			behavior.OnSend(outPkt.PktType)
+			ses.handleOutPkt(outPkt, behavior)
 		}
 	}
 }
 
-func (ses *Session) OnSend(pktType packet.PacketType) {
+func (ses *Session) handleOutPkt(outPkt outgoingMessage, behavior SessionBehavior) {
+	err := ses.send(outPkt)
+	if err != nil {
+		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
+		return
+	}
+
+	if outPkt.PktType == packet.PKT_T_IAmMaster {
+		ses.setSelfAsMaster()
+		ses.setIsSynced(true)
+	}
+
+	behavior.OnSend(outPkt.PktType)
 }
