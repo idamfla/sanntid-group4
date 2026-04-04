@@ -55,11 +55,11 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 
 	if !exists || peer == nil {
 		srv.mu.Unlock()
-		fmt.Println("Session dosent exist or peer is nil") // TODO db
+		fmt.Println("Peer dosent exist") // TODO db
 		return nil
 	}
 
-	oldMstr := srv.getMasterPeerLocked()
+	oldMstr := srv.getMasterPeerUnsafe()
 
 	// already know this master
 	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {

@@ -58,7 +58,7 @@ func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
 func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
 	srv.mu.Lock()
 
-	mstr := srv.getMasterPeerLocked()
+	mstr := srv.getMasterPeerUnsafe()
 	if mstr == nil {
 		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
 		srv.QueueWhoIsAliveMsg()
