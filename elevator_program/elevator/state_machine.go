@@ -136,18 +136,30 @@ func (e *Elevator) updateElevatorStateOnline() {
 			fmt.Println(e)
 
 			e.System.Mutex.RLock() // TODO i don't think we need this one
-			_, elevs := e.System.Snapshot()
+			hallRequests, elevs := e.System.Snapshot()
+			isMaster := e.IsMaster
 			e.System.Mutex.RUnlock()
 
 			eMsg := message.ElevatorMessage{
-				EMsgType: message.EMSG_T_TaskRequest, // TODO i don't know if we should delete this one
+				EMsgType: message.EMSG_T_TaskRequest,
 				ID:       e.Id,
 				Addr:     e.Ip,
 				Elevators: map[string]types.ElevatorsStatus{
 					e.Ip: elevs[e.Ip],
 				},
 			}
+
+			if isMaster {
+				task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
+				if task.Floor != -1 {
+					eMsg.EMsgType = message.EMSG_T_ButtonPress
+					eMsg.Task = task
+					eMsg.BtnStatus = types.Running
+				}
+			}
+
 			e.SendToCoordinator <- eMsg
+
 		} // TODO maybe have a check if it is motorstop in init, but don't think we need it
 
 	case types.ES_Idle:

@@ -76,3 +76,13 @@ func (tm *TaskMonitor) FinishTask(taskKey TaskKey) {
 		fmt.Printf("Task %+v completed, timer cleared.\n", taskKey)
 	}
 }
+
+func (tm *TaskMonitor) transferTaskMonitor(elevators map[string]types.ElevatorsStatus, e *elevator.Elevator) {
+	falseTarget := elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+	for ip, elev := range elevators {
+		if elev.Target != falseTarget {
+			taskKey := TaskKey{Owner: ip, TaskID: elev.Target}
+			tm.StartTask(taskKey, e)
+		}
+	}
+}

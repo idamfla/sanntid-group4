@@ -19,6 +19,7 @@ const (
 	EMSG_T_ElevatorLost
 	EMSG_T_NewToChannel
 	EMSG_T_SyncedElevator // TODO Is supposed to don't do shit
+	EMSG_T_IAmMaster
 )
 
 type ElevatorMessage struct {

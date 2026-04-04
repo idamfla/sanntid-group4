@@ -67,6 +67,20 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 			copy(e.System.HallRequests, eMsg.HallRequests) // TODO need to check if this works
 		}
+
+	case message.EMSG_T_IAmMaster:
+		e.System.Mutex.RLock()
+		newMsg := message.ElevatorMessage{
+			EMsgType:     message.EMSG_T_NewToChannel,
+			ID:           e.Id,
+			Addr:         e.Ip,
+			HallRequests: e.System.HallRequests,
+			Elevators: map[string]types.ElevatorsStatus{
+				e.Ip: e.System.Elevators[e.Ip],
+			},
+		}
+		e.System.Mutex.RUnlock()
+		e.SendToCoordinator <- newMsg
 	}
 }
 
