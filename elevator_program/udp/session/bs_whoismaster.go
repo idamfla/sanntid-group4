@@ -24,7 +24,6 @@ func (ws *WhoIsAliveBroadcast) Start() {
 	ws.wg.Add(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
-	// fmt.Printf("'WIM'-broadcast session %d started\n", ws.ID)
 
 	ws.queueWhoIsAliveMsg()
 }
@@ -111,14 +110,18 @@ func (ws *WhoIsAliveBroadcast) handleMasterAck() {
 		if ws.countResponders() >= ws.expectedResponses {
 			ws.hasLastPkt = false
 			ws.stopResponseTimer()
-			// ws.requestClose()
 		}
 	}
 }
 
 func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 	ws.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
-		fmt.Printf("Peer(s) did not respond masterElectSession in time ... %d/%d\n", ws.countResponders(), ws.expectedResponses)
+		if ws.countResponders() >= ws.expectedResponses {
+			// Ignore false timeout
+			return
+		}
+
+		fmt.Printf("Peer(s) did not respond to masterElectSession in time ... %d/%d\n", ws.countResponders(), ws.expectedResponses)
 		ws.queueWhoIsAliveMsg()
 		ws.stopResponseTimer()
 	})

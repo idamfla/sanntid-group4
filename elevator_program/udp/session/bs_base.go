@@ -7,13 +7,6 @@ import (
 	"sync"
 )
 
-type BroadcastSessionType int
-
-const (
-	BS_T_StateBroadcast BroadcastSessionType = iota
-	BS_T_WhoIsMasterBroadcast
-)
-
 type BaseBroadcastSession struct {
 	*Session
 	expectedResponses int
@@ -77,19 +70,13 @@ func (bbs *BaseBroadcastSession) resetResponders() {
 	bbs.responders = map[string]bool{bbs.selfAddr: true}
 }
 
-func (bsType BroadcastSessionType) String() string {
-	switch bsType {
-	case BS_T_StateBroadcast:
-		return "State Broadcast"
-	case BS_T_WhoIsMasterBroadcast:
-		return "Who Is Master Broadcast"
-	default:
-		return "unknown"
-	}
-}
-
 func (bbs *BaseBroadcastSession) startResponseTimer() {
 	bbs.responseTimer.Restart(udp.RESPONSE_TIMEOUT, func() {
+		if bbs.countResponders() >= bbs.expectedResponses {
+			// Ignore false timeout
+			return
+		}
+
 		fmt.Printf("Peer(s) did not respond in time ... %d/%d\n", bbs.countResponders(), bbs.expectedResponses)
 		bbs.queueWhoIsAliveMsg()
 		bbs.stopResponseTimer()
