@@ -7,8 +7,10 @@ import (
 )
 
 type ServerAPI interface {
-	Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	Send(ses *Session, pktType packet.PacketType, outMsg packet.OutgoingMessage) error
+	// Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueWhoIsAliveMsg()
+	QueueElectedMasterMsg(masterAddr string)
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
 	SetSelfAsMaster()
@@ -19,26 +21,24 @@ type ServerAPI interface {
 	GetCloseReqCh() chan uint32
 }
 
-func (ses *Session) send(outPkt outgoingMessage) error {
+func (ses *Session) send(outMsg packet.OutgoingMessage) error {
 	ses.seq++
-	ses.lastOutPkt = outPkt
+	ses.lastOutPkt = outMsg
 	return ses.srv.Send(
 		ses,
-		outPkt.PktType,
-		outPkt.EMsg,
+		outMsg.PktType,
+		outMsg,
 	)
 }
 
-func (ses *Session) sendRetry(outPkt outgoingMessage) error {
+func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 	return ses.srv.Send(
 		ses,
-		outPkt.PktType,
-		outPkt.EMsg)
+		outMsg.PktType,
+		outMsg)
 }
 
-func (ses *Session) getSrvID() string {
-	return ses.srv.GetID()
-}
+func (ses *Session) getSrvID() string          { return ses.srv.GetID() }
 func (ses *Session) queueWhoIsAliveMsg()       { ses.srv.QueueWhoIsAliveMsg() }
 func (ses *Session) isMaster() bool            { return ses.srv.IsMaster() }
 func (ses *Session) setSelfAsMaster()          { ses.srv.SetSelfAsMaster() }

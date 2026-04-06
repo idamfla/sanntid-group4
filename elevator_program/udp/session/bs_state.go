@@ -1,7 +1,6 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
@@ -39,20 +38,20 @@ func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) {
 	sbs.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-	var pktT packet.PacketType
-	switch pktType {
-	case packet.PKT_T_SyncComplete:
-		pktT = packet.PKT_T_SyncComplete
-	default:
-		pktT = packet.PKT_T_BroadcastUpdate
-	}
+// func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+// 	var pktT packet.PacketType
+// 	switch pktType {
+// 	case packet.PKT_T_SyncComplete:
+// 		pktT = packet.PKT_T_SyncComplete
+// 	default:
+// 		pktT = packet.PKT_T_BroadcastUpdate
+// 	}
 
-	sbs.QueueDirectMsg(pktT, eMsg)
-}
+// 	sbs.QueueDirectMsg(pktT, eMsg)
+// }
 
-func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
+func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
@@ -60,7 +59,8 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
 		sbs.QueueElevatorStateTask()
 		sbs.startResponseTimer()
-	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
+	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
+		// case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
 		sbs.startResponseTimer()
 	}
 
@@ -89,14 +89,16 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 
 	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
 	switch pktType {
-	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
+	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncMsgAck:
+		// case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
 		// fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
 
 		if isQuorum {
 			sbs.handleStateBSAck(pktType)
 		}
 
-	case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncDone:
+	case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncComplete:
+		// case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncDone:
 		// fmt.Printf("bcDone: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
 
 		if isQuorum {
@@ -113,15 +115,17 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastAck:
 		sbs.queueReply(packet.PKT_T_BroadcastCommit)
-	case packet.PKT_T_SyncAck:
-		sbs.queueReply(packet.PKT_T_SyncCommit)
+	// case packet.PKT_T_SyncAck:
+	// 	sbs.queueReply(packet.PKT_T_SyncCommit)
+	case packet.PKT_T_SyncMsgAck:
+		sbs.queueReply(packet.PKT_T_SyncMsgCommit)
 	}
 
 	sbs.resetResponders()
 }
 
 func (sbs *StateBroadcast) handleStateBSDone() {
-	sbs.hasLastPkt = false
+	sbs.clearHasLastPacket()
 	sbs.stopResponseTimer()
 	sbs.requestClose()
 }

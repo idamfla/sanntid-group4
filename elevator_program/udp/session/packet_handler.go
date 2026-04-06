@@ -50,14 +50,14 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 	case packet.PKT_T_RequestTaskExecution:
 		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
 
-	case packet.PKT_T_CatchupUpdate:
-		ses.handleCatchup()
+	// case packet.PKT_T_CatchupUpdate:
+	// 	ses.handleCatchup()
 
-	case packet.PKT_T_Snapshot:
-		ses.handleSnapshot()
+	// case packet.PKT_T_Snapshot:
+	// 	ses.handleSnapshot()
 
-	case packet.PKT_T_CatchupAck, packet.PKT_T_SnapshotAck:
-		ses.requestClose()
+	// case packet.PKT_T_CatchupAck, packet.PKT_T_SnapshotAck:
+	// 	ses.requestClose()
 
 	case packet.PKT_T_SlaveUpdate:
 		ses.handleSlaveUpdate(pkt.Payload)
@@ -65,8 +65,10 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 	case packet.PKT_T_BroadcastUpdate:
 		ses.handleStateBSUpdate()
 
-	case packet.PKT_T_SyncComplete:
-		ses.handleSyncComplete()
+	case packet.PKT_T_SyncMsg:
+		ses.handleSyncMsg()
+	// case packet.PKT_T_SyncComplete:
+	// 	ses.handleSyncComplete()
 
 	case packet.PKT_T_RequestTaskExecutionAck, packet.PKT_T_SlaveUpdateAck:
 		ses.requestClose()
@@ -76,7 +78,8 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 		communication witht the wondering elevator on a private session another session
 	*/
 
-	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
+	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
+		// case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
 		go ses.handleStateBSCommit(h.PktType)
 
 	case packet.PKT_T_ElevatorFailed:
@@ -94,21 +97,21 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 	ses.startShutdownTimer()
 }
 
-func (ses *Session) handleSnapshot() {
-	ses.QueueElevatorStateTask()
-	ses.notifyTaskReady()
-	ses.queueReply(packet.PKT_T_SnapshotAck)
+// func (ses *Session) handleSnapshot() {
+// 	ses.QueueElevatorStateTask()
+// 	ses.notifyTaskReady()
+// 	ses.queueReply(packet.PKT_T_SnapshotAck)
 
-	ses.startShutdownTimer()
-}
+// 	ses.startShutdownTimer()
+// }
 
-func (ses *Session) handleCatchup() {
-	ses.QueueElevatorStateTask()
-	ses.notifyTaskReady()
-	ses.queueReply(packet.PKT_T_CatchupAck)
+// func (ses *Session) handleCatchup() {
+// 	ses.QueueElevatorStateTask()
+// 	ses.notifyTaskReady()
+// 	ses.queueReply(packet.PKT_T_CatchupAck)
 
-	ses.startShutdownTimer()
-}
+// 	ses.startShutdownTimer()
+// }
 
 func (ses *Session) handleSlaveUpdate(eMsg message.ElevatorMessage) { // TODO is the emsg_t the same as teh eMsg's type?
 	// ses.QueueServerMsg(ses.pendingPkt.Payload)
@@ -144,9 +147,11 @@ func (ses *Session) handleStateBSUpdate() {
 	ses.QueueElevatorStateTask()
 }
 
-func (ses *Session) handleSyncComplete() {
+func (ses *Session) handleSyncMsg() {
+	// func (ses *Session) handleSyncComplete() {
 	ses.QueueElevatorStateTask()
-	ses.queueReply(packet.PKT_T_SyncAck)
+	ses.queueReply(packet.PKT_T_SyncMsgAck)
+	// ses.queueReply(packet.PKT_T_SyncAck)
 }
 
 func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
@@ -156,8 +161,10 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 	}
 
 	switch pktType {
-	case packet.PKT_T_SyncCommit:
-		ses.queueReply(packet.PKT_T_SyncDone)
+	// case packet.PKT_T_SyncCommit:
+	// 	ses.queueReply(packet.PKT_T_SyncDone)
+	case packet.PKT_T_SyncMsgCommit:
+		ses.queueReply(packet.PKT_T_SyncComplete)
 	case packet.PKT_T_BroadcastCommit:
 		ses.queueReply(packet.PKT_T_BroadcastDone)
 	}

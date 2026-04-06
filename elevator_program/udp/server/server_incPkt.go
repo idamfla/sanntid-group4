@@ -19,14 +19,16 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	case packet.PKT_T_IAmMaster:
 		ses = srv.handleIAmMaster(incPkt) // TODO need to change ...
 
-	case packet.PKT_T_SyncComplete:
+	case packet.PKT_T_SyncMsg: // TODO this is almost like bsUpdate ... find out how it changes
 		ses = srv.handleSyncComplete(senderAddr, incPkt)
+	// case packet.PKT_T_SyncComplete:
+	// 	ses = srv.handleSyncComplete(senderAddr, incPkt)
 
 	default:
-		if packet.IsBroadcastPkt(pktType) && srv.isSynced() == false {
-			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
-			return
-		}
+		// if packet.IsBroadcastPkt(pktType) && srv.isSynced() == false {
+		// 	fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+		// 	return
+		// }
 
 		ses = srv.getOrCreateSession(senderAddr, &sessionID)
 	}
@@ -75,7 +77,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 
 	srv.SetIsSynced(false)
 
-	srv.queueSyncRequest()
+	// srv.queueSyncRequest()
 	return srv.getOrCreateMasterElectionSession()
 }
 

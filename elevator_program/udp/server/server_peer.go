@@ -1,17 +1,24 @@
 package server
 
 import (
+	"elevator_program/udp/packet"
 	"fmt"
 	"net"
 )
 
-func (srv *Server) updatePeer(peerAddr *net.UDPAddr, peerID string) {
+func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 	key := peerAddr.String()
 	var isNew bool
 
 	peer, exists := srv.getPeer(key)
 	if !exists {
-		peer = NewPeer(peerID, peerAddr)
+		if key != origin.Addr {
+			fmt.Println("Got a msg from a unknown peer that is not itself the origin of this message ... whoIsAlive?")
+			srv.QueueWhoIsAliveMsg()
+			return
+		}
+
+		peer = NewPeer(origin.ID, peerAddr)
 
 		srv.addPeer(key, peer)
 		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)

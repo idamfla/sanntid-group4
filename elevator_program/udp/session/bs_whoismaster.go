@@ -1,7 +1,6 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
@@ -38,11 +37,8 @@ func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) {
 	ws.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (ws *WhoIsAliveBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-}
-
-func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	ws.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
+func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+	ws.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 
 func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
@@ -92,6 +88,7 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	default:
 	}
 
+	ws.clearHasLastPacket()
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
@@ -108,7 +105,7 @@ func (ws *WhoIsAliveBroadcast) handleMasterAck() {
 		fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
 
 		if ws.countResponders() >= ws.expectedResponses {
-			ws.hasLastPkt = false
+			ws.clearHasLastPacket()
 			ws.stopResponseTimer()
 		}
 	}
@@ -127,8 +124,9 @@ func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 	})
 }
 
-func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) {
-	ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: masterAddr, Addr: masterAddr})
+func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) { // TODO queue at server
+	ws.srv.QueueElectedMasterMsg(masterAddr)
+	// ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: masterAddr, Addr: masterAddr})
 }
 
 func (ws *WhoIsAliveBroadcast) startElection() { ws.election.Start(ws) }

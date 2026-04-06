@@ -1,7 +1,6 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
@@ -9,17 +8,20 @@ import (
 func (ses *Session) GenerateDataPacket(
 	senderAddr string,
 	pktType packet.PacketType,
-	eMsg message.ElevatorMessage,
+	// eMsg message.ElevatorMessage,
+	outMsg packet.OutgoingMessage,
 ) ([]byte, error) {
 	pkt := packet.Packet{
 		Header: packet.Header{
-			Seq:           ses.seq,
 			SessionID:     ses.ID,
+			Origin:        outMsg.Origin,
+			Seq:           ses.seq,
 			PktType:       pktType,
 			RecipientAddr: ses.peerAddr.String(),
 			SenderAddr:    senderAddr,
 		},
-		Payload: eMsg,
+		Payload: outMsg.EMsg,
+		// Payload: eMsg,
 	}
 
 	data, err := pkt.EncodePacket()
@@ -47,14 +49,14 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 	}
 }
 
-func (ses *Session) handleOutPkt(outPkt outgoingMessage, behavior SessionBehavior) {
+func (ses *Session) handleOutPkt(outPkt packet.OutgoingMessage, behavior SessionBehavior) {
 	err := ses.send(outPkt)
 	if err != nil {
 		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 		return
 	}
 
-	if outPkt.PktType == packet.PKT_T_IAmMaster {
+	if outPkt.PktType == packet.PKT_T_IAmMaster { // TODO rather queue iAmMaster and do this at master lvl
 		ses.setSelfAsMaster()
 		ses.setIsSynced(true)
 	}

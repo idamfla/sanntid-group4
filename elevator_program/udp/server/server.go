@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
@@ -21,7 +22,8 @@ type Server struct {
 	peers    *PeerManager
 
 	incPktCh      chan incomingPacket
-	outgoingMsgCh chan outgoingMessage
+	outgoingMsgCh chan packet.OutgoingMessage
+	// outgoingMsgCh chan outgoingMessage
 
 	bcSeq uint32
 
@@ -51,8 +53,9 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 		ID:            id,
 		state:         &ServerState{},
 		incPktCh:      make(chan incomingPacket, CHANNEL_BUF),
-		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
-		network:       network,
+		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
+		// outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
+		network: network,
 
 		sessions: NewSessionManager(),
 		peers:    NewPeerManager(),
@@ -114,7 +117,7 @@ func (srv *Server) run() {
 			srv.closeSession(id)
 
 		case incPkt := <-srv.incPktCh:
-			srv.routeIncPkt(incPkt)
+			srv.handleIncPkt(incPkt)
 
 		case outMsg := <-srv.outgoingMsgCh:
 			srv.wg.Add(1)

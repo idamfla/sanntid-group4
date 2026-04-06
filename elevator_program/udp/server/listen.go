@@ -62,13 +62,13 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	return pc.(*net.UDPConn), nil
 }
 
-func (srv *Server) routeIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
+func (srv *Server) handleIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
 	}
 
-	srv.updatePeer(senderAddr, incPkt.Packet.Payload.ID)
+	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin) // TODO make sure not any msg are blocked when not synced ... you can just not recv any missions
 	// srv.registerOrUpdatePeer(senderAddr, false) // TODO what seperates this from a normal getOrCreate ...?
 	// peer, isNew := srv.getOrCreatePeer(senderAddr)
 	// wasRevived := !isNew && !peer.Active
