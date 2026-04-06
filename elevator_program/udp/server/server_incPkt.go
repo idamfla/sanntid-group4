@@ -19,15 +19,10 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 	case packet.PKT_T_IAmMaster:
 		ses = srv.handleIAmMaster(incPkt) // TODO need to change ...
 
-	case packet.PKT_T_SyncComplete:
+	case packet.PKT_T_SyncMsg: // TODO this is almost like bsUpdate ... find out how it is different
 		ses = srv.handleSyncComplete(senderAddr, incPkt)
 
 	default:
-		if packet.IsBroadcastPkt(pktType) && srv.isSynced() == false {
-			fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
-			return
-		}
-
 		ses = srv.getOrCreateSession(senderAddr, &sessionID)
 	}
 
@@ -48,57 +43,48 @@ func (srv *Server) handleWhoIsAlive() SessionHandler {
 }
 
 func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
-	srv.mu.Lock()
-
-	peerID := incPkt.Packet.Header.SenderAddr
-	peer, exists := srv.peers[peerID]
+	peerKey := incPkt.Packet.Header.SenderAddr
+	peer, exists := srv.getPeer(peerKey)
 
 	if !exists || peer == nil {
-		srv.mu.Unlock()
 		fmt.Println("Peer dosent exist") // TODO db
 		return nil
 	}
 
-	oldMstr := srv.getMasterPeerUnsafe()
+	oldMstr := srv.getMasterPeer()
 
 	// already know this master
-	if oldMstr != nil && oldMstr.Addr.String() == peer.Addr.String() {
-		srv.SetIsSynced(true)
-		srv.mu.Unlock()
-		fmt.Println(srv.ID, "already know master, ignoring") // TODO db
+	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
+		srv.setIsSynced()
+		fmt.Println(srv.GetAlias(), "already know master, ignoring") // TODO db
 		return nil
 	}
 
 	// new master
 	if oldMstr != nil {
-		oldMstr.SetMaster(false)
+		oldMstr.ClearMaster()
 	}
 
-	peer.SetMaster(true)
-	peer.SetIsSynced(true)
+	peer.SetMaster()
+	peer.SetSynced()
 
-	srv.SetIsSynced(false)
+	srv.clearIsSynced()
 
-	srv.mu.Unlock()
-
-	srv.queueSyncRequest()
 	return srv.getOrCreateMasterElectionSession()
 }
 
 func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPacket) SessionHandler {
-	srv.mu.Lock()
 	sessionID := incPkt.Packet.Header.SessionID
 	recipientAddr := incPkt.Packet.Payload.Addr
 	selfAddr := srv.GetRecvString()
 
 	if selfAddr == recipientAddr {
-		srv.SetIsSynced(true)
+		srv.setIsSynced()
 	}
 
-	if peer, exists := srv.peers[recipientAddr]; exists {
-		peer.SetIsSynced(true)
+	if peer, exists := srv.getPeer(recipientAddr); exists {
+		peer.SetSynced()
 	}
-	srv.mu.Unlock()
 
 	return srv.getOrCreateSession(senderAddr, &sessionID)
 }
@@ -109,15 +95,15 @@ func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketTyp
 	} else {
 		fmt.Printf(
 			`%s, Session %d:
-	sent from : %s
+	origin    : %s
 	to        : %s
 	reply sock: %s
 	pktType   : %s
 	payload   : %+v
 `,
-			srv.ID,
+			srv.GetAlias(),
 			incPkt.Packet.Header.SessionID,
-			incPkt.Addr.String(),
+			incPkt.Packet.Header.Origin.Alias,
 			incPkt.Packet.Header.RecipientAddr,
 			senderAddr.String(),
 			pktType,

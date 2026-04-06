@@ -3,9 +3,9 @@ package session
 import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"elevator_program/utilities"
 	"net"
 	"sync"
-	"time"
 )
 
 const (
@@ -24,12 +24,18 @@ type Session struct {
 
 	seq uint32 // TODO remove ... maybe??
 
-	pendingPkt *packet.Packet
-	lastOutPkt outgoingMessage
+	// --- protocol state ---
+	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
+	lastOutPkt packet.OutgoingMessage
+	// lastOutPkt outgoingMessage
 	hasLastPkt bool
 
+	// --- timer ---
+	shutdownTimer *utilities.Timer
+
 	packetInCh    chan packet.Packet
-	outgoingMsgCh chan outgoingMessage
+	outgoingMsgCh chan packet.OutgoingMessage
+	// outgoingMsgCh chan outgoingMessage
 
 	// --- external systems ---
 	elevDone  chan struct{}
@@ -51,11 +57,14 @@ func NewSession(id uint32,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
 		// seq:                seq, // TODO have it set on init ...
-		pendingPkt:    &packet.Packet{},
-		lastOutPkt:    outgoingMessage{},
+		pendingPkt: &packet.Packet{},
+		lastOutPkt: packet.OutgoingMessage{},
+		// lastOutPkt:    outgoingMessage{},
 		hasLastPkt:    false,
+		shutdownTimer: utilities.NewTimer(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
-		outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
+		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
+		// outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
@@ -76,6 +85,10 @@ func (ses *Session) Start() {
 
 func (ses *Session) Close() {
 	ses.closeOnce.Do(func() {
+		if ses.shutdownTimer != nil {
+			ses.shutdownTimer.Stop()
+		}
+
 		// stop base session goroutines
 		close(ses.stop)
 		ses.wg.Wait()
@@ -100,13 +113,21 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 }
 
 // just the string version of the peerAddr
-func (ses *Session) getPeerID() string {
+func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
 }
 
-func (ses *Session) scheduleSessionClose() { // TODO need to be able to abort ...
-	time.Sleep(udp.SHUTDOWN_TIMEOUT)
-	ses.requestClose()
+func (ses *Session) setHasLastPacket()   { ses.hasLastPkt = true }
+func (ses *Session) clearHasLastPacket() { ses.hasLastPkt = false }
+
+func (ses *Session) startShutdownTimer() {
+	ses.shutdownTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {
+		ses.requestClose()
+	})
+}
+
+func (ses *Session) stopShutdownTimer() {
+	ses.shutdownTimer.Stop()
 }
 
 func (ses *Session) requestClose() {

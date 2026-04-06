@@ -1,7 +1,6 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
@@ -39,31 +38,16 @@ func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) {
 	sbs.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (sbs *StateBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-	var pktT packet.PacketType
-	switch pktType {
-	case packet.PKT_T_SyncComplete:
-		pktT = packet.PKT_T_SyncComplete
-	default:
-		pktT = packet.PKT_T_BroadcastUpdate
-	}
-
-	sbs.pendingPkt = &packet.Packet{Payload: eMsg}
-	sbs.QueueDirectMsg(pktT, eMsg)
-}
-
-func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
+func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
-	case packet.PKT_T_BroadcastUpdate:
-		sbs.QueueElevatorStateTask()
+	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
+		sbs.queueElevatorRequest()
 		sbs.startResponseTimer()
-	case packet.PKT_T_SyncComplete:
-		sbs.startResponseTimer()
-	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
+	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
 		sbs.startResponseTimer()
 	}
 
@@ -72,7 +56,7 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 	h := pkt.Header
 	pktType := h.PktType
-	peerID := h.SenderAddr
+	peerKey := h.SenderAddr
 
 	if h.Seq != sbs.seq+1 {
 		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
@@ -82,7 +66,7 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 
 	}
 
-	sbs.addResponder(peerID)
+	sbs.addResponder(peerKey)
 
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
 
@@ -91,18 +75,12 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 	}
 
 	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
-	switch pktType {
-	case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncAck:
-		// fmt.Printf("bcAck: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
-
-		if isQuorum {
+	if isQuorum {
+		switch pktType {
+		case packet.PKT_T_BroadcastAck, packet.PKT_T_SyncMsgAck:
 			sbs.handleStateBSAck(pktType)
-		}
 
-	case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncDone:
-		// fmt.Printf("bcDone: %d/%d\n", sbs.countResponders(), sbs.expectedResponses)
-
-		if isQuorum {
+		case packet.PKT_T_BroadcastDone, packet.PKT_T_SyncComplete:
 			sbs.handleStateBSDone()
 		}
 	}
@@ -116,15 +94,15 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastAck:
 		sbs.queueReply(packet.PKT_T_BroadcastCommit)
-	case packet.PKT_T_SyncAck:
-		sbs.queueReply(packet.PKT_T_SyncCommit)
+	case packet.PKT_T_SyncMsgAck:
+		sbs.queueReply(packet.PKT_T_SyncMsgCommit)
 	}
 
 	sbs.resetResponders()
 }
 
 func (sbs *StateBroadcast) handleStateBSDone() {
-	sbs.hasLastPkt = false
+	sbs.clearHasLastPacket()
 	sbs.stopResponseTimer()
 	sbs.requestClose()
 }

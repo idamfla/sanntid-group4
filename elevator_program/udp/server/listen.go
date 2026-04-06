@@ -75,13 +75,13 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	return pc.(*net.UDPConn), nil
 }
 
-func (srv *Server) routeIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
+func (srv *Server) handleIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
 	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
 	if err != nil {
 		return
 	}
 
-	srv.registerOrUpdatePeer(senderAddr, false)
+	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin)
 
 	srv.deliverToSession(senderAddr, incPkt)
 }

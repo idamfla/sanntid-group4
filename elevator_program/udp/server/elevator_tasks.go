@@ -19,23 +19,25 @@ func (srv *Server) sendTaskLoop() {
 	for {
 		select {
 		case <-srv.stop:
-			fmt.Println(srv.ID, "task loop stopped ...")
+			fmt.Println(srv.GetAlias(), "task loop stopped ...")
 			return
 
 		case task := <-srv.elevatorTaskQueue:
-			srv.wg.Add(1) // TODO I think this prevents buttons to spawn
-			go func(t ElevatorTask) {
-				defer srv.wg.Done()
-				select {
-				case <-t.Ready:
-					fmt.Println("TIHI")
-					fmt.Println(srv.ID, "task ready, sending to elevator")
-					srv.sendToElevator(t)
-				case <-time.After(udp.TASK_READY_TIMEOUT):
-					fmt.Println(srv.ID, "task never became ready, skipping")
-				case <-srv.stop:
-				}
-			}(task)
+			fmt.Println(srv.GetAlias(), "waiting for task to be ready")
+
+			select {
+			case <-task.Ready:
+				fmt.Println(srv.GetAlias(), "task ready, sending to elevator")
+				srv.sendToElevator(task)
+
+			case <-time.After(udp.TASK_READY_TIMEOUT):
+				fmt.Println(srv.GetAlias(), "task never became ready, skipping")
+
+			case <-srv.stop:
+				fmt.Println(srv.GetAlias(), "task loop stopped during wait")
+				return
+
+			}
 		}
 	}
 }

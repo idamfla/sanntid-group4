@@ -7,7 +7,6 @@ import (
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 )
@@ -36,7 +35,7 @@ func (c *Coordinator) StartServer(ip string, port int, id string) error {
 	}
 
 	c.Server = srv
-	fmt.Println("Server", c.Server.ID, "is running...")
+	fmt.Println("Server", c.Server.Alias, "is running...")
 	return nil
 }
 
@@ -48,8 +47,8 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	// go c.stateMonitor(e)
 }
 
-func (c *Coordinator) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
-	c.Server.QueueMessage(remoteAddr, protoPktType, msg)
+func (c *Coordinator) QueueMessage(protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
+	c.Server.QueueMessage(protoPktType, msg)
 }
 
 func (c *Coordinator) Close() {

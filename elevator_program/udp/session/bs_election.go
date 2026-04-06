@@ -1,9 +1,7 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp"
-	"elevator_program/udp/packet"
 	"fmt"
 	"sync"
 	"time"
@@ -77,14 +75,14 @@ func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
 		// I am the new master
 		ws.expectedResponses = ws.countResponders()
 		ws.resetResponders()
-		ws.queueReply(packet.PKT_T_IAmMaster)
+		ws.queueIamMasterMsg()
 	} else {
 		select {
 		case <-e.masterFound:
 			fmt.Println("Master found in another election, aborting")
 			return
 		default:
-			ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: lowest, Addr: lowest})
+			ws.queueElectedMasterMsg(lowest)
 		}
 	}
 }

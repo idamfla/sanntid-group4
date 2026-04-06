@@ -48,11 +48,11 @@ func (srv *Server) getSession(sesID uint32) (SessionHandler, bool) {
 
 func (srv *Server) closeSession(sesID uint32) {
 	srv.sessions.closeSession(sesID)
-	fmt.Printf("Server %s, closed session: %d\n", srv.ID, sesID)
+	fmt.Printf("Server %s, closed session: %d\n", srv.GetAlias(), sesID)
 }
 
 func (srv *Server) PrintSessions() {
-	fmt.Printf("%s, Active sessions (%d):\n", srv.ID, srv.sessions.countSessions())
+	fmt.Printf("%s, Active sessions (%d):\n", srv.GetAlias(), srv.sessions.countSessions())
 
 	srv.sessions.printSessions()
 }

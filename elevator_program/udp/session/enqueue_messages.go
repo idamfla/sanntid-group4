@@ -1,25 +1,23 @@
 package session
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 )
 
-func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
+func (ses *Session) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) {
+	// func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	select {
-	case ses.outgoingMsgCh <- outgoingMessage{
+	case ses.outgoingMsgCh <- packet.OutgoingMessage{
+		Origin:  outMsg.Origin,
 		PktType: pktType,
-		EMsg:    eMsg,
+		EMsg:    outMsg.EMsg,
 	}:
 	default:
 		fmt.Println("Can't queue message, sessions messageQueue is full")
 	}
 }
 
-func (ses *Session) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-}
-
 func (ses *Session) queueReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, message.ElevatorMessage{})
+	ses.QueueDirectMsg(pktType, ses.lastOutPkt)
 }

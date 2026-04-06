@@ -38,11 +38,8 @@ func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) {
 	ws.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (ws *WhoIsAliveBroadcast) QueueStateBSUpdateMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
-}
-
-func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) { // TODO this should not exsist outside of session ...
-	ws.BaseBroadcastSession.QueueDirectMsg(pktType, eMsg)
+func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+	ws.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 
 func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
@@ -55,15 +52,16 @@ func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 }
 
 func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
-	peerID := pkt.Header.SenderAddr
-	ws.addResponder(peerID)
+	peerKey := pkt.Header.SenderAddr
+	pktType := pkt.Header.PktType
+	ws.addResponder(peerKey)
 
-	switch pkt.Header.PktType {
+	switch pktType {
 	case packet.PKT_T_WhoIsAlive:
 		ws.handleWhoIsAlive()
 
 	case packet.PKT_T_IAmAlive:
-		fmt.Println("from:", peerID, pkt.Header.PktType)
+		fmt.Println("from:", peerKey, pktType)
 
 	case packet.PKT_T_IAmMaster:
 		ws.handleIAmMaster()
@@ -80,7 +78,7 @@ func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
 
 func (ws *WhoIsAliveBroadcast) handleWhoIsAlive() {
 	if ws.isMaster() {
-		ws.queueReply(packet.PKT_T_IAmMaster)
+		ws.queueIamMasterMsg()
 	} else {
 		ws.queueReply(packet.PKT_T_IAmAlive)
 	}
@@ -92,6 +90,8 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	default:
 	}
 
+	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look
+	ws.clearHasLastPacket()
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
@@ -99,7 +99,7 @@ func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	addr := pkt.Payload.Addr
 	if addr == ws.selfAddr {
 		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
-		ws.queueReply(packet.PKT_T_IAmMaster)
+		ws.queueIamMasterMsg()
 	}
 }
 
@@ -108,7 +108,7 @@ func (ws *WhoIsAliveBroadcast) handleMasterAck() {
 		fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
 
 		if ws.countResponders() >= ws.expectedResponses {
-			ws.hasLastPkt = false
+			ws.clearHasLastPacket()
 			ws.stopResponseTimer()
 		}
 	}
@@ -125,6 +125,10 @@ func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 		ws.queueWhoIsAliveMsg()
 		ws.stopResponseTimer()
 	})
+}
+
+func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) { // TODO queue at server
+	ws.srv.QueueElectedMasterMsg(masterAddr)
 }
 
 func (ws *WhoIsAliveBroadcast) startElection() { ws.election.Start(ws) }

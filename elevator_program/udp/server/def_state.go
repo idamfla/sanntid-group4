@@ -59,10 +59,16 @@ func (ss *ServerState) GetIsSynced() bool {
 	return ss.IsSynced
 }
 
-func (ss *ServerState) SetIsSynced(isSynced bool) {
+func (ss *ServerState) SetIsSynced() {
 	ss.lock()
 	defer ss.unlock()
-	ss.IsSynced = isSynced
+	ss.IsSynced = true
+}
+
+func (ss *ServerState) ClearIsSynced() {
+	ss.lock()
+	defer ss.unlock()
+	ss.IsSynced = false
 }
 
 func (ss *ServerState) lock()   { ss.mu.Lock() }

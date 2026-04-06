@@ -1,7 +1,6 @@
 package server
 
 import (
-	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"elevator_program/udp/session"
 	"fmt"
@@ -11,11 +10,13 @@ import (
 func (srv *Server) Send(
 	ses *session.Session,
 	pktType packet.PacketType,
-	eMsg message.ElevatorMessage,
+	// eMsg message.ElevatorMessage,
+	outMsg packet.OutgoingMessage,
 ) error {
 	senderAddr := srv.GetRecvString()
 
-	data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg)
+	data, err := ses.GenerateDataPacket(senderAddr, pktType, outMsg) // TODO needs to include the origin
+	// data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg) // TODO needs to include the origin
 	if err != nil {
 		fmt.Println("Encode error:", err)
 		return err
@@ -31,103 +32,95 @@ func (srv *Server) Send(
 }
 
 // deciding how to output messages from the server, what type of session should start
-func (srv *Server) handleOutPkt(outMsg outgoingMessage) {
+func (srv *Server) handleOutPkt(outMsg packet.OutgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsAlive: // TODO this need changing
-		srv.QueueWhoIsAliveMsg()
+	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
+		srv.dispatchMasterElectionMsg(outMsg)
 
-	case packet.PKT_T_BroadcastUpdate:
-		srv.dispatchBroadcastUpdate(outMsg)
+	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
+		srv.dispatchBroadcastMsg(outMsg)
 
-	case packet.PKT_T_SlaveUpdate, packet.PKT_T_RequestTaskExecution:
+	case packet.PKT_T_RequestTaskExecution:
 		srv.dispatchToMasterMsg(outMsg)
-
-	case packet.PKT_T_CatchupUpdate, packet.PKT_T_Snapshot:
-		srv.dispatchToSlaveMsg(outMsg)
-
-	case packet.PKT_T_SyncComplete:
-		srv.dispatchCatchupDone(outMsg)
 	}
 }
 
-func (srv *Server) dispatchToSlaveMsg(outMsg outgoingMessage) {
-	srv.startSession(outMsg.RemoteAddr, outMsg)
+func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
+	ws := srv.getOrCreateMasterElectionSession()
+
+	if outMsg.PktType == packet.PKT_T_IAmMaster {
+		srv.setSelfAsMaster()
+		srv.setIsSynced()
+	}
+
+	ws.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 
-func (srv *Server) dispatchToMasterMsg(outMsg outgoingMessage) {
-	srv.mu.Lock()
-
-	mstr := srv.getMasterPeerUnsafe()
+func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
+	mstr := srv.getMasterPeer()
 	if mstr == nil {
-		fmt.Println(srv.ID, "dosen't know who master is") // TODO remove later,
+		fmt.Println(srv.GetAlias(), "dosen't know who master is") // TODO remove later,
 		srv.QueueWhoIsAliveMsg()
-		srv.mu.Unlock()
 		return
 	}
-	srv.mu.Unlock()
 
 	srv.startSession(mstr.Addr, outMsg)
 }
 
-func (srv *Server) dispatchBroadcastUpdate(outMsg outgoingMessage) {
+func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
 	if !srv.IsMaster() {
-		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
+		fmt.Println(srv.GetAlias(), "is not master, can't broadcast like one ...")
+		return
 	}
 
-	srv.mu.Lock()
-	for _, p := range srv.peers {
-		if p.Active && !p.IsSynced {
-			p.QueueMessage(outMsg.EMsg)
-		}
-	}
-	srv.mu.Unlock()
-
-	srv.startStateBroadcast(outMsg)
-}
-
-func (srv *Server) dispatchCatchupDone(outMsg outgoingMessage) {
-	if !srv.IsMaster() {
-		fmt.Println(srv.ID, "is not master, can't broadcast like one ...")
+	outMsg, peerExists := srv.resolveOrigin(outMsg)
+	if !peerExists {
+		fmt.Println("The origin of this message is unknown ...")
+		srv.QueueWhoIsAliveMsg()
+		return
 	}
 
 	srv.startStateBroadcast(outMsg)
 }
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg outgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
+func (srv *Server) resolveOrigin(outMsg packet.OutgoingMessage) (packet.OutgoingMessage, bool) {
+	key := outMsg.EMsg.Addr
+
+	if key == srv.GetRecvString() {
+		return outMsg, true
+	}
+
+	peer, exists := srv.getPeer(key)
+	srv.PrintPeers()
+	if !exists {
+		<-srv.stop
+		return packet.OutgoingMessage{}, false
+	}
+
+	alias, addr, _, _, _, _ := peer.Snapshot()
+
+	outMsg.Origin = packet.Identity{
+		Identifier: addr.String(),
+		Alias:      alias,
+	}
+
+	return outMsg, true
+}
+
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
 	ses := srv.createSession(remoteAddr, nil)
-	ses.QueueDirectMsg(outMsg.PktType, outMsg.EMsg)
+	ses.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(outMsg outgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
-	quorum := srv.getPeerCount()
+func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
+	quorum := srv.countActivePeers()
 	bs := srv.createBroadcastSession(quorum)
-	bs.QueueStateBSUpdateMsg(outMsg.PktType, outMsg.EMsg)
+	bs.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 
-func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
-	pktType := packet.PacketType(protoPktType)
-
-	select {
-	case srv.outgoingMsgCh <- outgoingMessage{
-		RemoteAddr: remoteAddr,
-		PktType:    pktType,
-		EMsg:       eMsg,
-	}:
-	default:
-		fmt.Println("Can't queue message, servers messageQueue is full")
-	}
-}
-
-func (srv *Server) queueSyncRequest() {
-	srv.QueueMessage(nil, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{
-		ID:       srv.ID,
-		Addr:     srv.GetRecvString(),
-		EMsgType: message.EMSG_T_NewToChannel,
-	})
-}
-
+// --- helper ---
 func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
 	local := srv.getRecvUDPAddr()
 	return addr.IP.Equal(local.IP) && addr.Port == local.Port

@@ -32,6 +32,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 
 		case <-ticker.C:
 			if ses.hasLastPkt {
+				fmt.Println("No answer so far ... retry:", retryCounter)
 				ses.sendRetry(ses.lastOutPkt)
 				retryCounter++
 				if retryCounter > udp.MAX_RETRIES {

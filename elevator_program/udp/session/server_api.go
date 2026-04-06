@@ -7,50 +7,37 @@ import (
 )
 
 type ServerAPI interface {
-	Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
+	Send(ses *Session, pktType packet.PacketType, outMsg packet.OutgoingMessage) error
 	QueueWhoIsAliveMsg()
+	QueueIAmMasterMsg()
+	QueueElectedMasterMsg(masterAddr string)
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
-	SetSelfAsMaster()
-	SetIsSynced(isSynced bool)
 	GetRecvString() string
 	GetBroadcastAddr() *net.UDPAddr
 	GetCloseReqCh() chan uint32
 }
 
-func (ses *Session) send(outPkt outgoingMessage) error {
+func (ses *Session) send(outMsg packet.OutgoingMessage) error {
 	ses.seq++
-	ses.lastOutPkt = outPkt
+	ses.lastOutPkt = outMsg
 	return ses.srv.Send(
 		ses,
-		outPkt.PktType,
-		outPkt.EMsg,
+		outMsg.PktType,
+		outMsg,
 	)
 }
 
-func (ses *Session) sendRetry(outPkt outgoingMessage) error {
+func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 	return ses.srv.Send(
 		ses,
-		outPkt.PktType,
-		outPkt.EMsg)
+		outMsg.PktType,
+		outMsg)
 }
 
-func (ses *Session) queueWhoIsAliveMsg() {
-	ses.srv.QueueWhoIsAliveMsg()
-}
-
+func (ses *Session) queueWhoIsAliveMsg() { ses.srv.QueueWhoIsAliveMsg() }
+func (ses *Session) queueIamMasterMsg()  { ses.srv.QueueIAmMasterMsg() }
+func (ses *Session) isMaster() bool      { return ses.srv.IsMaster() }
 func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
 	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
-}
-
-func (ses *Session) isMaster() bool {
-	return ses.srv.IsMaster()
-}
-
-func (ses *Session) setSelfAsMaster() {
-	ses.srv.SetSelfAsMaster()
-}
-
-func (ses *Session) setIsSynced(isSynced bool) {
-	ses.srv.SetIsSynced(isSynced)
 }

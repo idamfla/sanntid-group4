@@ -53,7 +53,7 @@ func (sm *SessionManager) createSession(srv *Server, remoteAddr *net.UDPAddr, se
 
 	ses := session.NewSession(id, remoteAddr, srv)
 	sm.addSession(ses)
-	fmt.Printf("Server %s: new session: %d\n", srv.ID, id)
+	fmt.Printf("Server %s: new session: %d\n", srv.GetAlias(), id)
 
 	sm.unlock()
 
@@ -67,7 +67,7 @@ func (sm *SessionManager) createBroadcastSession(srv *Server, expectedResponses 
 	id := sm.generateSessionIDUnsafe()
 	sbs := session.NewStateBroadcast(id, srv, expectedResponses)
 	sm.addSession(sbs)
-	fmt.Printf("Server %s: new StateBroadcast session: %d\n", srv.ID, id)
+	fmt.Printf("Server %s: new StateBroadcast session: %d\n", srv.GetAlias(), id)
 
 	sm.unlock()
 
@@ -81,7 +81,7 @@ func (sm *SessionManager) createMasterElectionSession(srv *Server) SessionHandle
 	id := MASTER_ELECTION_SESSSION_ID
 	ws := session.NewWhoIsAliveBroadcast(id, srv)
 	sm.addSession(ws)
-	fmt.Printf("Server %s: new WhoIsAlive session: %d\n", srv.ID, id)
+	fmt.Printf("Server %s: new WhoIsAlive session: %d\n", srv.GetAlias(), id)
 
 	sm.unlock()
 
@@ -97,7 +97,6 @@ func (sm *SessionManager) getSession(sesID uint32) (SessionHandler, bool) {
 	return sh, exists
 }
 
-// TODO have a print of who closed it
 func (sm *SessionManager) closeSession(sesID uint32) {
 	sm.lock()
 
@@ -146,7 +145,6 @@ func generateID() (uint32, error) {
 
 // --- helpers ---
 
-// TODO have a print of who closed it
 func (sm *SessionManager) countSessions() int {
 	sm.lock()
 	defer sm.unlock()
