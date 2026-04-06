@@ -30,7 +30,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 			retryCounter = 0
 			utilities.ResetTicker(ticker, udp.RETRY_INTERVAL)
 
-			behavior.HandlePacket(pkt)
+			behavior.HandleIncPkt(pkt)
 
 		case <-ticker.C:
 			rCounter, ok := ses.handleRetry(retryCounter)

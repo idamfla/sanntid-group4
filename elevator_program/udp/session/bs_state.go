@@ -53,7 +53,7 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 
 }
 
-func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
+func (sbs *StateBroadcast) HandleIncPkt(pkt packet.Packet) error {
 	h := pkt.Header
 	pktType := h.PktType
 	peerKey := h.SenderAddr

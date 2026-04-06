@@ -44,6 +44,7 @@ func (ses *Session) queueSyncCompleteMsg(outPkt packet.OutgoingMessage) {
 	ses.srv.QueueSyncCompleteMsg(outPkt)
 }
 
-func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
-	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
+// expects a response/completion from elevator
+func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage) {
+	ses.srv.QueueElevatorTask(eMsg, ses.elevDone, ses.taskReady)
 }

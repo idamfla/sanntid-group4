@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename HandleIncPkt
+func (ses *Session) HandleIncPkt(pkt packet.Packet) error { // TODO rename HandleIncPkt
 	ses.stopShutdownTimer()
 
 	h := pkt.Header
@@ -77,7 +77,7 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 
 // expects a response/completion from elevator
 func (ses *Session) queueElevatorRequest() {
-	ses.queueElevatorTask(ses.pendingPkt.EMsg, ses.elevDone)
+	ses.queueElevatorTask(ses.pendingPkt.EMsg)
 }
 
 // fire-and-forget, reponse will appear in another session
@@ -88,7 +88,7 @@ func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	eMsg.Addr = ses.peerAddr.String()
 	eMsg.EMsgType = eMsgType
 
-	ses.queueElevatorTask(eMsg, nil)
+	ses.queueElevatorTask(eMsg)
 }
 
 func (ses *Session) handleStateBSUpdate() {

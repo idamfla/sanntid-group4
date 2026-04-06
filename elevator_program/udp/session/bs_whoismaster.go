@@ -51,7 +51,7 @@ func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 	}
 }
 
-func (ws *WhoIsAliveBroadcast) HandlePacket(pkt packet.Packet) error {
+func (ws *WhoIsAliveBroadcast) HandleIncPkt(pkt packet.Packet) error {
 	peerKey := pkt.Header.SenderAddr
 	pktType := pkt.Header.PktType
 	ws.addResponder(peerKey)

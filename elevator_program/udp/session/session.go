@@ -13,7 +13,7 @@ const (
 )
 
 type SessionBehavior interface {
-	HandlePacket(pkt packet.Packet) error
+	HandleIncPkt(pkt packet.Packet) error
 	OnSend(pktType packet.PacketType)
 }
 
