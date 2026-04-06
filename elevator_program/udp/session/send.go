@@ -48,12 +48,23 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 	}
 }
 
-func (ses *Session) handleOutPkt(outPkt packet.OutgoingMessage, behavior SessionBehavior) {
-	err := ses.send(outPkt)
+func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior SessionBehavior) {
+	err := ses.send(outMsg)
 	if err != nil {
 		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 		return
 	}
 
-	behavior.OnSend(outPkt.PktType)
+	pktType := outMsg.PktType
+	switch pktType {
+	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster,
+		packet.PKT_T_RequestTaskExecution,
+		packet.PKT_T_BroadcastUpdate,
+		packet.PKT_T_SyncMsg:
+		ses.setPendingPkt(&outMsg)
+	case packet.PKT_T_SyncComplete:
+		ses.setSynced()
+	}
+
+	behavior.OnSend(pktType)
 }

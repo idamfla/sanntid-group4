@@ -8,14 +8,6 @@ import (
 	"time"
 )
 
-func (ses *Session) ReceivePacket(pkt packet.Packet) {
-	select {
-	case ses.packetInCh <- pkt:
-	default:
-		fmt.Println("Session mailbox is full, could not receive new packet")
-	}
-}
-
 func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename HandleIncPkt
 	ses.stopShutdownTimer()
 
@@ -29,15 +21,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 	}
 
 	ses.seq = pkt.Header.Seq
-	// 	fmt.Printf(
-	// 		`	seq : %d
-	// 	pktType : %s
-	// 	payload : %+v
-	// `,
-	// 		pkt.Header.Seq,
-	// 		pkt.Header.PktType,
-	// 		pkt.Payload,
-	// 	)
 
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
@@ -47,36 +30,11 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 		fmt.Printf("%s lost connection ...", h.SenderAddr)
 		// TODO what to do now?
 
-	case packet.PKT_T_RequestTaskExecution:
-		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
-
-	// case packet.PKT_T_CatchupUpdate:
-	// 	ses.handleCatchup()
-
-	// case packet.PKT_T_Snapshot:
-	// 	ses.handleSnapshot()
-
-	// case packet.PKT_T_CatchupAck, packet.PKT_T_SnapshotAck:
-	// 	ses.requestClose()
-
-	// case packet.PKT_T_SlaveUpdate:
-	// 	ses.handleSlaveUpdate(pkt.Payload)
-
-	case packet.PKT_T_BroadcastUpdate:
-		ses.handleStateBSUpdate()
-
-	case packet.PKT_T_SyncMsg:
-		ses.handleSyncMsg()
-	// case packet.PKT_T_SyncComplete:
-	// 	ses.handleSyncComplete()
+	case packet.PKT_T_RequestTaskExecution, packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
+		ses.handleFirstIncomming(pkt)
 
 	case packet.PKT_T_RequestTaskExecutionAck:
 		ses.requestClose()
-	// TODO master must give it an id, send it all important updates
-	/*
-		maybe send to elevator, elevator send done when it receive. the master elevator handle the request and use its server to start
-		communication witht the wondering elevator on a private session another session
-	*/
 
 	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
 		// case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncCommit:
@@ -89,6 +47,28 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 	return nil
 }
 
+func (ses *Session) handleFirstIncomming(pkt packet.Packet) {
+	h := pkt.Header
+
+	ses.setPendingPkt(
+		&packet.OutgoingMessage{
+			Origin:  h.Origin,
+			PktType: h.PktType,
+			EMsg:    pkt.Payload,
+		})
+
+	switch h.PktType {
+	case packet.PKT_T_RequestTaskExecution:
+		ses.handleRequestTaskExecution(pkt.Payload.EMsgType)
+
+	case packet.PKT_T_BroadcastUpdate:
+		ses.handleStateBSUpdate()
+
+	case packet.PKT_T_SyncMsg:
+		ses.handleSyncMsg()
+	}
+}
+
 func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
 	ses.queueElevatorCommand(eMsgType)
 	ses.queueReply(packet.PKT_T_RequestTaskExecutionAck)
@@ -97,14 +77,14 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 
 // expects a response/completion from elevator
 func (ses *Session) queueElevatorRequest() {
-	ses.queueElevatorTask(ses.pendingPkt.Payload, ses.elevDone)
+	ses.queueElevatorTask(ses.pendingPkt.EMsg, ses.elevDone)
 }
 
 // fire-and-forget, reponse will appear in another session
 func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	ses.notifyTaskReady()
 
-	eMsg := ses.pendingPkt.Payload
+	eMsg := ses.pendingPkt.EMsg
 	eMsg.Addr = ses.peerAddr.String()
 	eMsg.EMsgType = eMsgType
 
@@ -129,12 +109,12 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_SyncMsgCommit:
-		ses.queueReply(packet.PKT_T_SyncComplete)
+		ses.queueReply(packet.PKT_T_SyncComplete) // TODO when sending this you need to set self as synced if the origin is the same as you
 	case packet.PKT_T_BroadcastCommit:
 		ses.queueReply(packet.PKT_T_BroadcastDone)
 	}
 
-	ses.pendingPkt = nil
+	ses.clearPendingPkt()
 
 	ses.startShutdownTimer()
 }

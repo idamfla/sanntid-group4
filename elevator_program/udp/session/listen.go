@@ -2,6 +2,7 @@ package session
 
 import (
 	"elevator_program/udp"
+	"elevator_program/udp/packet"
 	"fmt"
 	"time"
 )
@@ -43,5 +44,13 @@ func (ses *Session) listen(behavior SessionBehavior) {
 				}
 			}
 		}
+	}
+}
+
+func (ses *Session) ReceivePacket(pkt packet.Packet) {
+	select {
+	case ses.packetInCh <- pkt:
+	default:
+		fmt.Println("Session mailbox is full, could not receive new packet")
 	}
 }

@@ -55,7 +55,7 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 
 	// already know this master
 	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
-		srv.setIsSynced()
+		srv.SetSynced()
 		fmt.Println(srv.GetAlias(), "already know master, ignoring") // TODO db
 		return nil
 	}
@@ -68,7 +68,7 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 	peer.SetMaster()
 	peer.SetSynced()
 
-	srv.clearIsSynced()
+	srv.clearSynced()
 
 	return srv.getOrCreateMasterElectionSession()
 }
@@ -77,15 +77,14 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, pkt packet.Packet
 	sessionID := pkt.Header.SessionID
 	recipientAddr := pkt.Header.Origin.Identifier
 
-	fmt.Println("SYNC COMP", recipientAddr)
-
 	if srv.GetRecvString() == recipientAddr {
-		srv.setIsSynced()
+		srv.SetSynced()
 	}
 
-	if peer, exists := srv.getPeer(recipientAddr); exists {
-		peer.SetSynced()
-	}
+	srv.setPeerSynced(recipientAddr)
+	// if peer, exists := srv.getPeer(recipientAddr); exists { // TODO rather call the function from peerManager
+	// 	peer.SetSynced()
+	// }
 
 	return srv.getOrCreateSession(senderAddr, &sessionID)
 }

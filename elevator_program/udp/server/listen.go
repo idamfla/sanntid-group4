@@ -22,7 +22,7 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 			continue
 		}
 
-		srv.receivePacket(pkt, addr)
+		srv.receivePacket(pkt)
 
 	}
 }
@@ -48,7 +48,7 @@ func (srv *Server) readPacket(conn *net.UDPConn, buf []byte) (pkt packet.Packet,
 	return pkt, addr, true
 }
 
-func (srv *Server) receivePacket(pkt packet.Packet, addr *net.UDPAddr) {
+func (srv *Server) receivePacket(pkt packet.Packet) {
 	select {
 	case <-srv.stop:
 		return

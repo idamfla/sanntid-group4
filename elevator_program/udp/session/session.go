@@ -25,7 +25,7 @@ type Session struct {
 	seq uint32 // TODO remove ... maybe??
 
 	// --- protocol state ---
-	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
+	pendingPkt *packet.OutgoingMessage // TODO do i need if server handles the elevator tasks?
 	lastOutMsg packet.OutgoingMessage
 	// lastOutMsg outgoingMessage
 	hasLastPkt bool
@@ -59,7 +59,7 @@ func NewSession(id uint32,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
 		// seq:                seq, // TODO have it set on init ...
-		pendingPkt:    &packet.Packet{},
+		pendingPkt:    &packet.OutgoingMessage{},
 		lastOutMsg:    packet.OutgoingMessage{},
 		hasLastPkt:    false,
 		shutdownTimer: utilities.NewTimer(),
@@ -98,7 +98,7 @@ func (ses *Session) Close() {
 		close(ses.taskReady)
 
 		// Clear pending packet
-		ses.pendingPkt = nil
+		ses.clearPendingPkt()
 	})
 }
 
@@ -118,6 +118,9 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
 }
+
+func (ses *Session) setPendingPkt(pendingPkt *packet.OutgoingMessage) { ses.pendingPkt = pendingPkt }
+func (ses *Session) clearPendingPkt()                                 { ses.pendingPkt = nil }
 
 func (ses *Session) setHasLastPacket()   { ses.hasLastPkt = true }
 func (ses *Session) clearHasLastPacket() { ses.hasLastPkt = false }

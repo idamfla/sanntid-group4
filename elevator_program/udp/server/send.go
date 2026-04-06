@@ -51,7 +51,7 @@ func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 
 	if outMsg.PktType == packet.PKT_T_IAmMaster {
 		srv.setSelfAsMaster()
-		srv.setIsSynced()
+		srv.SetSynced()
 	}
 
 	ws.QueueDirectMsg(outMsg.PktType, outMsg)
@@ -73,13 +73,6 @@ func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
 		fmt.Println(srv.GetAlias(), "is not master, can't broadcast like one ...")
 		return
 	}
-
-	// outMsg, peerExists := srv.resolveOrigin(outMsg)
-	// if !peerExists {
-	// 	fmt.Println("The origin of this message is unknown ...")
-	// 	srv.QueueWhoIsAliveMsg()
-	// 	return
-	// }
 
 	srv.startStateBroadcast(outMsg)
 }

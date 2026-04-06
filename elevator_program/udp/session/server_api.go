@@ -13,6 +13,7 @@ type ServerAPI interface {
 	QueueElectedMasterMsg(masterAddr string)
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
+	SetSynced()
 	GetRecvString() string
 	GetBroadcastAddr() *net.UDPAddr
 	GetCloseReqCh() chan uint32
@@ -38,6 +39,7 @@ func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 func (ses *Session) queueWhoIsAliveMsg() { ses.srv.QueueWhoIsAliveMsg() }
 func (ses *Session) queueIamMasterMsg()  { ses.srv.QueueIAmMasterMsg() }
 func (ses *Session) isMaster() bool      { return ses.srv.IsMaster() }
+func (ses *Session) setSynced()          { ses.srv.SetSynced() }
 func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
 	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
 }

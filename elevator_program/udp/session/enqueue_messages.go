@@ -18,5 +18,6 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, outMsg packet.Outg
 }
 
 func (ses *Session) queueReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, ses.lastOutMsg)
+	ses.QueueDirectMsg(pktType, *ses.pendingPkt)
+	// ses.QueueDirectMsg(pktType, ses.lastOutMsg)
 }

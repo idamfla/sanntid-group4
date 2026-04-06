@@ -7,7 +7,7 @@ import (
 type ServerState struct {
 	IsMaster           bool
 	SearchingForMaster bool
-	IsSynced           bool
+	Synced             bool
 	mu                 sync.Mutex
 }
 
@@ -16,7 +16,7 @@ func (ss *ServerState) Reset() {
 	defer ss.unlock()
 
 	ss.IsMaster = false
-	ss.IsSynced = false
+	ss.Synced = false
 	ss.SearchingForMaster = false
 }
 
@@ -31,7 +31,7 @@ func (ss *ServerState) SetMaster() {
 	defer ss.unlock()
 
 	ss.IsMaster = true
-	ss.IsSynced = true
+	ss.Synced = true
 	ss.SearchingForMaster = false
 }
 
@@ -53,22 +53,22 @@ func (ss *ServerState) ClearMasterSearch() {
 	ss.SearchingForMaster = false
 }
 
-func (ss *ServerState) GetIsSynced() bool {
+func (ss *ServerState) GetSynced() bool {
 	ss.lock()
 	defer ss.unlock()
-	return ss.IsSynced
+	return ss.Synced
 }
 
-func (ss *ServerState) SetIsSynced() {
+func (ss *ServerState) SetSynced() {
 	ss.lock()
 	defer ss.unlock()
-	ss.IsSynced = true
+	ss.Synced = true
 }
 
-func (ss *ServerState) ClearIsSynced() {
+func (ss *ServerState) ClearSynced() {
 	ss.lock()
 	defer ss.unlock()
-	ss.IsSynced = false
+	ss.Synced = false
 }
 
 func (ss *ServerState) lock()   { ss.mu.Lock() }

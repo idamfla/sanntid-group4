@@ -25,8 +25,8 @@ func (srv *Server) clearMasterSearch() {
 }
 
 func (srv *Server) isSynced() bool {
-	return srv.state.GetIsSynced()
+	return srv.state.GetSynced()
 }
 
-func (srv *Server) setIsSynced()   { srv.state.SetIsSynced() }
-func (srv *Server) clearIsSynced() { srv.state.ClearIsSynced() }
+func (srv *Server) SetSynced()   { srv.state.SetSynced() }
+func (srv *Server) clearSynced() { srv.state.ClearSynced() }
