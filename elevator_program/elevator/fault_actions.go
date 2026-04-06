@@ -1,6 +1,10 @@
 package elevator
 
-import "time"
+import (
+	"fmt"
+	"slices"
+	"time"
+)
 
 const motorWatchdogTimeout = 5 * time.Second
 
@@ -23,6 +27,19 @@ func (e *Elevator) checkMotorWatchdog() bool {
 		return true
 	}
 	return time.Since(wdTime) < motorWatchdogTimeout
+}
+
+// TODO i don't know if this is the place it should be but maybe
+func (e *Elevator) UpdateWhoIsALive(ipAdresses []string) {
+	for ip, elev := range e.System.Elevators {
+		if !slices.Contains(ipAdresses, ip) {
+			fmt.Println("Elevator %d is dead", ip)
+			elev.IsAlive = false // TODO maybe i need to remove the task from this elevator, but don't think that is very important
+		} else {
+			elev.IsAlive = true
+		}
+		e.System.Elevators[ip] = elev
+	}
 }
 
 // import (
@@ -316,18 +333,5 @@ func (e *Elevator) checkMotorWatchdog() bool {
 // 	defer e.recoveryMu.Unlock()
 // 	if e.recoveryAwaitingProof {
 // 		e.recoveryVerified = true
-// 	}
-// }
-
-// // TODO i don't know if this is the place it should be but maybe
-// func (e *Elevator) UpdateWhoIsALive(ipAdresses []string) {
-// 	for ip, elev := range e.System.Elevators {
-// 		if !slices.Contains(ipAdresses, ip) {
-// 			fmt.Println("Elevator %d is dead", ip)
-// 			elev.IsAlive = false // TODO maybe i need to remove the task from this elevator, but don't think that is very important
-// 		} else {
-// 			elev.IsAlive = true
-// 		}
-// 		e.System.Elevators[ip] = elev
 // 	}
 // }

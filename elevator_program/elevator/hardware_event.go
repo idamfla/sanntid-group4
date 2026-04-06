@@ -132,6 +132,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevatorCopy := e.System.Elevators[e.Ip]
 			elevatorCopy.CurrentFloor = hwEvent.Floor
 			elevatorCopy.IsMotorWorking = true
+			elevatorCopy.IsAlive = true
 			e.System.Elevators[e.Ip] = elevatorCopy
 			_, elevs := e.System.Snapshot()
 			e.System.Mutex.Unlock()

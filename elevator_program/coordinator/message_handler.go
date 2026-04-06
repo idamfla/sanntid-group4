@@ -28,7 +28,7 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if c.Server.IsMaster() {
-		e.TurnToMaster()         // TODO it is a bit waste to have it here
+		// e.TurnToMaster()         // TODO it is a bit waste to have it here
 		c.handleAsMaster(e, msg) // TODO when a new master is elected, it needs to reset the timer on every running task, so no task is lost
 	} else {
 		// e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
@@ -73,11 +73,12 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 	case message.EMSG_T_IAmMaster:
+		e.TurnToSlave()
 		if !e.ConnectedToMaster() { // TODO is this wrong?
 			e.SetConnectionState(eMsg)
 			e.System.Mutex.RLock()
 			newMsg := message.ElevatorMessage{
-				EMsgType:     message.EMSG_T_NewToChannel,
+				EMsgType:     message.EMSG_T_IAmMaster,
 				ID:           e.Id,
 				Addr:         e.Ip,
 				HallRequests: e.System.HallRequests,
@@ -88,6 +89,16 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.System.Mutex.RUnlock()
 			e.SendToCoordinator <- newMsg
 		}
+
+		var ipAdresses []string
+		for ip, elev := range eMsg.Elevators {
+			if elev.IsAlive {
+				ipAdresses = append(ipAdresses, ip)
+			}
+		}
+		e.System.Mutex.Lock()
+		e.UpdateWhoIsALive(ipAdresses)
+		e.System.Mutex.Unlock()
 	}
 }
 
@@ -202,6 +213,18 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 
 	case message.EMSG_T_SyncedElevator:
 		fmt.Println("I am not supposed to do anything here, \n\n\n")
+
+	case message.EMSG_T_IAmMaster:
+		c.takeoverAsMaster(e)
+		var ipAdresses []string
+		for ip, elev := range eMsg.Elevators {
+			if elev.IsAlive {
+				ipAdresses = append(ipAdresses, ip)
+			}
+		}
+		e.System.Mutex.Lock()
+		e.UpdateWhoIsALive(ipAdresses)
+		e.System.Mutex.Unlock()
 
 	case message.EMSG_T_SyncSystem:
 		e.System.Mutex.Lock()

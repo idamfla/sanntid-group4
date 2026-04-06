@@ -3,7 +3,6 @@ package coordinator
 import (
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
 	"net"
@@ -37,7 +36,8 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 	case message.EMSG_T_TaskRequest:
 		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
 
-	case message.EMSG_T_NewToChannel: // TODO fix stuff here
+	case message.EMSG_T_IAmMaster: // TODO fix stuff here
+		eMsg.EMsgType = message.EMSG_T_NewToChannel
 		// msgPacket = packet.PROTO_PKT_T_WhoIsAlive // TODO ask ida how election works now
 	}
 	c.QueueMessage(nil, msgPacket, eMsg)
@@ -67,17 +67,12 @@ func (c *Coordinator) sendAsMaster(eMsg message.ElevatorMessage) {
 		eMsg.EMsgType = message.EMSG_T_SyncSystem
 		msgPacket = packet.PROTO_PKT_T_Snapshot
 
-		udpAddr, err := udp.StringAddrToUDPAddr(eMsg.Addr)
-		if err != nil {
-			return
-		}
-		addr = udpAddr
-		// TODO the best would be to have peer catchup here
+		// udpAddr, err := udp.StringAddrToUDPAddr(eMsg.Addr)
+		// if err != nil {
+		// 	return
+		// }
+		// addr = udpAddr
 	}
 
 	c.QueueMessage(addr, msgPacket, eMsg)
-
-	if eMsg.EMsgType == message.EMSG_T_NewToChannel { // TODO could i have peerCatchup before QueueMsg??
-		c.Server.StartPeerCatchup(addr)
-	}
 }
