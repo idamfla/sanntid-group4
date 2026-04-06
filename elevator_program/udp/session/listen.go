@@ -3,6 +3,7 @@ package session
 import (
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
+	"elevator_program/utilities"
 	"fmt"
 	"time"
 )
@@ -27,24 +28,38 @@ func (ses *Session) listen(behavior SessionBehavior) {
 				return
 			}
 			retryCounter = 0
-			ticker.Reset(udp.RETRY_INTERVAL)
+			utilities.ResetTicker(ticker, udp.RETRY_INTERVAL)
 
 			behavior.HandlePacket(pkt)
 
 		case <-ticker.C:
-			if ses.hasLastPkt {
-				fmt.Println("No answer so far ... retry:", retryCounter)
-				ses.sendRetry(ses.lastOutMsg)
-				retryCounter++
-				if retryCounter > udp.MAX_RETRIES {
-					fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
-					ses.queueWhoIsAliveMsg() // TODO test that this actually work as fault tol ...
-					ses.requestClose()
-					return
-				}
+			rCounter, ok := ses.handleRetry(retryCounter)
+			if !ok {
+				return
 			}
+
+			retryCounter = rCounter
+
 		}
 	}
+}
+
+func (ses *Session) handleRetry(retryCounter int) (int, bool) {
+	if ses.hasLastPkt {
+		fmt.Println("No answer so far ... retry:", retryCounter)
+		ses.sendRetry(ses.lastOutMsg)
+
+		retryCounter++
+
+		if retryCounter > udp.MAX_RETRIES {
+			fmt.Printf("Session %d: receiver seems dead, stopping retryCounter\n", ses.ID)
+			ses.queueWhoIsAliveMsg() // TODO test that this actually work as fault tol ...
+			ses.requestClose()
+			return retryCounter, false
+		}
+	}
+
+	return retryCounter, true
 }
 
 func (ses *Session) ReceivePacket(pkt packet.Packet) {

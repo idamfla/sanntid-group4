@@ -52,9 +52,12 @@ func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 	ws := srv.getOrCreateMasterElectionSession()
 
-	if outMsg.PktType == packet.PKT_T_IAmMaster {
+	switch outMsg.PktType {
+	case packet.PKT_T_IAmMaster:
 		srv.setSelfAsMaster()
 		srv.setSynced()
+	case packet.PKT_T_WhoIsAlive:
+		srv.clearAllAlive()
 	}
 
 	ws.QueueDirectMsg(outMsg.PktType, outMsg)
@@ -70,7 +73,12 @@ func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
 }
 
 func (srv *Server) dispatchSyncComplete(outMsg packet.OutgoingMessage) {
-	ses := srv.getOrCreateSession(nil, &outMsg.Origin.ID)
+	ses, exists := srv.getSession(outMsg.Origin.ID)
+	if !exists {
+		fmt.Printf("Tried to dispatch a %s to a session that do not exist ...\n", outMsg.PktType)
+		return
+	}
+
 	srv.updateSyncFromMsg(outMsg)
 	ses.QueueDirectMsg(outMsg.PktType, outMsg)
 }

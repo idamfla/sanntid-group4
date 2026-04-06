@@ -49,13 +49,12 @@ func (e *Elev) listen() {
 			switch msg.EMsg.EMsgType {
 			case message.EMSG_T_IAmMaster:
 				fmt.Println(e.srv.GetAlias(), "took snapshot")
-				e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // button map
-				// e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_Snapshot, message.ElevatorMessage{})
-				// e.srv.StartPeerCatchup(udpAddr)
+				e.isMaster = false
+				e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // intersect button map
 
 			case message.EMSG_T_ButtonPress:
 				fmt.Println(e.srv.GetAlias(), "intersect, asked by", msg.EMsg.Addr)
-				e.srv.QueueSyncMsg(msg.EMsg) // button map
+				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mst send out again syncMsg
 			}
 		case <-e.stop:
 			return
