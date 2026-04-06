@@ -36,9 +36,8 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, pkt packet.Packet) 
 }
 
 func (srv *Server) handleWhoIsAlive() SessionHandler {
-	if srv.isSearchingForMaster() {
-		return nil
-	}
+	srv.clearAllAlive()
+
 	return srv.getOrCreateMasterElectionSession()
 }
 
@@ -47,7 +46,7 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 	peer, exists := srv.getPeer(peerKey)
 
 	if !exists || peer == nil {
-		fmt.Println("Peer dosent exist") // TODO db
+		fmt.Println("Peer dosent exist")
 		return nil
 	}
 

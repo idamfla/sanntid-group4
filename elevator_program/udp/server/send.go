@@ -86,6 +86,8 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 	srv.startSession(mstr.Addr, outMsg)
 }
 
+// --- start sessions ---
+
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
 	ses := srv.createSession(remoteAddr, nil)
 	ses.QueueDirectMsg(outMsg.PktType, outMsg)
@@ -96,10 +98,4 @@ func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) { // TODO 
 	quorum := srv.countAlivePeers()
 	bs := srv.createBroadcastSession(quorum)
 	bs.QueueDirectMsg(outMsg.PktType, outMsg)
-}
-
-// --- helper ---
-func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
-	local := srv.getRecvUDPAddr()
-	return addr.IP.Equal(local.IP) && addr.Port == local.Port
 }
