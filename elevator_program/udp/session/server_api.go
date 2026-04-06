@@ -20,7 +20,7 @@ type ServerAPI interface {
 
 func (ses *Session) send(outMsg packet.OutgoingMessage) error {
 	ses.seq++
-	ses.lastOutPkt = outMsg
+	ses.lastOutMsg = outMsg
 	return ses.srv.Send(
 		ses,
 		outMsg.PktType,

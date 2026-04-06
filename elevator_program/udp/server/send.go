@@ -32,7 +32,7 @@ func (srv *Server) Send(
 }
 
 // deciding how to output messages from the server, what type of session should start
-func (srv *Server) handleOutPkt(outMsg packet.OutgoingMessage) {
+func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
@@ -74,38 +74,14 @@ func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
 		return
 	}
 
-	outMsg, peerExists := srv.resolveOrigin(outMsg)
-	if !peerExists {
-		fmt.Println("The origin of this message is unknown ...")
-		srv.QueueWhoIsAliveMsg()
-		return
-	}
+	// outMsg, peerExists := srv.resolveOrigin(outMsg)
+	// if !peerExists {
+	// 	fmt.Println("The origin of this message is unknown ...")
+	// 	srv.QueueWhoIsAliveMsg()
+	// 	return
+	// }
 
 	srv.startStateBroadcast(outMsg)
-}
-
-func (srv *Server) resolveOrigin(outMsg packet.OutgoingMessage) (packet.OutgoingMessage, bool) {
-	key := outMsg.EMsg.Addr
-
-	if key == srv.GetRecvString() {
-		return outMsg, true
-	}
-
-	peer, exists := srv.getPeer(key)
-	srv.PrintPeers()
-	if !exists {
-		<-srv.stop
-		return packet.OutgoingMessage{}, false
-	}
-
-	alias, addr, _, _, _, _ := peer.Snapshot()
-
-	outMsg.Origin = packet.Identity{
-		Identifier: addr.String(),
-		Alias:      alias,
-	}
-
-	return outMsg, true
 }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
@@ -114,8 +90,8 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingM
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) { // TODO could probably just take a outPkt and then extract the pktType and eMsg
-	quorum := srv.countActivePeers()
+func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) { // TODO could probably just take a outMsg and then extract the pktType and eMsg
+	quorum := srv.countAlivePeers()
 	bs := srv.createBroadcastSession(quorum)
 	bs.QueueDirectMsg(outMsg.PktType, outMsg)
 }

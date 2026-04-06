@@ -89,7 +89,6 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 	return nil
 }
 
-// ask elevator for sync, get PKT_T_StateSnapshot back
 func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
 	ses.queueElevatorCommand(eMsgType)
 	ses.queueReply(packet.PKT_T_RequestTaskExecutionAck)
@@ -104,10 +103,10 @@ func (ses *Session) queueElevatorRequest() {
 // fire-and-forget, reponse will appear in another session
 func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	ses.notifyTaskReady()
-	eMsg := message.ElevatorMessage{
-		Addr:     ses.peerAddr.String(),
-		EMsgType: eMsgType,
-	}
+
+	eMsg := ses.pendingPkt.Payload
+	eMsg.Addr = ses.peerAddr.String()
+	eMsg.EMsgType = eMsgType
 
 	ses.queueElevatorTask(eMsg, nil)
 }

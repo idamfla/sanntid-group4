@@ -6,9 +6,9 @@ import (
 	"net"
 )
 
-func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPacket) {
-	sessionID := incPkt.Packet.Header.SessionID
-	pktType := incPkt.Packet.Header.PktType
+func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, pkt packet.Packet) {
+	sessionID := pkt.Header.SessionID
+	pktType := pkt.Header.PktType
 
 	var ses SessionHandler
 
@@ -17,10 +17,10 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		ses = srv.handleWhoIsAlive() // TODO need to change ...
 
 	case packet.PKT_T_IAmMaster:
-		ses = srv.handleIAmMaster(incPkt) // TODO need to change ...
+		ses = srv.handleIAmMaster(pkt) // TODO need to change ...
 
-	case packet.PKT_T_SyncMsg: // TODO this is almost like bsUpdate ... find out how it is different
-		ses = srv.handleSyncComplete(senderAddr, incPkt)
+	case packet.PKT_T_SyncComplete:
+		ses = srv.handleSyncComplete(senderAddr, pkt)
 
 	default:
 		ses = srv.getOrCreateSession(senderAddr, &sessionID)
@@ -30,9 +30,9 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 		return
 	}
 
-	srv.printIncMsg(senderAddr, pktType, incPkt) // TODO DB
+	srv.printIncMsg(senderAddr, pktType, pkt) // TODO DB
 
-	ses.ReceivePacket(incPkt.Packet)
+	ses.ReceivePacket(pkt)
 }
 
 func (srv *Server) handleWhoIsAlive() SessionHandler {
@@ -42,8 +42,8 @@ func (srv *Server) handleWhoIsAlive() SessionHandler {
 	return srv.getOrCreateMasterElectionSession()
 }
 
-func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
-	peerKey := incPkt.Packet.Header.SenderAddr
+func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
+	peerKey := pkt.Header.SenderAddr
 	peer, exists := srv.getPeer(peerKey)
 
 	if !exists || peer == nil {
@@ -73,12 +73,13 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	return srv.getOrCreateMasterElectionSession()
 }
 
-func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPacket) SessionHandler {
-	sessionID := incPkt.Packet.Header.SessionID
-	recipientAddr := incPkt.Packet.Payload.Addr
-	selfAddr := srv.GetRecvString()
+func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, pkt packet.Packet) SessionHandler {
+	sessionID := pkt.Header.SessionID
+	recipientAddr := pkt.Header.Origin.Identifier
 
-	if selfAddr == recipientAddr {
+	fmt.Println("SYNC COMP", recipientAddr)
+
+	if srv.GetRecvString() == recipientAddr {
 		srv.setIsSynced()
 	}
 
@@ -89,7 +90,7 @@ func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, incPkt incomingPa
 	return srv.getOrCreateSession(senderAddr, &sessionID)
 }
 
-func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketType, incPkt incomingPacket) {
+func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketType, pkt packet.Packet) {
 	if pktType == packet.PKT_T_MasterAck && !srv.IsMaster() {
 
 	} else {
@@ -102,12 +103,12 @@ func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketTyp
 	payload   : %+v
 `,
 			srv.GetAlias(),
-			incPkt.Packet.Header.SessionID,
-			incPkt.Packet.Header.Origin.Alias,
-			incPkt.Packet.Header.RecipientAddr,
+			pkt.Header.SessionID,
+			pkt.Header.Origin.Alias,
+			pkt.Header.RecipientAddr,
 			senderAddr.String(),
 			pktType,
-			incPkt.Packet.Payload,
+			pkt.Payload,
 		)
 	}
 }

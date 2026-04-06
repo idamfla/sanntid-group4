@@ -26,8 +26,8 @@ type Session struct {
 
 	// --- protocol state ---
 	pendingPkt *packet.Packet // TODO do i need if server handles the elevator tasks?
-	lastOutPkt packet.OutgoingMessage
-	// lastOutPkt outgoingMessage
+	lastOutMsg packet.OutgoingMessage
+	// lastOutMsg outgoingMessage
 	hasLastPkt bool
 
 	// --- timer ---
@@ -59,9 +59,8 @@ func NewSession(id uint32,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
 		// seq:                seq, // TODO have it set on init ...
-		pendingPkt: &packet.Packet{},
-		lastOutPkt: packet.OutgoingMessage{},
-		// lastOutPkt:    outgoingMessage{},
+		pendingPkt:    &packet.Packet{},
+		lastOutMsg:    packet.OutgoingMessage{},
 		hasLastPkt:    false,
 		shutdownTimer: utilities.NewTimer(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),

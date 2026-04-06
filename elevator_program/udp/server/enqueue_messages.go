@@ -7,11 +7,11 @@ import (
 )
 
 func (srv *Server) QueueWhoIsAliveMsg() {
-	srv.QueueMessage(packet.PROTO_PKT_T_WhoIsAlive, message.ElevatorMessage{})
+	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_WhoIsAlive, message.ElevatorMessage{})
 }
 
 func (srv *Server) QueueIAmMasterMsg() {
-	srv.QueueMessage(packet.PROTO_PKT_T_IAmMaster, message.ElevatorMessage{})
+	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_IAmMaster, message.ElevatorMessage{})
 }
 
 func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
@@ -24,19 +24,61 @@ func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
 
 	_, addr, _, _, _, _ := peer.Snapshot()
 
-	srv.QueueMessage(packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{Addr: addr.String()})
+	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{Addr: addr.String()})
+}
+
+func (srv *Server) QueueRequestTaskExecution(eMsgType message.ElevatorMessageType) {
+	srv.queueMessage(
+		srv.GetIdentity(),
+		packet.PROTO_PKT_T_RequestTaskExecution,
+		message.ElevatorMessage{
+			EMsgType: eMsgType,
+			Addr:     srv.GetRecvString(),
+		},
+	)
+}
+
+func (srv *Server) QueueSyncMsg(eMsg message.ElevatorMessage) {
+	origin, exists := srv.resolveOrigin(eMsg)
+	if !exists {
+		fmt.Println("The origin of this message is unknown ...")
+		srv.QueueWhoIsAliveMsg()
+		return
+	}
+
+	srv.queueMessage(origin, packet.PROTO_PKT_T_SyncMsg, eMsg)
+}
+
+func (srv *Server) resolveOrigin(eMsg message.ElevatorMessage) (origin packet.Identity, exists bool) {
+	key := eMsg.Addr
+
+	if key == srv.GetRecvString() {
+		return srv.GetIdentity(), true
+	}
+
+	peer, exists := srv.getPeer(key)
+	srv.PrintPeers()
+	if !exists {
+		<-srv.stop
+		return packet.Identity{}, false
+	}
+
+	alias, addr, _, _, _, _ := peer.Snapshot()
+
+	return packet.Identity{
+			Identifier: addr.String(),
+			Alias:      alias,
+		},
+		true
 }
 
 // TODO this will be private in the end, it's more of a helper
-func (srv *Server) QueueMessage(protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
+func (srv *Server) queueMessage(origin packet.Identity, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 
 	select {
 	case srv.outgoingMsgCh <- packet.OutgoingMessage{
-		Origin: packet.Identity{
-			Identifier: srv.GetRecvString(),
-			Alias:      srv.GetAlias(),
-		},
+		Origin:  origin,
 		PktType: pktType,
 		EMsg:    eMsg,
 	}:

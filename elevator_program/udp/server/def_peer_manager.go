@@ -21,7 +21,7 @@ func (pm *PeerManager) addPeer(peerKey string, p *PeerInfo) {
 	pm.peers[peerKey] = p
 }
 
-func (pm *PeerManager) countActivePeers() int {
+func (pm *PeerManager) countAlivePeers() int {
 	peers := pm.snapshotPeers()
 
 	count := 0
@@ -34,19 +34,7 @@ func (pm *PeerManager) countActivePeers() int {
 	return count
 }
 
-// func (pm *PeerManager) setActive(peerKey string) {
-// 	if peer, exists := pm.getPeer(peerKey); exists {
-// 		peer.SetActive()
-// 	}
-// }
-
-// func (pm *PeerManager) clearActive(peerKey string) {
-// 	if peer, exists := pm.getPeer(peerKey); exists {
-// 		peer.ClearActive()
-// 	}
-// }
-
-func (pm *PeerManager) clearAllActive() {
+func (pm *PeerManager) clearAllAlive() {
 	peers := pm.snapshotPeers()
 
 	for i, peer := range peers {
@@ -55,7 +43,7 @@ func (pm *PeerManager) clearAllActive() {
 			continue
 		}
 
-		peer.ClearActive()
+		peer.ClearAlive()
 	}
 }
 
@@ -103,7 +91,7 @@ func (pm *PeerManager) clearSynced(peerKey string) {
 	}
 }
 
-func (pm *PeerManager) setActiveNow(peerKey string) {
+func (pm *PeerManager) setAliveNow(peerKey string) {
 	if peer, exists := pm.getPeer(peerKey); exists {
 		peer.SetActiveNow()
 	}
@@ -135,7 +123,7 @@ func (pm *PeerManager) PrintPeers() {
 
 		msg += fmt.Sprintf(`%s -> Addr: %v
 	IsMaster: %v
-	Active:   %v
+	Alive:   %v
 	IsSynced: %v
 	LastSeen: %v
 `,

@@ -14,34 +14,59 @@ func (srv *Server) readLoop(conn *net.UDPConn) {
 	buf := make([]byte, 2048)
 
 	for {
-		n, addr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			// normal shutdown, just exit the loop
-			if errors.Is(err, net.ErrClosed) {
-				return
-			}
-
-			fmt.Println("Read error:", err)
-			continue
-		}
-
-		pkt, err := packet.DecodePacket(buf, n)
-		if err != nil {
-			fmt.Println("Decode error: ", err)
-			continue
-		}
-
-		select {
-		case <-srv.stop:
+		pkt, addr, continueLoop := srv.readPacket(conn, buf)
+		if !continueLoop {
 			return
-		case srv.incPktCh <- incomingPacket{
-			Packet: pkt,
-			Addr:   addr,
-		}:
-		default:
-			fmt.Println("Server mailbox is full, could not receive new packet")
 		}
+		if addr == nil {
+			continue
+		}
+
+		srv.receivePacket(pkt, addr)
+
 	}
+}
+
+func (srv *Server) readPacket(conn *net.UDPConn, buf []byte) (pkt packet.Packet, addr *net.UDPAddr, continueLoop bool) {
+	n, addr, err := conn.ReadFromUDP(buf)
+	if err != nil {
+		// normal shutdown, just exit the loop
+		if errors.Is(err, net.ErrClosed) {
+			return packet.Packet{}, nil, false
+		}
+
+		fmt.Println("Read error:", err)
+		return packet.Packet{}, nil, true
+	}
+
+	pkt, err = packet.DecodePacket(buf, n)
+	if err != nil {
+		fmt.Println("Decode error: ", err)
+		return packet.Packet{}, nil, true
+	}
+
+	return pkt, addr, true
+}
+
+func (srv *Server) receivePacket(pkt packet.Packet, addr *net.UDPAddr) {
+	select {
+	case <-srv.stop:
+		return
+	case srv.incPktCh <- pkt:
+	default:
+		fmt.Println("Server mailbox is full, could not receive new packet")
+	}
+}
+
+func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt, should this be with session?
+	senderAddr, err := srv.resolveSenderAddr(pkt.Header.SenderAddr)
+	if err != nil {
+		return
+	}
+
+	srv.updatePeer(senderAddr, pkt.Header.Origin)
+
+	srv.deliverToSession(senderAddr, pkt)
 }
 
 // Helper
@@ -60,17 +85,6 @@ func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
 	}
 
 	return pc.(*net.UDPConn), nil
-}
-
-func (srv *Server) handleIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
-	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
-	if err != nil {
-		return
-	}
-
-	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin)
-
-	srv.deliverToSession(senderAddr, incPkt)
 }
 
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {

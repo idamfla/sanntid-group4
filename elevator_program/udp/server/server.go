@@ -21,7 +21,7 @@ type Server struct {
 	sessions *SessionManager
 	peers    *PeerManager
 
-	incPktCh      chan incomingPacket
+	incPktCh      chan packet.Packet
 	outgoingMsgCh chan packet.OutgoingMessage
 	// outgoingMsgCh chan outgoingMessage
 
@@ -52,7 +52,7 @@ func NewServer(ip string, port int, alias string, toElevator chan session.Elevat
 	srv := &Server{
 		Alias:         alias,
 		state:         &ServerState{},
-		incPktCh:      make(chan incomingPacket, CHANNEL_BUF),
+		incPktCh:      make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
 		// outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 		network: network,
@@ -127,7 +127,7 @@ func (srv *Server) run() {
 
 		case outMsg := <-srv.outgoingMsgCh:
 			srv.wg.Add(1)
-			go srv.handleOutPkt(outMsg)
+			go srv.handleOutMsg(outMsg)
 
 		}
 	}
