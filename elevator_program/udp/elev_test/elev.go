@@ -34,7 +34,7 @@ func (e *Elev) StartServer(ip string, port int) error {
 	}
 
 	e.srv = srv
-	fmt.Println("Server", e.srv.ID, "is running ...")
+	fmt.Println("Server", e.srv.Alias, "is running ...")
 	return nil
 }
 

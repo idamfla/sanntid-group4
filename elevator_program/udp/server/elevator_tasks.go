@@ -19,22 +19,22 @@ func (srv *Server) sendTaskLoop() {
 	for {
 		select {
 		case <-srv.stop:
-			fmt.Println(srv.ID, "task loop stopped ...")
+			fmt.Println(srv.GetAlias(), "task loop stopped ...")
 			return
 
 		case task := <-srv.elevatorTaskQueue:
-			fmt.Println(srv.ID, "waiting for task to be ready")
+			fmt.Println(srv.GetAlias(), "waiting for task to be ready")
 
 			select {
 			case <-task.Ready:
-				fmt.Println(srv.ID, "task ready, sending to elevator")
+				fmt.Println(srv.GetAlias(), "task ready, sending to elevator")
 				srv.sendToElevator(task)
 
 			case <-time.After(udp.TASK_READY_TIMEOUT):
-				fmt.Println(srv.ID, "task never became ready, skipping")
+				fmt.Println(srv.GetAlias(), "task never became ready, skipping")
 
 			case <-srv.stop:
-				fmt.Println(srv.ID, "task loop stopped during wait")
+				fmt.Println(srv.GetAlias(), "task loop stopped during wait")
 				return
 
 			}

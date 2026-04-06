@@ -126,7 +126,6 @@ func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 
 func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) { // TODO queue at server
 	ws.srv.QueueElectedMasterMsg(masterAddr)
-	// ws.QueueDirectMsg(packet.PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: masterAddr, Addr: masterAddr})
 }
 
 func (ws *WhoIsAliveBroadcast) startElection() { ws.election.Start(ws) }

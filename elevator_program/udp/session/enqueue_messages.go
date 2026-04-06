@@ -19,8 +19,5 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, outMsg packet.Outg
 }
 
 func (ses *Session) queueReply(pktType packet.PacketType) {
-	// func (ses *Session) queueReply(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	ses.QueueDirectMsg(pktType, ses.lastOutPkt)
-	// ses.QueueDirectMsg(pktType, eMsg)
-	// ses.QueueDirectMsg(pktType, message.ElevatorMessage{ID: ses.getSrvID()})
 }

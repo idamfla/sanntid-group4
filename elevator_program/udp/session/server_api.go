@@ -8,16 +8,14 @@ import (
 
 type ServerAPI interface {
 	Send(ses *Session, pktType packet.PacketType, outMsg packet.OutgoingMessage) error
-	// Send(ses *Session, msgType packet.PacketType, eMsg message.ElevatorMessage) error
 	QueueWhoIsAliveMsg()
 	QueueElectedMasterMsg(masterAddr string)
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	IsMaster() bool
-	SetSelfAsMaster()
-	SetIsSynced(isSynced bool)
+	SetSelfAsMaster()          // TODO make these be at server level
+	SetIsSynced(isSynced bool) // TODO make these be at server level
 	GetRecvString() string
 	GetBroadcastAddr() *net.UDPAddr
-	GetID() string
 	GetCloseReqCh() chan uint32
 }
 
@@ -38,7 +36,6 @@ func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 		outMsg)
 }
 
-func (ses *Session) getSrvID() string          { return ses.srv.GetID() }
 func (ses *Session) queueWhoIsAliveMsg()       { ses.srv.QueueWhoIsAliveMsg() }
 func (ses *Session) isMaster() bool            { return ses.srv.IsMaster() }
 func (ses *Session) setSelfAsMaster()          { ses.srv.SetSelfAsMaster() }

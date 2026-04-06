@@ -12,16 +12,16 @@ func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 
 	peer, exists := srv.getPeer(key)
 	if !exists {
-		if key != origin.Addr {
+		if key != origin.Identifier {
 			fmt.Println("Got a msg from a unknown peer that is not itself the origin of this message ... whoIsAlive?")
 			srv.QueueWhoIsAliveMsg()
 			return
 		}
 
-		peer = NewPeer(origin.ID, peerAddr)
+		peer = NewPeer(origin.Alias, peerAddr)
 
 		srv.addPeer(key, peer)
-		fmt.Printf("Server %s: new peer made: %s\n", srv.ID, key)
+		fmt.Printf("Server %s: new peer made: %s\n", srv.GetAlias(), key)
 		isNew = true
 	}
 

@@ -14,7 +14,7 @@ const (
 )
 
 type Server struct {
-	ID string
+	Alias string
 
 	state    *ServerState
 	network  *ServerNetwork
@@ -37,7 +37,7 @@ type Server struct {
 	elevatorTaskQueue chan ElevatorTask
 }
 
-func NewServer(ip string, port int, id string, toElevator chan session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, alias string, toElevator chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -50,7 +50,7 @@ func NewServer(ip string, port int, id string, toElevator chan session.ElevatorP
 	}
 
 	srv := &Server{
-		ID:            id,
+		Alias:         alias,
 		state:         &ServerState{},
 		incPktCh:      make(chan incomingPacket, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
@@ -76,7 +76,7 @@ func (srv *Server) Start() {
 	fmt.Printf(`Server %s: listening on %s
 			%s
 `,
-		srv.ID, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
+		srv.Alias, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
 	srv.createMasterElectionSession()
@@ -95,12 +95,12 @@ func (srv *Server) Close() {
 
 		srv.sessions.Close() // TODO make function closeAllSessions
 
-		fmt.Println(srv.ID, "is synced:", srv.isSynced())
+		fmt.Println(srv.Alias, "is synced:", srv.isSynced())
 		srv.PrintPeers()
 	})
 }
 
-func (srv *Server) GetID() string { return srv.ID }
+func (srv *Server) GetAlias() string { return srv.Alias }
 
 func (srv *Server) GetCloseReqCh() chan uint32 {
 	return srv.closeReq

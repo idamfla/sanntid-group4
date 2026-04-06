@@ -9,7 +9,7 @@ import (
 )
 
 type PeerInfo struct {
-	ID        string
+	Alias     string
 	Addr      *net.UDPAddr
 	LastSeen  time.Time
 	IsSynced  bool
@@ -19,9 +19,9 @@ type PeerInfo struct {
 	mu        sync.Mutex
 }
 
-func NewPeer(id string, addr *net.UDPAddr) *PeerInfo {
+func NewPeer(alias string, addr *net.UDPAddr) *PeerInfo {
 	return &PeerInfo{
-		ID:        id,
+		Alias:     alias,
 		Addr:      addr,
 		LastSeen:  time.Now(),
 		IsSynced:  false,
@@ -75,12 +75,6 @@ func (p *PeerInfo) ClearSynced() {
 	p.IsSynced = false
 }
 
-// func (p *PeerInfo) UpdateLastSeen() {
-// 	p.lock()
-// 	defer p.unlock()
-// 	p.LastSeen = time.Now()
-// }
-
 func (p *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
 	select {
 	case p.EMsgQueue <- msg:
@@ -89,11 +83,11 @@ func (p *PeerInfo) QueueMessage(msg message.ElevatorMessage) {
 	}
 }
 
-func (p *PeerInfo) Snapshot() (id string, addr *net.UDPAddr, isMaster, active, synced bool, lastSeen time.Time) {
+func (p *PeerInfo) Snapshot() (alias string, addr *net.UDPAddr, isMaster, active, synced bool, lastSeen time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.ID, p.Addr, p.IsMaster, p.Active, p.IsSynced, p.LastSeen
+	return p.Alias, p.Addr, p.IsMaster, p.Active, p.IsSynced, p.LastSeen
 }
 
 func (p *PeerInfo) lock()   { p.mu.Lock() }

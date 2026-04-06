@@ -26,7 +26,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, incPkt incomingPack
 
 	default:
 		// if packet.IsBroadcastPkt(pktType) && srv.isSynced() == false {
-		// 	fmt.Println(srv.ID, "is not synced so it can take no new updates") // TODO db
+		// 	fmt.Println(srv.GetAlias(), "is not synced so it can take no new updates") // TODO db
 		// 	return
 		// }
 
@@ -63,7 +63,7 @@ func (srv *Server) handleIAmMaster(incPkt incomingPacket) SessionHandler {
 	// already know this master
 	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
 		srv.SetIsSynced(true)
-		fmt.Println(srv.ID, "already know master, ignoring") // TODO db
+		fmt.Println(srv.GetAlias(), "already know master, ignoring") // TODO db
 		return nil
 	}
 
@@ -113,7 +113,7 @@ func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketTyp
 	pktType   : %s
 	payload   : %+v
 `,
-			srv.ID,
+			srv.GetAlias(),
 			incPkt.Packet.Header.SessionID,
 			incPkt.Addr.String(),
 			incPkt.Packet.Header.RecipientAddr,

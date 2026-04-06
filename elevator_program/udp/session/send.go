@@ -21,7 +21,6 @@ func (ses *Session) GenerateDataPacket(
 			SenderAddr:    senderAddr,
 		},
 		Payload: outMsg.EMsg,
-		// Payload: eMsg,
 	}
 
 	data, err := pkt.EncodePacket()
