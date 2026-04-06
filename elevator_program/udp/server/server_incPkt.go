@@ -7,7 +7,7 @@ import (
 )
 
 func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, pkt packet.Packet) {
-	sessionID := pkt.Header.SessionID
+	sessionID := pkt.Header.Origin.ID
 	pktType := pkt.Header.PktType
 
 	var ses SessionHandler
@@ -55,7 +55,7 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 
 	// already know this master
 	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
-		srv.SetSynced()
+		srv.setSynced()
 		fmt.Println(srv.GetAlias(), "already know master, ignoring") // TODO db
 		return nil
 	}
@@ -74,17 +74,13 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 }
 
 func (srv *Server) handleSyncComplete(senderAddr *net.UDPAddr, pkt packet.Packet) SessionHandler {
-	sessionID := pkt.Header.SessionID
-	recipientAddr := pkt.Header.Origin.Identifier
+	sessionID := pkt.Header.Origin.ID
 
-	if srv.GetRecvString() == recipientAddr {
-		srv.SetSynced()
-	}
-
-	srv.setPeerSynced(recipientAddr)
-	// if peer, exists := srv.getPeer(recipientAddr); exists { // TODO rather call the function from peerManager
-	// 	peer.SetSynced()
-	// }
+	srv.updateSyncFromMsg(packet.OutgoingMessage{
+		Origin:  pkt.Header.Origin,
+		PktType: packet.PKT_T_SyncComplete,
+		EMsg:    pkt.Payload},
+	)
 
 	return srv.getOrCreateSession(senderAddr, &sessionID)
 }
@@ -102,7 +98,7 @@ func (srv *Server) printIncMsg(senderAddr *net.UDPAddr, pktType packet.PacketTyp
 	payload   : %+v
 `,
 			srv.GetAlias(),
-			pkt.Header.SessionID,
+			pkt.Header.Origin.ID,
 			pkt.Header.Origin.Alias,
 			pkt.Header.RecipientAddr,
 			senderAddr.String(),

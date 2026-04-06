@@ -41,6 +41,9 @@ func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
 		srv.dispatchBroadcastMsg(outMsg)
 
+	case packet.PKT_T_SyncComplete:
+		srv.dispatchSyncComplete(outMsg)
+
 	case packet.PKT_T_RequestTaskExecution:
 		srv.dispatchToMasterMsg(outMsg)
 	}
@@ -51,10 +54,25 @@ func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 
 	if outMsg.PktType == packet.PKT_T_IAmMaster {
 		srv.setSelfAsMaster()
-		srv.SetSynced()
+		srv.setSynced()
 	}
 
 	ws.QueueDirectMsg(outMsg.PktType, outMsg)
+}
+
+func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
+	if !srv.IsMaster() {
+		fmt.Println(srv.GetAlias(), "is not master, can't broadcast like one ...")
+		return
+	}
+
+	srv.startStateBroadcast(outMsg)
+}
+
+func (srv *Server) dispatchSyncComplete(outMsg packet.OutgoingMessage) {
+	ses := srv.getOrCreateSession(nil, &outMsg.Origin.ID)
+	srv.updateSyncFromMsg(outMsg)
+	ses.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 
 func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
@@ -66,15 +84,6 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 	}
 
 	srv.startSession(mstr.Addr, outMsg)
-}
-
-func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
-	if !srv.IsMaster() {
-		fmt.Println(srv.GetAlias(), "is not master, can't broadcast like one ...")
-		return
-	}
-
-	srv.startStateBroadcast(outMsg)
 }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something

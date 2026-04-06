@@ -49,6 +49,10 @@ func (srv *Server) QueueSyncMsg(eMsg message.ElevatorMessage) {
 	srv.queueMessage(origin, packet.PROTO_PKT_T_SyncMsg, eMsg)
 }
 
+func (srv *Server) QueueSyncCompleteMsg(outPkt packet.OutgoingMessage) {
+	srv.queueMessage(outPkt.Origin, packet.PROTO_PKT_T_SyncComplete, outPkt.EMsg)
+}
+
 func (srv *Server) resolveOrigin(eMsg message.ElevatorMessage) (origin packet.Identity, exists bool) {
 	key := eMsg.Addr
 
@@ -57,9 +61,7 @@ func (srv *Server) resolveOrigin(eMsg message.ElevatorMessage) (origin packet.Id
 	}
 
 	peer, exists := srv.getPeer(key)
-	srv.PrintPeers()
 	if !exists {
-		<-srv.stop
 		return packet.Identity{}, false
 	}
 

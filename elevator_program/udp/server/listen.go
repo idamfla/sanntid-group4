@@ -1,12 +1,10 @@
 package server
 
 import (
-	"context"
 	"elevator_program/udp/packet"
 	"errors"
 	"fmt"
 	"net"
-	"syscall"
 )
 
 func (srv *Server) readLoop(conn *net.UDPConn) {
@@ -58,6 +56,8 @@ func (srv *Server) receivePacket(pkt packet.Packet) {
 	}
 }
 
+// --- handle incomming ---
+
 func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt, should this be with session?
 	senderAddr, err := srv.resolveSenderAddr(pkt.Header.SenderAddr)
 	if err != nil {
@@ -69,24 +69,7 @@ func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt
 	srv.deliverToSession(senderAddr, pkt)
 }
 
-// Helper
-func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
-	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-			})
-		},
-	}
-
-	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return nil, err
-	}
-
-	return pc.(*net.UDPConn), nil
-}
-
+// helper
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", replyAddr)
 	if err != nil {

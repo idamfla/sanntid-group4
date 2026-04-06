@@ -32,18 +32,19 @@ const (
 type ProtocolPacketType PacketType
 
 const (
-	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
-	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
-	PROTO_PKT_T_WhoIsAlive           ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsAlive)           //broadcast TODO this should be automatic ...
-	PROTO_PKT_T_IAmMaster            ProtocolPacketType = ProtocolPacketType(PKT_T_IAmMaster)            //broadcast TODO this should be automatic ...
-	PROTO_PKT_T_ElectedMasterIs      ProtocolPacketType = ProtocolPacketType(PKT_T_ElectedMasterIs)      //broadcast TODO this should be automatic ...
-	PROTO_PKT_T_SyncMsg              ProtocolPacketType = ProtocolPacketType(PKT_T_SyncMsg)              // master -> slave
+	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)       // broadcast
+	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)        // broadcast
+	PROTO_PKT_T_WhoIsAlive           ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsAlive)      //broadcast TODO this should be automatic ...
+	PROTO_PKT_T_IAmMaster            ProtocolPacketType = ProtocolPacketType(PKT_T_IAmMaster)       //broadcast TODO this should be automatic ...
+	PROTO_PKT_T_ElectedMasterIs      ProtocolPacketType = ProtocolPacketType(PKT_T_ElectedMasterIs) //broadcast TODO this should be automatic ...
+	PROTO_PKT_T_SyncMsg              ProtocolPacketType = ProtocolPacketType(PKT_T_SyncMsg)         // master -> slave
+	PROTO_PKT_T_SyncComplete         ProtocolPacketType = ProtocolPacketType(PKT_T_SyncComplete)
 	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
 	PROTO_PKT_T_RequestTaskExecution ProtocolPacketType = ProtocolPacketType(PKT_T_RequestTaskExecution) // slave -> master
 )
 
 type Header struct {
-	SessionID     uint32
+	// SessionID     uint32
 	Origin        Identity
 	Seq           uint32
 	PktType       PacketType // Data, Ack, Heartbeat ...
@@ -52,6 +53,7 @@ type Header struct {
 }
 
 type Identity struct {
+	ID         uint32
 	Identifier string
 	Alias      string
 }

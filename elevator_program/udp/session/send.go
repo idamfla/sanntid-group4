@@ -11,9 +11,11 @@ func (ses *Session) GenerateDataPacket(
 	// eMsg message.ElevatorMessage,
 	outMsg packet.OutgoingMessage,
 ) ([]byte, error) {
+	outMsg.Origin.ID = ses.ID
+
 	pkt := packet.Packet{
 		Header: packet.Header{
-			SessionID:     ses.ID,
+			// SessionID:     ses.ID,
 			Origin:        outMsg.Origin,
 			Seq:           ses.seq,
 			PktType:       pktType,
@@ -62,8 +64,11 @@ func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior Session
 		packet.PKT_T_BroadcastUpdate,
 		packet.PKT_T_SyncMsg:
 		ses.setPendingPkt(&outMsg)
-	case packet.PKT_T_SyncComplete:
-		ses.setSynced()
+
+	case packet.PKT_T_RequestTaskExecutionAck,
+		packet.PKT_T_SyncComplete,
+		packet.PKT_T_BroadcastDone:
+		ses.clearPendingPkt()
 	}
 
 	behavior.OnSend(pktType)

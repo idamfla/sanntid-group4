@@ -1,9 +1,12 @@
 package server
 
 import (
+	"context"
 	"elevator_program/udp"
+	"fmt"
 	"net"
 	"sync"
+	"syscall"
 )
 
 type ServerNetwork struct {
@@ -73,4 +76,21 @@ func (sn *ServerNetwork) GetBroadcastConn() *net.UDPConn {
 
 func (sn *ServerNetwork) GetBroadcastAddr() *net.UDPAddr {
 	return sn.broadcastAddr
+}
+
+func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			})
+		},
+	}
+
+	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+
+	return pc.(*net.UDPConn), nil
 }

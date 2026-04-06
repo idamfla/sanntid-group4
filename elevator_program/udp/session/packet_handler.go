@@ -109,12 +109,11 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_SyncMsgCommit:
-		ses.queueReply(packet.PKT_T_SyncComplete) // TODO when sending this you need to set self as synced if the origin is the same as you
+		ses.queueSyncCompleteMsg(*ses.pendingPkt)
+		// ses.queueReply(packet.PKT_T_SyncComplete) // TODO when sending this you need to set self as synced if the origin is the same as you
 	case packet.PKT_T_BroadcastCommit:
 		ses.queueReply(packet.PKT_T_BroadcastDone)
 	}
-
-	ses.clearPendingPkt()
 
 	ses.startShutdownTimer()
 }

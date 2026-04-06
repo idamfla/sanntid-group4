@@ -8,12 +8,12 @@ import (
 
 type ServerAPI interface {
 	Send(ses *Session, pktType packet.PacketType, outMsg packet.OutgoingMessage) error
+	IsMaster() bool
 	QueueWhoIsAliveMsg()
 	QueueIAmMasterMsg()
+	QueueSyncCompleteMsg(outPkt packet.OutgoingMessage)
 	QueueElectedMasterMsg(masterAddr string)
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
-	IsMaster() bool
-	SetSynced()
 	GetRecvString() string
 	GetBroadcastAddr() *net.UDPAddr
 	GetCloseReqCh() chan uint32
@@ -36,10 +36,14 @@ func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 		outMsg)
 }
 
+func (ses *Session) isMaster() bool      { return ses.srv.IsMaster() }
 func (ses *Session) queueWhoIsAliveMsg() { ses.srv.QueueWhoIsAliveMsg() }
 func (ses *Session) queueIamMasterMsg()  { ses.srv.QueueIAmMasterMsg() }
-func (ses *Session) isMaster() bool      { return ses.srv.IsMaster() }
-func (ses *Session) setSynced()          { ses.srv.SetSynced() }
+
+func (ses *Session) queueSyncCompleteMsg(outPkt packet.OutgoingMessage) {
+	ses.srv.QueueSyncCompleteMsg(outPkt)
+}
+
 func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}) {
 	ses.srv.QueueElevatorTask(eMsg, elevDone, ses.taskReady)
 }

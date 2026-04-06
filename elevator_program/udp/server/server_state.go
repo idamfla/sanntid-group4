@@ -28,5 +28,5 @@ func (srv *Server) isSynced() bool {
 	return srv.state.GetSynced()
 }
 
-func (srv *Server) SetSynced()   { srv.state.SetSynced() }
+func (srv *Server) setSynced()   { srv.state.SetSynced() }
 func (srv *Server) clearSynced() { srv.state.ClearSynced() }

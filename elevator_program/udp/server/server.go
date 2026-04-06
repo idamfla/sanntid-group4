@@ -132,3 +132,11 @@ func (srv *Server) run() {
 		}
 	}
 }
+
+func (srv *Server) updateSyncFromMsg(outMsg packet.OutgoingMessage) {
+	recipientAddr := outMsg.Origin.Identifier
+	if srv.GetRecvString() == recipientAddr {
+		srv.setSynced()
+	}
+	srv.setPeerSynced(recipientAddr)
+}
