@@ -42,6 +42,14 @@ func (srv *Server) sendTaskLoop() {
 	}
 }
 
+func (srv *Server) QueueElevatorCommand(eMsgType message.ElevatorMessageType) {
+	eCh := make(chan struct{})
+	ready := make(chan struct{})
+	ready <- struct{}{}
+
+	srv.QueueElevatorTask(message.ElevatorMessage{Addr: srv.GetRecvString(), EMsgType: eMsgType}, eCh, ready)
+}
+
 func (srv *Server) QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{}) {
 	select {
 	case srv.elevatorTaskQueue <- ElevatorTask{

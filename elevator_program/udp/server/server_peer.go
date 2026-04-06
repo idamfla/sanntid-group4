@@ -36,11 +36,14 @@ func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 
 func (srv *Server) getPeer(peerKey string) (*PeerInfo, bool) { return srv.peers.GetPeer(peerKey) }
 func (srv *Server) addPeer(peerKey string, p *PeerInfo)      { srv.peers.AddPeer(peerKey, p) }
-func (srv *Server) setPeerAliveNow(peerKey string)           { srv.peers.SetAliveNow(peerKey) }
-func (srv *Server) countAlivePeers() int                     { return srv.peers.CountAlivePeers() }
-func (srv *Server) getMasterPeer() *PeerInfo                 { return srv.peers.GetMasterPeer() }
-func (srv *Server) setMasterPeer(peerKey string)             { srv.peers.SetMasterPeer(peerKey) } // TODO use this function
-func (srv *Server) setPeerSynced(peerKey string)             { srv.peers.SetSynced(peerKey) }     // TODO use this function
-func (srv *Server) clearMasterPeer()                         { srv.peers.ClearMasterPeer() }      // TODO use this function?
-func (srv *Server) snapshotPeers() map[string]*PeerInfo      { return srv.peers.SnapshotPeers() } // TODO where to use?
-func (srv *Server) PrintPeers()                              { srv.peers.PrintPeers() }
+
+func (srv *Server) setPeerAliveNow(peerKey string) { srv.peers.SetAliveNow(peerKey) }
+func (srv *Server) clearAllAlive()                 { srv.peers.ClearAllAlive() }
+func (srv *Server) countAlivePeers() int           { return srv.peers.CountAlivePeers() }
+
+func (srv *Server) getMasterPeer() *PeerInfo { return srv.peers.GetMasterPeer() }
+
+func (srv *Server) setPeerSynced(peerKey string) { srv.peers.SetSynced(peerKey) } // TODO use this function
+
+func (srv *Server) snapshotPeers() map[string]*PeerInfo { return srv.peers.SnapshotPeers() } // TODO where to use?
+func (srv *Server) PrintPeers()                         { srv.peers.PrintPeers() }

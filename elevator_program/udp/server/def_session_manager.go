@@ -61,6 +61,11 @@ func (sm *SessionManager) createSession(srv *Server, remoteAddr *net.UDPAddr, se
 	return ses
 }
 
+func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
+	local := srv.getRecvUDPAddr()
+	return addr.IP.Equal(local.IP) && addr.Port == local.Port
+}
+
 func (sm *SessionManager) createBroadcastSession(srv *Server, expectedResponses int) SessionHandler {
 	sm.lock()
 

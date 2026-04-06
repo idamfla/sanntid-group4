@@ -74,7 +74,6 @@ func (srv *Server) resolveOrigin(eMsg message.ElevatorMessage) (origin packet.Id
 		true
 }
 
-// TODO this will be private in the end, it's more of a helper
 func (srv *Server) queueMessage(origin packet.Identity, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 
