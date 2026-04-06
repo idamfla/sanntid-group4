@@ -8,7 +8,7 @@ func (srv *Server) IsMaster() bool {
 	return srv.state.GetIsMaster()
 }
 
-func (srv *Server) SetSelfAsMaster() {
+func (srv *Server) setSelfAsMaster() {
 	srv.state.SetMaster()
 }
 
@@ -28,6 +28,5 @@ func (srv *Server) isSynced() bool {
 	return srv.state.GetIsSynced()
 }
 
-func (srv *Server) SetIsSynced(isSynced bool) {
-	srv.state.SetIsSynced(isSynced)
-}
+func (srv *Server) setIsSynced()   { srv.state.SetIsSynced() }
+func (srv *Server) clearIsSynced() { srv.state.ClearIsSynced() }

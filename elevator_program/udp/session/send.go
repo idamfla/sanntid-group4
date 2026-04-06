@@ -55,10 +55,5 @@ func (ses *Session) handleOutPkt(outPkt packet.OutgoingMessage, behavior Session
 		return
 	}
 
-	if outPkt.PktType == packet.PKT_T_IAmMaster { // TODO rather queue iAmMaster and do this at master lvl
-		ses.setSelfAsMaster()
-		ses.setIsSynced(true)
-	}
-
 	behavior.OnSend(outPkt.PktType)
 }

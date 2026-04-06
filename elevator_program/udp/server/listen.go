@@ -68,18 +68,7 @@ func (srv *Server) handleIncPkt(incPkt incomingPacket) { // TODO rename handleIn
 		return
 	}
 
-	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin) // TODO make sure not any msg are blocked when not synced ... you can just not recv any missions
-	// srv.registerOrUpdatePeer(senderAddr, false) // TODO what seperates this from a normal getOrCreate ...?
-	// peer, isNew := srv.getOrCreatePeer(senderAddr)
-	// wasRevived := !isNew && !peer.Active
-	// if wasRevived {
-	// 	peer.Active = true
-	// 	// peer.LastSeen = time.Now()
-	// }
-
-	// if (forceSync || isNew || wasRevived) && srv.IsMaster() { // TODO force sync??
-	// 	fmt.Println("sync peer")
-	// }
+	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin)
 
 	srv.deliverToSession(senderAddr, incPkt)
 }

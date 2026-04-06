@@ -8,6 +8,7 @@ import (
 
 func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 	key := peerAddr.String()
+	peerAlias := origin.Alias
 	var isNew bool
 
 	peer, exists := srv.getPeer(key)
@@ -18,10 +19,10 @@ func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 			return
 		}
 
-		peer = NewPeer(origin.Alias, peerAddr)
+		peer = NewPeer(peerAlias, peerAddr)
 
 		srv.addPeer(key, peer)
-		fmt.Printf("Server %s: new peer made: %s\n", srv.GetAlias(), key)
+		fmt.Printf("Server %s: new peer made: %s\n (aka. %s)", srv.GetAlias(), key, peerAlias)
 		isNew = true
 	}
 
