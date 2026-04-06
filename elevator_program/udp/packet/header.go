@@ -8,7 +8,7 @@ const (
 
 	PKT_T_WhoIsAlive
 	PKT_T_IAmAlive
-	PKT_T_IAmMaster // respond with MasterAck, if mstr not known
+	PKT_T_IAmMaster
 
 	PKT_T_ElectedMasterIs // if this is you, respond with IAmMaster
 	PKT_T_MasterAck
@@ -23,21 +23,11 @@ const (
 	PKT_T_BroadcastCommit
 	PKT_T_BroadcastDone
 
-	// PKT_T_SlaveUpdate
-	// PKT_T_SlaveUpdateAck
-
 	PKT_T_RequestTaskExecution
 	PKT_T_RequestTaskExecutionAck
 
 	PKT_T_ElevatorFailed // TODO do i need this?
 )
-
-// TODO combine all MasterDoSomethingRequest: slavereport,requestneworder, data. Dont need report and report ack
-/*
-commit and done is redundant, ack closes one to one msg -> changes only happen when master broadcast. look at msg receiver field for who should do what
-- {this is me: ip, who is master} x3 -> (if someone is master) -> wait 5 sec -> one send {i am master, ip}
-											|-> sync -> who should be master (should new be master)
-*/
 
 type ProtocolPacketType PacketType
 
@@ -45,6 +35,7 @@ const (
 	PROTO_PKT_T_Heartbeat            ProtocolPacketType = ProtocolPacketType(PKT_T_Heartbeat)            // broadcast
 	PROTO_PKT_T_LostConn             ProtocolPacketType = ProtocolPacketType(PKT_T_LostConn)             // broadcast
 	PROTO_PKT_T_WhoIsAlive           ProtocolPacketType = ProtocolPacketType(PKT_T_WhoIsAlive)           //broadcast TODO this should be automatic ...
+	PROTO_PKT_T_IAmMaster            ProtocolPacketType = ProtocolPacketType(PKT_T_IAmMaster)            //broadcast TODO this should be automatic ...
 	PROTO_PKT_T_ElectedMasterIs      ProtocolPacketType = ProtocolPacketType(PKT_T_ElectedMasterIs)      //broadcast TODO this should be automatic ...
 	PROTO_PKT_T_SyncMsg              ProtocolPacketType = ProtocolPacketType(PKT_T_SyncMsg)              // master -> slave
 	PROTO_PKT_T_BroadcastUpdate      ProtocolPacketType = ProtocolPacketType(PKT_T_BroadcastUpdate)      // master -> broadcast
