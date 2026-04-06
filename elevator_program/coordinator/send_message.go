@@ -37,7 +37,7 @@ func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
 	case message.EMSG_T_TaskRequest:
 		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
 
-	case message.EMSG_T_NewToChannel:
+	case message.EMSG_T_NewToChannel: // TODO fix stuff here
 		// msgPacket = packet.PROTO_PKT_T_WhoIsAlive // TODO ask ida how election works now
 	}
 	c.QueueMessage(nil, msgPacket, eMsg)
@@ -64,7 +64,7 @@ func (c *Coordinator) sendAsMaster(eMsg message.ElevatorMessage) {
 		addr = nil
 
 	case message.EMSG_T_NewToChannel:
-		eMsg.EMsgType = message.EMSG_T_NewToChannel
+		eMsg.EMsgType = message.EMSG_T_SyncSystem
 		msgPacket = packet.PROTO_PKT_T_Snapshot
 
 		udpAddr, err := udp.StringAddrToUDPAddr(eMsg.Addr)

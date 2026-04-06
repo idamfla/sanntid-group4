@@ -10,13 +10,6 @@ import (
 func (s *System) SetStatusReport(ip string, elevator types.ElevatorsStatus) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
-
-	// Preserve master-managed fields (Target, CabRequests) so that
-	// stale StatusReports don't overwrite newer task assignments.
-	// if existing, exists := s.Elevators[ip]; exists {
-	// 	elevator.Target = existing.Target
-	// 	elevator.CabRequests = existing.CabRequests
-	// }
 	s.Elevators[ip] = elevator
 }
 
@@ -47,25 +40,9 @@ func (s *System) InitializeFromSystemState(msg message.ElevatorMessage) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	s.HallRequests = make([][2]types.ButtonStatus, len(msg.HallRequests))
-	copy(s.HallRequests, msg.HallRequests)
-
 	s.Elevators = make(map[string]types.ElevatorsStatus)
 	for ip, e := range msg.Elevators {
-		if ip == e.Ip {
-
-		}
 		s.Elevators[ip] = e
-	}
-
-	// Update buttonlamp
-	for f, row := range s.HallRequests {
-		for b, btnStatus := range row {
-			if btnStatus != types.NotActive {
-				button := elevio.ButtonType(b)
-				elevio.SetButtonLamp(button, f, true)
-			}
-		}
 	}
 
 	for f, btnStatus := range s.Elevators[msg.Addr].CabRequests {
@@ -118,20 +95,7 @@ func (s *System) RegisterAndSyncElevator(
 	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
 	copy(hallCopy, s.HallRequests) // TODO temp for without syncing
 
-	// TODO need this one for syncing
-	// for f, row := range s.HallRequests {
-	// 	for b, btnStatus := range row {
-	// 		if btnStatus == types.Running {
-	// 			hallCopy[f][b] = types.Running
-	// 		} else if btnStatus == types.Pending || eMsg.HallRequests[f][b] != types.NotActive {
-	// 			hallCopy[f][b] = types.Pending
-	// 		}
-	// 	}
-	// }
-
-	s.HallRequests = hallCopy
-
-	s.Elevators[eMsg.Addr] = newElevator
+	hallCopy = s.Intersect(hallCopy, eMsg.HallRequests)
 
 	elevCopy := make(map[string]types.ElevatorsStatus)
 	for ip, e := range s.Elevators {
@@ -188,4 +152,18 @@ func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 		elevatorCopy.Direction = elevio.MD_Down
 	}
 	s.Elevators[ip] = elevatorCopy
+}
+
+func (s *System) Intersect(currentHallrequest [][2]types.ButtonStatus, incommingHallRequest [][2]types.ButtonStatus) [][2]types.ButtonStatus {
+	// TODO need this one for syncing
+	for f, row := range currentHallrequest {
+		for b, btnStatus := range row {
+			if btnStatus == types.Running {
+				currentHallrequest[f][b] = types.Running
+			} else if btnStatus == types.Pending || incommingHallRequest[f][b] != types.NotActive {
+				currentHallrequest[f][b] = types.Pending
+			}
+		}
+	}
+	return currentHallrequest
 }

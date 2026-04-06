@@ -30,15 +30,16 @@ func (e *Elevator) updateDoorState() {
 	case DS_Opening:
 		elevio.SetDoorOpenLamp(true)
 
-		e.System.Mutex.RLock()
-		task := e.System.Elevators[e.Ip].Target
-		e.System.Mutex.RUnlock()
-		e.mu.Lock()
-		floor := e.currentFloor
-		e.mu.Unlock()
-		if e.atTargetFloor(task.Floor) {
-			e.clearCurrentFloor(floor, task.Button)
-		}
+		// TODO we don't need this
+		// e.System.Mutex.RLock()
+		// task := e.System.Elevators[e.Ip].Target
+		// e.System.Mutex.RUnlock()
+		// e.mu.Lock()
+		// floor := e.currentFloor
+		// e.mu.Unlock()
+		// if e.atTargetFloor(task.Floor) {
+		// 	e.clearCurrentFloor(floor, task.Button)
+		// }
 
 		e.mu.Lock()
 		e.doorState = DS_Open

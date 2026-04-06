@@ -51,12 +51,28 @@ func (tm *TaskMonitor) StartTask(taskKey TaskKey, e *elevator.Elevator) {
 			fmt.Printf("Task %+v timed out! Trigger fault tolerance.\n", taskKey)
 
 			eMsg := message.ElevatorMessage{ // TODO it could become undone if it is the only request left and noone presses any more buttons
-				EMsgType:  message.EMSG_T_TaskUpdate,
+				EMsgType:  message.EMSG_T_ButtonPress,
 				ID:        e.Id,
 				Addr:      taskKey.Owner,
 				Task:      taskKey.TaskID,
 				BtnStatus: types.Pending,
 			}
+
+			if taskKey.TaskID.Button != elevio.BT_Cab {
+				e.System.Mutex.Lock()
+				_, elevs := e.System.Snapshot()
+				elevCopy := elevs[taskKey.Owner]
+				elevCopy.IsMotorWorking = false
+				elevs[taskKey.Owner] = elevCopy
+				targetIp := e.ClosestToTarget(elevs, taskKey.TaskID)
+				e.System.Mutex.Unlock()
+
+				if targetIp != "" {
+					eMsg.Addr = targetIp
+					eMsg.BtnStatus = types.Running
+				}
+			}
+
 			e.SendToCoordinator <- eMsg
 		}
 

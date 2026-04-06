@@ -33,11 +33,19 @@ func (e *Elevator) UpdateBtnLamp(ip string, btnStatus types.ButtonStatus, floor 
 	}
 }
 
+func (e *Elevator) UpdateMapOfLamps(hallRequests [][2]types.ButtonStatus) {
+	for f, row := range hallRequests {
+		for b, btnStatus := range row {
+			e.UpdateBtnLamp("", btnStatus, f, elevio.ButtonType(b))
+		}
+	}
+}
+
 func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.mu.Lock()
 	e.Id = eMsg.ID
 	e.Ip = eMsg.Addr
-	// e.IsMaster = false
+	e.IsMaster = false
 	e.connectedToMaster = true
 	e.IsOnline = true
 	e.mu.Unlock()

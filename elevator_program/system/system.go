@@ -31,6 +31,7 @@ func (s *System) InitSystem(id string, ip string, numFloors int) {
 		},
 		State:          types.ES_Uninitialized,
 		IsMotorWorking: true,
+		IsAlive:        true,
 	}
 }
 

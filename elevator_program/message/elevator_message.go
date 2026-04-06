@@ -20,6 +20,7 @@ const (
 	EMSG_T_NewToChannel
 	EMSG_T_SyncedElevator // TODO Is supposed to don't do shit
 	EMSG_T_IAmMaster
+	EMSG_T_SyncSystem
 )
 
 type ElevatorMessage struct {

@@ -71,12 +71,12 @@ func (e *Elevator) computeNextTargetAndDirection() (elevio.ButtonEvent, elevio.M
 	return nextTarget, dir
 }
 
-func (e *Elevator) uninitializedAction() elevio.MotorDirection {
+func (e *Elevator) uninitializedAction(isMotorWorking bool) elevio.MotorDirection {
 	e.mu.Lock()
 	floor := e.currentFloor
 	e.mu.Unlock()
 
-	if floor == -1 {
+	if floor == -1 || isMotorWorking {
 		return elevio.MD_Down
 	}
 	if floor < e.initFloor {
@@ -106,6 +106,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
+	isMotorWorking := e.System.Elevators[e.Ip].IsMotorWorking
 	e.System.Mutex.RUnlock()
 	elevatorState := elevs[e.Ip]
 
@@ -118,7 +119,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 	switch elevatorState.State {
 	case types.ES_Uninitialized:
-		dir = e.uninitializedAction()
+		dir = e.uninitializedAction(isMotorWorking)
 
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
@@ -199,7 +200,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 			e.System.Elevators[e.Ip] = elevatorCopy
 			e.System.Mutex.Unlock()
-			return
 		}
 
 		dir = e.getMotion(targetFloor)
@@ -257,6 +257,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 
 	e.System.Mutex.RLock()
 	_, elevs := e.System.Snapshot()
+	isMotorWorking := e.System.Elevators[e.Ip].IsMotorWorking
 	elevatorStatus := elevs[e.Ip]
 	e.System.Mutex.RUnlock()
 
@@ -270,7 +271,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 
 	switch elevatorStatus.State {
 	case types.ES_Uninitialized:
-		dir = e.uninitializedAction()
+		dir = e.uninitializedAction(isMotorWorking)
 
 		if dir == elevio.MD_Stop {
 			e.clearCurrentFloor(e.currentFloor, elevio.BT_Cab)
@@ -332,10 +333,9 @@ func (e *Elevator) updateElevatorStateOffline() {
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]
 			elevatorCopy.IsMotorWorking = false
-			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
+			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp} // TODO should i not remove target, and set to initialized when I am offline?
 			e.System.Elevators[e.Ip] = elevatorCopy
 			e.System.Mutex.Unlock()
-			return
 		}
 
 		dir = e.getMotion(elevatorStatus.Target.Floor)

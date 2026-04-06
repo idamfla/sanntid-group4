@@ -31,7 +31,7 @@ func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorM
 		e.TurnToMaster()         // TODO it is a bit waste to have it here
 		c.handleAsMaster(e, msg) // TODO when a new master is elected, it needs to reset the timer on every running task, so no task is lost
 	} else {
-		e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
+		// e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
 		c.handleAsSlave(e, msg)
 	}
 }
@@ -59,28 +59,35 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
-	case message.EMSG_T_NewToChannel:
-		if e.ConnectedToMaster() {
-			e.SetConnectionState(eMsg)
-			e.System.InitializeFromSystemState(eMsg)
+	case message.EMSG_T_SyncSystem: // TODO fix this one to be working for the target and not the target, need to update msgSend as well
+		e.System.Mutex.Lock()
+		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
+		e.System.HallRequests = hallCopy
+		e.System.Mutex.Unlock()
+		e.UpdateMapOfLamps(hallCopy)
+
+		if e.Ip == eMsg.Addr {
+			e.System.InitializeFromSystemState(eMsg) // TODO Should i merge with my local cabcalls as well?
 		} else {
 			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
-			copy(e.System.HallRequests, eMsg.HallRequests) // TODO need to check if this works
 		}
 
 	case message.EMSG_T_IAmMaster:
-		e.System.Mutex.RLock()
-		newMsg := message.ElevatorMessage{
-			EMsgType:     message.EMSG_T_NewToChannel,
-			ID:           e.Id,
-			Addr:         e.Ip,
-			HallRequests: e.System.HallRequests,
-			Elevators: map[string]types.ElevatorsStatus{
-				e.Ip: e.System.Elevators[e.Ip],
-			},
+		if !e.ConnectedToMaster() { // TODO is this wrong?
+			e.SetConnectionState(eMsg)
+			e.System.Mutex.RLock()
+			newMsg := message.ElevatorMessage{
+				EMsgType:     message.EMSG_T_NewToChannel,
+				ID:           e.Id,
+				Addr:         e.Ip,
+				HallRequests: e.System.HallRequests,
+				Elevators: map[string]types.ElevatorsStatus{
+					e.Ip: e.System.Elevators[e.Ip],
+				},
+			}
+			e.System.Mutex.RUnlock()
+			e.SendToCoordinator <- newMsg
 		}
-		e.System.Mutex.RUnlock()
-		e.SendToCoordinator <- newMsg
 	}
 }
 
@@ -191,13 +198,25 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.Mutex.Unlock()
 		eMsg := e.System.RegisterAndSyncElevator(eMsg, numFloors)
 
-		fmt.Println("Before syncing \n\n\n\n\n", eMsg)
-		// e.System.Mutex.RLock()
-		// fmt.Println("Have I updated myself?? \n\n", e.System)
-		// e.System.Mutex.RUnlock()
 		e.SendToCoordinator <- eMsg
 
 	case message.EMSG_T_SyncedElevator:
 		fmt.Println("I am not supposed to do anything here, \n\n\n")
+
+	case message.EMSG_T_SyncSystem:
+		e.System.Mutex.Lock()
+		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
+		e.System.HallRequests = hallCopy
+		e.System.Mutex.Unlock()
+		e.UpdateMapOfLamps(hallCopy)
+		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 	}
+}
+
+func (c *Coordinator) takeoverAsMaster(e *elevator.Elevator) {
+	e.TurnToMaster()
+	e.System.Mutex.RLock()
+	_, elevs := e.System.Snapshot()
+	e.System.Mutex.RUnlock()
+	c.TaskMonitor.transferTaskMonitor(elevs, e)
 }
