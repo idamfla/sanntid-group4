@@ -45,7 +45,7 @@ func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg pack
 func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
-		sbs.QueueElevatorStateTask()
+		sbs.queueElevatorRequest()
 		sbs.startResponseTimer()
 	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
 		sbs.startResponseTimer()

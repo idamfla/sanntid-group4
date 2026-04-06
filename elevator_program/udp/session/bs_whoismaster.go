@@ -1,6 +1,7 @@
 package session
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp"
 	"elevator_program/udp/packet"
 	"fmt"
@@ -89,7 +90,7 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	default:
 	}
 
-	// ws.QueueElevatorStateTask() // TODO how should task look
+	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look
 	ws.clearHasLastPacket()
 	ws.queueReply(packet.PKT_T_MasterAck)
 }

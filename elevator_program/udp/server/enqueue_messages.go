@@ -4,16 +4,14 @@ import (
 	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
-	"net"
 )
 
 func (srv *Server) QueueWhoIsAliveMsg() {
-	srv.QueueMessage(nil, packet.PROTO_PKT_T_WhoIsAlive, message.ElevatorMessage{})
+	srv.QueueMessage(packet.PROTO_PKT_T_WhoIsAlive, message.ElevatorMessage{})
 }
 
 func (srv *Server) QueueIAmMasterMsg() {
-	fmt.Println("queue i am master msg")
-	srv.QueueMessage(nil, packet.PROTO_PKT_T_IAmMaster, message.ElevatorMessage{})
+	srv.QueueMessage(packet.PROTO_PKT_T_IAmMaster, message.ElevatorMessage{})
 }
 
 func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
@@ -24,12 +22,13 @@ func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
 		return
 	}
 
-	id, addr, _, _, _, _ := peer.Snapshot()
+	_, addr, _, _, _, _ := peer.Snapshot()
 
-	srv.QueueMessage(nil, packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{ID: id, Addr: addr.String()})
+	srv.QueueMessage(packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{Addr: addr.String()})
 }
 
-func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
+// TODO this will be private in the end, it's more of a helper
+func (srv *Server) QueueMessage(protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	pktType := packet.PacketType(protoPktType)
 
 	select {
@@ -38,9 +37,8 @@ func (srv *Server) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.Pro
 			Identifier: srv.GetRecvString(),
 			Alias:      srv.GetAlias(),
 		},
-		RemoteAddr: remoteAddr,
-		PktType:    pktType,
-		EMsg:       eMsg,
+		PktType: pktType,
+		EMsg:    eMsg,
 	}:
 	default:
 		fmt.Println("Can't queue message, servers messageQueue is full")

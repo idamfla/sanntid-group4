@@ -101,6 +101,12 @@ func (srv *Server) Close() {
 }
 
 func (srv *Server) GetAlias() string { return srv.Alias }
+func (srv *Server) GetIdentity() packet.Identity {
+	return packet.Identity{
+		Identifier: srv.GetRecvString(),
+		Alias:      srv.GetAlias(),
+	}
+}
 
 func (srv *Server) GetCloseReqCh() chan uint32 {
 	return srv.closeReq

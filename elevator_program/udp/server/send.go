@@ -36,12 +36,10 @@ func (srv *Server) handleOutPkt(outMsg packet.OutgoingMessage) {
 	defer srv.wg.Done()
 	switch outMsg.PktType {
 	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
-		// srv.dispatchWhoIsMaster()
 		srv.dispatchMasterElectionMsg(outMsg)
 
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
-		// case packet.PKT_T_BroadcastUpdate:
-		srv.dispatchBroadcastUpdate(outMsg)
+		srv.dispatchBroadcastMsg(outMsg)
 
 	case packet.PKT_T_RequestTaskExecution:
 		srv.dispatchToMasterMsg(outMsg)
@@ -51,7 +49,6 @@ func (srv *Server) handleOutPkt(outMsg packet.OutgoingMessage) {
 func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 	ws := srv.getOrCreateMasterElectionSession()
 
-	fmt.Println("masterElectMsg:", outMsg.PktType)
 	if outMsg.PktType == packet.PKT_T_IAmMaster {
 		srv.setSelfAsMaster()
 		srv.setIsSynced()
@@ -71,12 +68,44 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 	srv.startSession(mstr.Addr, outMsg)
 }
 
-func (srv *Server) dispatchBroadcastUpdate(outMsg packet.OutgoingMessage) {
+func (srv *Server) dispatchBroadcastMsg(outMsg packet.OutgoingMessage) {
 	if !srv.IsMaster() {
 		fmt.Println(srv.GetAlias(), "is not master, can't broadcast like one ...")
+		return
+	}
+
+	outMsg, peerExists := srv.resolveOrigin(outMsg)
+	if !peerExists {
+		fmt.Println("The origin of this message is unknown ...")
+		srv.QueueWhoIsAliveMsg()
+		return
 	}
 
 	srv.startStateBroadcast(outMsg)
+}
+
+func (srv *Server) resolveOrigin(outMsg packet.OutgoingMessage) (packet.OutgoingMessage, bool) {
+	key := outMsg.EMsg.Addr
+
+	if key == srv.GetRecvString() {
+		return outMsg, true
+	}
+
+	peer, exists := srv.getPeer(key)
+	srv.PrintPeers()
+	if !exists {
+		<-srv.stop
+		return packet.OutgoingMessage{}, false
+	}
+
+	alias, addr, _, _, _, _ := peer.Snapshot()
+
+	outMsg.Origin = packet.Identity{
+		Identifier: addr.String(),
+		Alias:      alias,
+	}
+
+	return outMsg, true
 }
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something

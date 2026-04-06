@@ -91,40 +91,34 @@ func (ses *Session) HandlePacket(pkt packet.Packet) error { // TODO rename Handl
 
 // ask elevator for sync, get PKT_T_StateSnapshot back
 func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageType) {
-	ses.QueueElevatorWorkTask(eMsgType, message.ElevatorMessage{})
-	ses.notifyTaskReady()
+	ses.queueElevatorCommand(eMsgType)
 	ses.queueReply(packet.PKT_T_RequestTaskExecutionAck)
 	ses.startShutdownTimer()
 }
 
-// queue order of having elevator change its states, from master
-func (ses *Session) QueueElevatorStateTask() {
+// expects a response/completion from elevator
+func (ses *Session) queueElevatorRequest() {
 	ses.queueElevatorTask(ses.pendingPkt.Payload, ses.elevDone)
 }
 
-// queue order of having master do some work, don't need to notify completion, just start a new session
-func (ses *Session) QueueElevatorWorkTask(eMsgType message.ElevatorMessageType, eMsg message.ElevatorMessage) {
-	var emsg message.ElevatorMessage
-	if eMsgType == message.EMSG_T_StatusReport {
-		emsg = eMsg
-	} else {
-		emsg = message.ElevatorMessage{
-			ID:       ses.getPeerAddrString(),
-			Addr:     ses.peerAddr.String(),
-			EMsgType: eMsgType,
-		}
+// fire-and-forget, reponse will appear in another session
+func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
+	ses.notifyTaskReady()
+	eMsg := message.ElevatorMessage{
+		Addr:     ses.peerAddr.String(),
+		EMsgType: eMsgType,
 	}
 
-	ses.queueElevatorTask(emsg, nil)
+	ses.queueElevatorTask(eMsg, nil)
 }
 
 func (ses *Session) handleStateBSUpdate() {
 	ses.queueReply(packet.PKT_T_BroadcastAck)
-	ses.QueueElevatorStateTask()
+	ses.queueElevatorRequest()
 }
 
 func (ses *Session) handleSyncMsg() {
-	ses.QueueElevatorStateTask()
+	ses.queueElevatorRequest()
 	ses.queueReply(packet.PKT_T_SyncMsgAck)
 }
 
