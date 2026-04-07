@@ -23,9 +23,6 @@ type Server struct {
 
 	incPktCh      chan packet.Packet
 	outgoingMsgCh chan packet.OutgoingMessage
-	// outgoingMsgCh chan outgoingMessage
-
-	bcSeq uint32
 
 	closeReq chan uint32
 
@@ -33,11 +30,12 @@ type Server struct {
 	wg        sync.WaitGroup
 	closeOnce sync.Once
 
-	elevator          chan session.ElevatorPacket
-	elevatorTaskQueue chan ElevatorTask
+	// elevatorRecv      chan session.ElevatorPacket
+	// elevatorTaskQueue chan ElevatorTask
+	elevator *ElevatorInterface
 }
 
-func NewServer(ip string, port int, alias string, toElevator chan session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, alias string, elevRecv chan session.ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -60,10 +58,11 @@ func NewServer(ip string, port int, alias string, toElevator chan session.Elevat
 		sessions: NewSessionManager(),
 		peers:    NewPeerManager(),
 		// peers:             make(map[string]*PeerInfo),
-		closeReq:          make(chan uint32, CHANNEL_BUF),
-		stop:              make(chan struct{}, CHANNEL_BUF),
-		elevator:          toElevator,
-		elevatorTaskQueue: make(chan ElevatorTask, CHANNEL_BUF),
+		closeReq: make(chan uint32, CHANNEL_BUF),
+		stop:     make(chan struct{}, CHANNEL_BUF),
+		elevator: NewElevatorInterface(elevRecv),
+		// elevatorRecv:      elevRecv,
+		// elevatorTaskQueue: make(chan ElevatorTask, CHANNEL_BUF),
 	}
 
 	return srv, nil

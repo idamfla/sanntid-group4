@@ -8,10 +8,25 @@ import (
 	"time"
 )
 
+type ElevatorInterface struct {
+	Recv      chan session.ElevatorPacket
+	TaskQueue chan ElevatorTask
+}
+
 type ElevatorTask struct {
 	ElevPacket session.ElevatorPacket
 	Ready      <-chan struct{}
 }
+
+func NewElevatorInterface(elevRecv chan session.ElevatorPacket) *ElevatorInterface {
+	return &ElevatorInterface{
+		Recv:      elevRecv,
+		TaskQueue: make(chan ElevatorTask, CHANNEL_BUF),
+	}
+}
+
+func (srv *Server) taskQueueCh() chan ElevatorTask            { return srv.elevator.TaskQueue }
+func (srv *Server) elevRecvCh() chan<- session.ElevatorPacket { return srv.elevator.Recv }
 
 func (srv *Server) sendTaskLoop() {
 	defer srv.wg.Done()
@@ -22,7 +37,7 @@ func (srv *Server) sendTaskLoop() {
 			fmt.Println(srv.GetAlias(), "task loop stopped ...")
 			return
 
-		case task := <-srv.elevatorTaskQueue:
+		case task := <-srv.taskQueueCh():
 			fmt.Println(srv.GetAlias(), "waiting for task to be ready")
 
 			select {
@@ -43,8 +58,8 @@ func (srv *Server) sendTaskLoop() {
 }
 
 // func (srv *Server) QueueElevatorCommand(eMsgType message.ElevatorMessageType) {
-// 	eCh := make(chan struct{},1)
-// 	ready := make(chan struct{},1)
+// 	eCh := make(chan struct{}, 1)
+// 	ready := make(chan struct{}, 1)
 // 	ready <- struct{}{}
 
 // 	srv.QueueElevatorTask(message.ElevatorMessage{Addr: srv.GetRecvString(), EMsgType: eMsgType}, eCh, ready)
@@ -52,7 +67,7 @@ func (srv *Server) sendTaskLoop() {
 
 func (srv *Server) QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{}) {
 	select {
-	case srv.elevatorTaskQueue <- ElevatorTask{
+	case srv.taskQueueCh() <- ElevatorTask{
 		ElevPacket: session.ElevatorPacket{
 			EMsg: eMsg,
 			Done: elevDone,
@@ -66,7 +81,7 @@ func (srv *Server) QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan
 
 func (srv *Server) sendToElevator(elevTask ElevatorTask) {
 	select {
-	case srv.elevator <- session.ElevatorPacket{
+	case srv.elevRecvCh() <- session.ElevatorPacket{
 		EMsg: elevTask.ElevPacket.EMsg,
 		Done: elevTask.ElevPacket.Done,
 	}:

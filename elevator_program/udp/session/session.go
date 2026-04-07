@@ -29,15 +29,9 @@ type Session struct {
 	// --- external systems ---
 	elevDone  chan struct{}
 	taskReady chan struct{}
-	srv       ServerAPI // <-- session uses this to reply
 
-	// --- session control ---
-	// shutdownTimer *utilities.Timer
-	// closeReq      chan<- uint32 // make the server/owner close this session
-	// stop          chan struct{}
-	// wg            sync.WaitGroup
-	// closeOnce     sync.Once
 	lifecycle *SessionLifecycle
+	srv       ServerAPI // <-- session uses this to reply
 }
 
 func NewSession(id uint32,
@@ -48,19 +42,16 @@ func NewSession(id uint32,
 		ID:       id,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
-		state:    NewSessionState(),
-		// shutdownTimer: utilities.NewTimer(),
+
+		state:         NewSessionState(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
-		srv:       srv,
 
 		lifecycle: NewSessionLifecycle(srv.GetCloseReqCh()),
-
-		// stop:     make(chan struct{}, CHANNEL_BUF),
-		// closeReq: srv.GetCloseReqCh(),
+		srv:       srv,
 	}
 
 	return ses
