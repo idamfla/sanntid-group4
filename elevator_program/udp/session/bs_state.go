@@ -22,7 +22,7 @@ func NewStateBroadcast(
 }
 
 func (sbs *StateBroadcast) Start() {
-	sbs.wg.Add(2)
+	sbs.WgAdd(2)
 	go sbs.listen(sbs)
 	go sbs.sendLoop(sbs)
 }
@@ -53,17 +53,16 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 
 }
 
-func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
+func (sbs *StateBroadcast) HandleIncPkt(pkt packet.Packet) error {
 	h := pkt.Header
 	pktType := h.PktType
 	peerKey := h.SenderAddr
 
-	if h.Seq != sbs.seq+1 {
+	if h.Seq != sbs.getSeq()+1 {
 		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
-			sbs.ID, h.Seq, sbs.seq+1)
+			sbs.ID, h.Seq, sbs.getSeq()+1)
 		fmt.Println(err)
 		return err
-
 	}
 
 	sbs.addResponder(peerKey)
@@ -71,7 +70,7 @@ func (sbs *StateBroadcast) HandlePacket(pkt packet.Packet) error {
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
 
 	if isQuorum {
-		sbs.seq = h.Seq
+		sbs.incrementSeq()
 	}
 
 	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
@@ -102,7 +101,7 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 }
 
 func (sbs *StateBroadcast) handleStateBSDone() {
-	sbs.clearHasLastPacket()
+	sbs.clearLastMsg()
 	sbs.stopResponseTimer()
 	sbs.requestClose()
 }

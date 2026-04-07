@@ -2,11 +2,9 @@ package elevtest
 
 import (
 	"elevator_program/message"
-	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
 	"fmt"
-	"net"
 	"sync"
 )
 
@@ -48,16 +46,16 @@ func (e *Elev) listen() {
 				msg.Done <- struct{}{}
 			}
 
-			// if msg.EMsg.EMsgType == message.EMSG_T_NewToChannel {
-			// 	fmt.Println(e.srv.ID, "took snapshot")
-			// 	udpAddr, err := udp.StringAddrToUDPAddr(msg.EMsg.Addr)
-			// 	if err != nil {
-			// 		continue
-			// 	}
-			// 	e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_RequestTaskExecution, message.ElevatorMessage{EMsgType: intersect}) // button map
-			// 	// e.srv.QueueMessage(udpAddr, packet.PROTO_PKT_T_Snapshot, message.ElevatorMessage{})
-			// 	// e.srv.StartPeerCatchup(udpAddr)
-			// }
+			switch msg.EMsg.EMsgType {
+			case message.EMSG_T_IAmMaster:
+				fmt.Println(e.srv.GetAlias(), "took snapshot")
+				e.isMaster = false
+				e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // intersect button map
+
+			case message.EMSG_T_ButtonPress:
+				fmt.Println(e.srv.GetAlias(), "intersect, asked by", msg.EMsg.Addr)
+				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mst send out again syncMsg
+			}
 		case <-e.stop:
 			return
 		}
@@ -70,10 +68,10 @@ func (e *Elev) Start() {
 	go e.srv.Start()
 }
 
-func (e *Elev) QueueMessage(remoteAddr *net.UDPAddr, protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
-	// e.srv.QueueMessage(remoteAddr, protoPktType, eMsg)
+// func (e *Elev) queueMessage(protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
+// 	e.srv.QueueMessage(protoPktType, eMsg)
 
-}
+// }
 
 func (e *Elev) Close() {
 	close(e.stop)

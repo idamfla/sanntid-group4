@@ -6,7 +6,6 @@ import (
 )
 
 func (ses *Session) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) {
-	// func (ses *Session) QueueDirectMsg(pktType packet.PacketType, eMsg message.ElevatorMessage) {
 	select {
 	case ses.outgoingMsgCh <- packet.OutgoingMessage{
 		Origin:  outMsg.Origin,
@@ -19,5 +18,5 @@ func (ses *Session) QueueDirectMsg(pktType packet.PacketType, outMsg packet.Outg
 }
 
 func (ses *Session) queueReply(pktType packet.PacketType) {
-	ses.QueueDirectMsg(pktType, ses.lastOutPkt)
+	ses.QueueDirectMsg(pktType, ses.getPendingMsg())
 }

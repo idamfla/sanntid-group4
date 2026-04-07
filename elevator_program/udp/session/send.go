@@ -11,11 +11,13 @@ func (ses *Session) GenerateDataPacket(
 	// eMsg message.ElevatorMessage,
 	outMsg packet.OutgoingMessage,
 ) ([]byte, error) {
+	outMsg.Origin.ID = ses.ID
+
 	pkt := packet.Packet{
 		Header: packet.Header{
-			SessionID:     ses.ID,
+			// SessionID:     ses.ID,
 			Origin:        outMsg.Origin,
-			Seq:           ses.seq,
+			Seq:           ses.getSeq(),
 			PktType:       pktType,
 			RecipientAddr: ses.peerAddr.String(),
 			SenderAddr:    senderAddr,
@@ -35,11 +37,11 @@ func (ses *Session) GenerateDataPacket(
 func (ses *Session) OnSend(pktType packet.PacketType) {}
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
-	defer ses.wg.Done()
+	defer ses.WgDone()
 
 	for {
 		select {
-		case <-ses.stop:
+		case <-ses.stopCh():
 			return
 
 		case outPkt := <-ses.outgoingMsgCh:
@@ -48,12 +50,28 @@ func (ses *Session) sendLoop(behavior SessionBehavior) {
 	}
 }
 
-func (ses *Session) handleOutPkt(outPkt packet.OutgoingMessage, behavior SessionBehavior) {
-	err := ses.send(outPkt)
+func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior SessionBehavior) {
+	err := ses.send(outMsg)
 	if err != nil {
 		fmt.Printf("Session %d: send error: %v\n", ses.ID, err)
 		return
 	}
 
-	behavior.OnSend(outPkt.PktType)
+	pktType := outMsg.PktType
+	switch pktType {
+	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster,
+		packet.PKT_T_RequestTaskExecution,
+		packet.PKT_T_BroadcastUpdate,
+		packet.PKT_T_SyncMsg:
+		ses.setPendingMsg(&outMsg)
+
+	case packet.PKT_T_MasterAck,
+		packet.PKT_T_RequestTaskExecutionAck,
+		packet.PKT_T_SyncComplete,
+		packet.PKT_T_BroadcastDone:
+		ses.clearPendingMsg()
+		ses.clearLastMsg()
+	}
+
+	behavior.OnSend(pktType)
 }

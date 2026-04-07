@@ -1,91 +1,75 @@
 package server
 
 import (
-	"context"
 	"elevator_program/udp/packet"
 	"errors"
 	"fmt"
 	"net"
-	"syscall"
-
-	"golang.org/x/sys/unix"
 )
 
 func (srv *Server) readLoop(conn *net.UDPConn) {
-	defer srv.wg.Done()
+	defer srv.WgDone()
 	buf := make([]byte, 2048)
 
 	for {
-		n, addr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
-				return
-			}
-
-			fmt.Println("Read error:", err)
-			continue
-		}
-
-		pkt, err := packet.DecodePacket(buf, n)
-		if err != nil {
-			fmt.Println("Decode error: ", err)
-			continue
-		}
-
-		select {
-		case <-srv.stop:
+		pkt, addr, continueLoop := srv.readPacket(conn, buf)
+		if !continueLoop {
 			return
-		case srv.incPktCh <- incomingPacket{
-			Packet: pkt,
-			Addr:   addr,
-		}:
-		default:
-			fmt.Println("Server mailbox is full, could not receive new packet")
 		}
+		if addr == nil {
+			continue
+		}
+
+		srv.receivePacket(pkt)
+
 	}
 }
 
-func newReusableListenUDPConn(port int) (*net.UDPConn, error) {
-	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			var sockErr error
-
-			err := c.Control(func(fd uintptr) {
-				if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
-					sockErr = err
-					return
-				}
-				if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
-					sockErr = err
-					return
-				}
-			})
-			if err != nil {
-				return err
-			}
-			return sockErr
-		},
-	}
-
-	pc, err := lc.ListenPacket(context.Background(), "udp4", fmt.Sprintf(":%d", port))
+func (srv *Server) readPacket(conn *net.UDPConn, buf []byte) (pkt packet.Packet, addr *net.UDPAddr, continueLoop bool) {
+	n, addr, err := conn.ReadFromUDP(buf)
 	if err != nil {
-		return nil, err
+		// normal shutdown, just exit the loop
+		if errors.Is(err, net.ErrClosed) {
+			return packet.Packet{}, nil, false
+		}
+
+		fmt.Println("Read error:", err)
+		return packet.Packet{}, nil, true
 	}
 
-	return pc.(*net.UDPConn), nil
+	pkt, err = packet.DecodePacket(buf, n)
+	if err != nil {
+		fmt.Println("Decode error: ", err)
+		return packet.Packet{}, nil, true
+	}
+
+	return pkt, addr, true
 }
 
-func (srv *Server) handleIncPkt(incPkt incomingPacket) { // TODO rename handleIncPkt, should this be with session?
-	senderAddr, err := srv.resolveSenderAddr(incPkt.Packet.Header.SenderAddr)
+func (srv *Server) receivePacket(pkt packet.Packet) {
+	select {
+	case <-srv.stopCh():
+		return
+	case srv.incPktCh <- pkt:
+	default:
+		fmt.Println("Server mailbox is full, could not receive new packet")
+	}
+}
+
+// --- handle incomming ---
+
+func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt, should this be with session?
+	senderAddr, err := srv.resolveSenderAddr(pkt.Header.SenderAddr)
 	if err != nil {
 		return
 	}
 
-	srv.updatePeer(senderAddr, incPkt.Packet.Header.Origin)
+	srv.updatePeer(senderAddr, pkt.Header.Origin)
 
-	srv.deliverToSession(senderAddr, incPkt)
+	srv.deliverToSession(senderAddr, pkt)
 }
 
+// helper
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", replyAddr)
 	if err != nil {

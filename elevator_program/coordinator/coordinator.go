@@ -48,7 +48,7 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 }
 
 func (c *Coordinator) QueueMessage(protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
-	c.Server.QueueMessage(protoPktType, msg)
+	// c.Server.QueueMessage(protoPktType, msg)
 }
 
 func (c *Coordinator) Close() {

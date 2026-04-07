@@ -5,10 +5,9 @@ import (
 )
 
 type ServerState struct {
-	IsMaster           bool
-	SearchingForMaster bool
-	IsSynced           bool
-	mu                 sync.Mutex
+	IsMaster bool
+	Synced   bool
+	mu       sync.Mutex
 }
 
 func (ss *ServerState) Reset() {
@@ -16,8 +15,7 @@ func (ss *ServerState) Reset() {
 	defer ss.unlock()
 
 	ss.IsMaster = false
-	ss.IsSynced = false
-	ss.SearchingForMaster = false
+	ss.Synced = false
 }
 
 func (ss *ServerState) GetIsMaster() bool {
@@ -31,44 +29,32 @@ func (ss *ServerState) SetMaster() {
 	defer ss.unlock()
 
 	ss.IsMaster = true
-	ss.IsSynced = true
-	ss.SearchingForMaster = false
+	ss.Synced = true
 }
 
-func (ss *ServerState) SetMasterSearch() {
+func (ss *ServerState) ClearMaster() {
 	ss.lock()
 	defer ss.unlock()
-	ss.SearchingForMaster = true
+
+	ss.IsMaster = false
 }
 
-func (ss *ServerState) IsSearchingForMaster() bool {
+func (ss *ServerState) GetSynced() bool {
 	ss.lock()
 	defer ss.unlock()
-	return ss.SearchingForMaster
+	return ss.Synced
 }
 
-func (ss *ServerState) ClearMasterSearch() {
+func (ss *ServerState) SetSynced() {
 	ss.lock()
 	defer ss.unlock()
-	ss.SearchingForMaster = false
+	ss.Synced = true
 }
 
-func (ss *ServerState) GetIsSynced() bool {
+func (ss *ServerState) ClearSynced() {
 	ss.lock()
 	defer ss.unlock()
-	return ss.IsSynced
-}
-
-func (ss *ServerState) SetIsSynced() {
-	ss.lock()
-	defer ss.unlock()
-	ss.IsSynced = true
-}
-
-func (ss *ServerState) ClearIsSynced() {
-	ss.lock()
-	defer ss.unlock()
-	ss.IsSynced = false
+	ss.Synced = false
 }
 
 func (ss *ServerState) lock()   { ss.mu.Lock() }
