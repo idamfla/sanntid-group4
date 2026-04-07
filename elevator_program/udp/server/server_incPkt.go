@@ -52,22 +52,22 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 
 	oldMstr := srv.getMasterPeer()
 
-	// already know this master
 	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
+		// already know this master, no need for syncing
 		srv.setSynced()
-		fmt.Println(srv.GetAlias(), "already know master, ignoring") // TODO db
-		return nil
+		fmt.Println(srv.GetAlias(), "already know master, is already synced") // TODO db
+	} else {
+		// new master
+		if oldMstr != nil {
+			oldMstr.ClearMaster()
+		}
+
+		peer.SetMaster()
+		peer.SetSynced()
+
+		srv.clearSynced()
+		// TODO need to try and sync
 	}
-
-	// new master
-	if oldMstr != nil {
-		oldMstr.ClearMaster()
-	}
-
-	peer.SetMaster()
-	peer.SetSynced()
-
-	srv.clearSynced()
 
 	return srv.getOrCreateMasterElectionSession()
 }

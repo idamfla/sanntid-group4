@@ -51,6 +51,9 @@ func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 
 func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 	ws := srv.getOrCreateMasterElectionSession()
+	if ws == nil {
+		return
+	}
 
 	switch outMsg.PktType {
 	case packet.PKT_T_IAmMaster:
@@ -105,7 +108,12 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 // --- start sessions ---
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
-	ses := srv.createSession(remoteAddr, nil)
+	// ses := srv.createSession(remoteAddr, nil)
+	ses := srv.getOrCreateSession(remoteAddr, nil)
+	if ses == nil {
+		fmt.Printf("Server %s: could not start session, failed to getOrCreate ...\n", srv.GetAlias())
+		return
+	}
 	ses.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 

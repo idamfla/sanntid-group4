@@ -7,6 +7,16 @@ import (
 	"fmt"
 )
 
+func (srv *Server) QueueRequestTaskExecution(eMsg message.ElevatorMessage) {
+	eMsg.Addr = srv.GetRecvString()
+
+	srv.queueMessage(
+		srv.GetIdentity(),
+		packet.PROTO_PKT_T_RequestTaskExecution,
+		eMsg,
+	)
+}
+
 func (srv *Server) QueueWhoIsAliveMsg() {
 	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_WhoIsAlive, message.ElevatorMessage{})
 }
@@ -42,18 +52,15 @@ func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
 	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{Addr: addr.String()})
 }
 
-func (srv *Server) QueueRequestTaskExecution(eMsg message.ElevatorMessage) {
-	srv.queueMessage(
-		srv.GetIdentity(),
-		packet.PROTO_PKT_T_RequestTaskExecution,
-		// message.ElevatorMessage{
-		// 	EMsgType: eMsgType,
-		// 	Addr:     srv.GetRecvString(),
-		eMsg,
-	)
+func (srv *Server) QueueBSUpdateMsg(eMsg message.ElevatorMessage) {
+	srv.queueBSMsg(packet.PROTO_PKT_T_BroadcastUpdate, eMsg)
 }
 
 func (srv *Server) QueueSyncMsg(eMsg message.ElevatorMessage) {
+	srv.queueBSMsg(packet.PROTO_PKT_T_SyncMsg, eMsg)
+}
+
+func (srv *Server) queueBSMsg(protoPktType packet.ProtocolPacketType, eMsg message.ElevatorMessage) {
 	origin, exists := srv.resolveOrigin(eMsg)
 	if !exists {
 		fmt.Println("The origin of this message is unknown ...")
@@ -61,7 +68,7 @@ func (srv *Server) QueueSyncMsg(eMsg message.ElevatorMessage) {
 		return
 	}
 
-	srv.queueMessage(origin, packet.PROTO_PKT_T_SyncMsg, eMsg)
+	srv.queueMessage(origin, protoPktType, eMsg)
 }
 
 func (srv *Server) QueueSyncCompleteMsg(outPkt packet.OutgoingMessage) {

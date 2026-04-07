@@ -4,7 +4,6 @@ import (
 	"elevator_program/elevator"
 	"elevator_program/message"
 	"elevator_program/udp/server"
-	"elevator_program/udp/session"
 	"fmt"
 	"sync"
 	"time"
@@ -12,7 +11,7 @@ import (
 
 type Coordinator struct {
 	Server        *server.Server
-	msgRecieveCh  chan session.ElevatorPacket
+	msgRecieveCh  chan server.ElevatorPacket
 	msgSendCh     chan message.ElevatorMessage
 	portRegistery map[string]int
 	TaskMonitor   TaskMonitor
@@ -22,7 +21,7 @@ type Coordinator struct {
 }
 
 func (c *Coordinator) InitCoordinator() {
-	c.msgRecieveCh = make(chan session.ElevatorPacket, 20)
+	c.msgRecieveCh = make(chan server.ElevatorPacket, 20)
 	c.msgSendCh = make(chan message.ElevatorMessage, 20)
 	c.TaskMonitor = NewTaskMonitor(10 * time.Second)
 }

@@ -26,9 +26,11 @@ func (ses *Session) listen(behavior SessionBehavior) {
 				fmt.Printf("Session %d recvCh channel closed, stopping\n", ses.ID)
 				return
 			}
+
 			retryCounter = 0
 			utilities.ResetTicker(ticker, udp.RETRY_INTERVAL)
 
+			ses.handleFirstIncomming(pkt)
 			behavior.HandleIncPkt(pkt)
 
 		case <-ticker.C:
@@ -43,10 +45,32 @@ func (ses *Session) listen(behavior SessionBehavior) {
 	}
 }
 
-func (ses *Session) handleRetry(retryCounter int) (int, bool) {
+// sets pending if certain criteria is met
+func (ses *Session) handleFirstIncomming(pkt packet.Packet) {
+	h := pkt.Header
+	switch h.PktType {
+	case packet.PKT_T_RequestTaskExecution,
+		packet.PKT_T_BroadcastUpdate,
+		packet.PKT_T_SyncMsg:
+
+		ses.setPendingMsg(
+			packet.OutgoingMessage{
+				Origin:  h.Origin,
+				PktType: h.PktType,
+				EMsg:    pkt.Payload,
+			})
+	}
+}
+
+func (ses *Session) handleRetry(retryCounter int) (counter int, shouldContinue bool) {
 	if ses.hasLastMsg() {
 		fmt.Println("No answer so far ... retry:", retryCounter)
-		ses.sendRetry(ses.getLastOutMsg())
+
+		err := ses.sendRetry(ses.getLastOutMsg())
+		if err != nil {
+			fmt.Printf("Session %d: sendRetry error: %v\n", ses.ID, err)
+			return retryCounter, true
+		}
 
 		retryCounter++
 

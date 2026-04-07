@@ -3,7 +3,6 @@ package elevtest
 import (
 	"elevator_program/message"
 	"elevator_program/udp/server"
-	"elevator_program/udp/session"
 	"fmt"
 	"sync"
 )
@@ -11,7 +10,7 @@ import (
 type Elev struct {
 	ID       string
 	isMaster bool
-	ch       chan session.ElevatorPacket
+	ch       chan server.ElevatorPacket
 	srv      *server.Server
 	wg       sync.WaitGroup
 	stop     chan struct{}
@@ -20,7 +19,7 @@ type Elev struct {
 func NewElev(id string) *Elev {
 	return &Elev{
 		ID:   id,
-		ch:   make(chan session.ElevatorPacket, 32),
+		ch:   make(chan server.ElevatorPacket, 32),
 		stop: make(chan struct{}),
 	}
 }
@@ -42,20 +41,26 @@ func (e *Elev) listen() {
 		select {
 		case msg := <-e.ch:
 			fmt.Println("elev got elevator packet:", msg.EMsg)
-			if msg.Done != nil {
-				msg.Done <- struct{}{}
-			}
 
 			switch msg.EMsg.EMsgType {
 			case message.EMSG_T_IAmMaster:
 				fmt.Println(e.srv.GetAlias(), "took snapshot")
 				e.isMaster = false
-				// e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // intersect button map
+				e.srv.QueueRequestTaskExecution(message.ElevatorMessage{EMsgType: message.EMSG_T_ButtonPress}) // intersect button map
 
 			case message.EMSG_T_ButtonPress:
 				fmt.Println(e.srv.GetAlias(), "intersect, asked by", msg.EMsg.Addr)
-				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mst send out again syncMsg
+				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mstr send out again syncMsg
+				// e.srv.QueueBSUpdateMsg(msg.EMsg)
 			}
+
+			if msg.Done != nil {
+				select {
+				case msg.Done <- struct{}{}:
+				default:
+				}
+			}
+
 		case <-e.stop:
 			return
 		}

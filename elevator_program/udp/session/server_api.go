@@ -20,13 +20,8 @@ type ServerAPI interface {
 }
 
 func (ses *Session) send(outMsg packet.OutgoingMessage) error {
-	ses.incrementSeq()
-	ses.setLastOutMsg(outMsg)
-	return ses.srv.Send(
-		ses,
-		outMsg.PktType,
-		outMsg,
-	)
+	_, msg := ses.prepareSend(outMsg)
+	return ses.srv.Send(ses, msg.PktType, msg)
 }
 
 func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
@@ -47,4 +42,5 @@ func (ses *Session) queueSyncCompleteMsg(outPkt packet.OutgoingMessage) {
 // expects a response/completion from elevator
 func (ses *Session) queueElevatorTask(eMsg message.ElevatorMessage) {
 	ses.srv.QueueElevatorTask(eMsg, ses.elevDone, ses.taskReady)
+	// ses.clearLastMsg()
 }

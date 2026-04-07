@@ -61,6 +61,7 @@ func (ws *WhoIsAliveBroadcast) HandleIncPkt(pkt packet.Packet) error {
 		ws.handleWhoIsAlive()
 
 	case packet.PKT_T_IAmAlive:
+		ws.expectedResponses = ws.countResponders()
 		fmt.Println("from:", peerKey, pktType)
 
 	case packet.PKT_T_IAmMaster:
@@ -90,13 +91,13 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	default:
 	}
 
-	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look
+	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look // TODO is this where this should be queued?
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
 func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	addr := pkt.Payload.Addr
-	if addr == ws.selfAddr {
+	if addr == ws.selfAddr && !ws.isMaster() {
 		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
 		ws.queueIamMasterMsg()
 	}
