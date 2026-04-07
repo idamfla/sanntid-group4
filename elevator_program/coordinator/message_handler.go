@@ -242,9 +242,34 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 func (c *Coordinator) takeoverAsMaster(e *elevator.Elevator) {
 	e.TurnToMaster()
 	e.System.Mutex.RLock()
-	_, elevs := e.System.Snapshot()
+	hallRequests, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	c.TaskMonitor.transferTaskMonitor(elevs, e)
+
+	for f, row := range hallRequests {
+		for b, status := range row {
+			if status != types.Running {
+				continue
+			}
+			task := elevio.ButtonEvent{Floor: f, Button: elevio.ButtonType(b)}
+			targeted := false
+			for _, elev := range elevs {
+				if elev.Target == task {
+					targeted = true
+					break
+				}
+			}
+			if !targeted {
+				e.SendToCoordinator <- message.ElevatorMessage{
+					EMsgType:  message.EMSG_T_ButtonPress,
+					ID:        e.Id,
+					Addr:      e.Ip,
+					Task:      task,
+					BtnStatus: types.Pending,
+				}
+			}
+		}
+	}
 }
 
 func (c *Coordinator) askForTask(e *elevator.Elevator, isMaster bool) {

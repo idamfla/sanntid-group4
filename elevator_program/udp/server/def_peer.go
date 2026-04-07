@@ -60,6 +60,12 @@ func (p *PeerInfo) ClearMaster() {
 	p.IsMaster = false
 }
 
+func (p *PeerInfo) GetIsSynced() bool {
+	p.lock()
+	defer p.unlock()
+	return p.IsSynced
+}
+
 func (p *PeerInfo) SetSynced() {
 	p.lock()
 	defer p.unlock()

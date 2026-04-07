@@ -85,9 +85,12 @@ func (pm *PeerManager) SetSynced(peerKey string) {
 	}
 }
 
-func (pm *PeerManager) ClearSynced(peerKey string) { // TODO is this used?
-	if peer, exists := pm.GetPeer(peerKey); exists {
-		peer.ClearSynced()
+func (pm *PeerManager) ClearAllSynced() {
+	peers := pm.SnapshotPeers()
+	for _, peer := range peers {
+		if peer.GetIsSynced() {
+			peer.ClearSynced()
+		}
 	}
 }
 

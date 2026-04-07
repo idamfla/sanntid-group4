@@ -59,6 +59,7 @@ func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
 `)
 
 		ws.queueElevatorCommand(message.EMSG_T_IAmAlone) // TODO need a type for telling elevator we are offline
+		ws.clearAllPeerSynced()
 		ws.clearMasterPeer()
 		ws.queueWhoIsAliveMsg()
 		return
@@ -77,7 +78,6 @@ func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
 	if amMaster {
 		// I am the new master
 		ws.expectedResponses = ws.countResponders()
-		ws.resetResponders()
 		ws.queueIamMasterMsg()
 	} else {
 		select {

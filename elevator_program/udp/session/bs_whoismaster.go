@@ -45,8 +45,10 @@ func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg 
 func (ws *WhoIsAliveBroadcast) OnSend(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_WhoIsAlive:
+		ws.resetResponders()
 		ws.startElection()
 	case packet.PKT_T_IAmMaster:
+		ws.resetResponders()
 		ws.startResponseTimer()
 	}
 }

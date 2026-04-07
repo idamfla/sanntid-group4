@@ -10,6 +10,7 @@ type ServerAPI interface {
 	Send(ses *Session, pktType packet.PacketType, outMsg packet.OutgoingMessage) error
 	IsMaster() bool
 	ClearMasterPeer()
+	ClearAllPeerSynced()
 	QueueWhoIsAliveMsg()
 	QueueIAmMasterMsg()
 	QueueSyncCompleteMsg(outPkt packet.OutgoingMessage)
@@ -34,6 +35,7 @@ func (ses *Session) sendRetry(outMsg packet.OutgoingMessage) error {
 
 func (ses *Session) isMaster() bool      { return ses.srv.IsMaster() }
 func (ses *Session) clearMasterPeer()    { ses.srv.ClearMasterPeer() }
+func (ses *Session) clearAllPeerSynced() { ses.srv.ClearAllPeerSynced() }
 func (ses *Session) queueWhoIsAliveMsg() { ses.srv.QueueWhoIsAliveMsg() }
 func (ses *Session) queueIamMasterMsg()  { ses.srv.QueueIAmMasterMsg() }
 

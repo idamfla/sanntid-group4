@@ -44,7 +44,8 @@ func (srv *Server) countAlivePeers() int           { return srv.peers.CountAlive
 func (srv *Server) getMasterPeer() *PeerInfo { return srv.peers.GetMasterPeer() }
 func (srv *Server) ClearMasterPeer()         { srv.peers.ClearMasterPeer() }
 
-func (srv *Server) setPeerSynced(peerKey string) { srv.peers.SetSynced(peerKey) } // TODO use this function
+func (srv *Server) setPeerSynced(peerKey string) { srv.peers.SetSynced(peerKey) }
+func (srv *Server) ClearAllPeerSynced()          { srv.peers.ClearAllSynced() }
 
-func (srv *Server) snapshotPeers() map[string]*PeerInfo { return srv.peers.SnapshotPeers() } // TODO where to use?
-func (srv *Server) PrintPeers()                         { srv.peers.PrintPeers() }
+// func (srv *Server) snapshotPeers() map[string]*PeerInfo { return srv.peers.SnapshotPeers() } // TODO where to use?
+func (srv *Server) PrintPeers() { srv.peers.PrintPeers() }

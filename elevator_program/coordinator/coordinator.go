@@ -45,12 +45,7 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	go c.MessageListener(e)
 	go c.sendListener(e)
 	go c.Server.Start()
-	// go c.stateMonitor(e)
 }
-
-// func (c *Coordinator) QueueMessage(protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
-// c.Server.QueueMessage(protoPktType, msg)
-// }
 
 func (c *Coordinator) Close() {
 
