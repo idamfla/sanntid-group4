@@ -38,7 +38,7 @@ func (sbs *StateBroadcast) ReceivePacket(pkt packet.Packet) {
 	sbs.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+func (sbs *StateBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) {
 	sbs.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 

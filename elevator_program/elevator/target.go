@@ -6,8 +6,6 @@ import (
 	"elevator_program/utilities"
 )
 
-// TODO i need to a state in elevatorstatus which says if someone is deactivated or not. Do not allow deactivated to get requests
-
 func (e *Elevator) isNewTargetBetter(newTarget elevio.ButtonEvent, elev types.ElevatorsStatus) (bool, int) {
 	if !elev.IsAlive || !elev.IsMotorWorking {
 		return false, e.NumFloors + 1

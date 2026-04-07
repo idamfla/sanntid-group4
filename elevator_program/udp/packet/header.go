@@ -26,7 +26,7 @@ const (
 	PKT_T_RequestTaskExecution // initiater
 	PKT_T_RequestTaskExecutionAck
 
-	PKT_T_ElevatorFailed // TODO do i need this?
+	PKT_T_ElevatorFailed
 )
 
 type ProtocolPacketType PacketType
@@ -44,7 +44,6 @@ const (
 )
 
 type Header struct {
-	// SessionID     uint32
 	Origin        Identity
 	Seq           uint32
 	PktType       PacketType // Data, Ack, Heartbeat ...

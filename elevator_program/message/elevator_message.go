@@ -14,7 +14,7 @@ const (
 	EMSG_T_TaskUpdate
 	EMSG_T_TaskRequest
 	EMSG_T_NewToChannel
-	EMSG_T_SyncedElevator // TODO Is supposed to don't do shit
+	EMSG_T_SyncedElevator
 	EMSG_T_IAmMaster
 	EMSG_T_SyncSystem
 	EMSG_T_IAmAlone
@@ -54,6 +54,8 @@ func (eMsgType ElevatorMessageType) String() string {
 		return "I am master"
 	case EMSG_T_SyncSystem:
 		return "Sync system"
+	case EMSG_T_IAmAlone:
+		return "I am alone"
 	default:
 		return "unknown"
 	}

@@ -69,7 +69,7 @@ func (ss *SessionState) ShouldIncrementSeq(sesID uint32, msgSeq uint32, shouldIn
 	return ss.Seq, nil
 }
 
-func (ss *SessionState) GetPendingMsg() packet.OutgoingMessage { // TODO this cause issues bc nil pendingMsg
+func (ss *SessionState) GetPendingMsg() packet.OutgoingMessage {
 	ss.lock()
 	defer ss.unlock()
 	return ss.PendingMsg

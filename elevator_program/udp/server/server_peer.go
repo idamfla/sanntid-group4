@@ -31,7 +31,7 @@ func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 
 	wasRevived := !isNew && !peer.IsAlive()
 	if wasRevived {
-		fmt.Println("This peer was revived ... do something maybe?") // TODO syncing
+		fmt.Println("This peer was revived ... do something maybe?")
 	}
 }
 
@@ -57,5 +57,4 @@ func (srv *Server) ClearMasterPeer()         { srv.peers.ClearMasterPeer() }
 func (srv *Server) setPeerSynced(peerKey string) { srv.peers.SetSynced(peerKey) }
 func (srv *Server) ClearAllPeerSynced()          { srv.peers.ClearAllSynced() }
 
-// func (srv *Server) snapshotPeers() map[string]*PeerInfo { return srv.peers.SnapshotPeers() } // TODO where to use?
 func (srv *Server) PrintPeers() { srv.peers.PrintPeers() }

@@ -38,7 +38,7 @@ func (ws *WhoIsAliveBroadcast) ReceivePacket(pkt packet.Packet) {
 	ws.BaseBroadcastSession.ReceivePacket(pkt)
 }
 
-func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) { // TODO this should not exsist outside of session ...
+func (ws *WhoIsAliveBroadcast) QueueDirectMsg(pktType packet.PacketType, outMsg packet.OutgoingMessage) {
 	ws.BaseBroadcastSession.QueueDirectMsg(pktType, outMsg)
 }
 
@@ -93,14 +93,14 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	default:
 	}
 
-	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look // TODO is this where this should be queued?
+	ws.queueElevatorCommand(message.EMSG_T_IAmMaster)
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
 func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	addr := pkt.Payload.Addr
 	if addr == ws.selfAddr && !ws.isMaster() {
-		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
+		fmt.Println("I was elected master", ws.selfAddr)
 		ws.queueIamMasterMsg()
 	}
 }
@@ -129,7 +129,7 @@ func (ws *WhoIsAliveBroadcast) startResponseTimer() {
 	})
 }
 
-func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) { // TODO queue at server
+func (ws *WhoIsAliveBroadcast) queueElectedMasterMsg(masterAddr string) {
 	ws.srv.QueueElectedMasterMsg(masterAddr)
 }
 

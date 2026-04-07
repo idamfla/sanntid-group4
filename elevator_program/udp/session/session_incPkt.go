@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func (ses *Session) HandleIncPkt(pkt packet.Packet) error { // TODO rename HandleIncPkt
+func (ses *Session) HandleIncPkt(pkt packet.Packet) error {
 	ses.stopShutdownTimer()
 
 	h := pkt.Header
@@ -59,13 +59,12 @@ func (ses *Session) handleStateBSUpdate() {
 }
 
 func (ses *Session) handleSyncMsg() {
-	ses.queueElevatorRequest() // MAybe remove this one
+	ses.queueElevatorRequest()
 	ses.queueReply(packet.PKT_T_SyncMsgAck)
 }
 
 func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 	ses.notifyTaskReady()
-	// ses.queueElevatorRequest()
 
 	err := ses.waitForElevatorDone()
 	if err != nil {
@@ -95,7 +94,6 @@ func (ses *Session) notifyTaskReady() {
 	select {
 	case <-ses.stopCh():
 	case ses.taskReady <- struct{}{}:
-		fmt.Println("freddy fazbear")
 	default:
 		fmt.Println("Notifications full, could not notify to elevator that task is ready")
 	}

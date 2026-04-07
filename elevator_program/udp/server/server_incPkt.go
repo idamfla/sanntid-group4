@@ -14,10 +14,10 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, pkt packet.Packet) 
 
 	switch pktType {
 	case packet.PKT_T_WhoIsAlive:
-		ses = srv.handleWhoIsAlive() // TODO need to change ...
+		ses = srv.handleWhoIsAlive()
 
 	case packet.PKT_T_IAmMaster:
-		ses = srv.handleIAmMaster(pkt) // TODO need to change ...
+		ses = srv.handleIAmMaster(pkt)
 
 	case packet.PKT_T_SyncComplete:
 		ses = srv.handleSyncComplete(senderAddr, pkt)
@@ -30,7 +30,7 @@ func (srv *Server) deliverToSession(senderAddr *net.UDPAddr, pkt packet.Packet) 
 		return
 	}
 
-	srv.printIncMsg(senderAddr, pktType, pkt) // TODO DB
+	srv.printIncMsg(senderAddr, pktType, pkt)
 
 	ses.ReceivePacket(pkt)
 }
@@ -55,7 +55,7 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 	if oldMstr != nil && oldMstr.GetAddrString() == peer.GetAddrString() {
 		// already know this master, no need for syncing
 		srv.setSynced()
-		fmt.Println(srv.GetAlias(), "already know master, is already synced") // TODO db
+		fmt.Println(srv.GetAlias(), "already know master, is already synced")
 	} else {
 		// new master
 		if oldMstr != nil {
@@ -66,7 +66,6 @@ func (srv *Server) handleIAmMaster(pkt packet.Packet) SessionHandler {
 		peer.SetSynced()
 
 		srv.clearSynced()
-		// TODO need to try and sync
 	}
 
 	return srv.getOrCreateMasterElectionSession()

@@ -136,7 +136,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 			e.mu.Unlock()
 			fmt.Println(e)
 
-			e.System.Mutex.RLock() // TODO i don't think we need this one
+			e.System.Mutex.RLock()
 			hallRequests, elevs := e.System.Snapshot()
 			isMaster := e.IsMaster
 			e.System.Mutex.RUnlock()
@@ -161,7 +161,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 
 			e.SendToCoordinator <- eMsg
 
-		} // TODO maybe have a check if it is motorstop in init, but don't think we need it
+		}
 
 	case types.ES_Idle:
 		e.System.Mutex.RLock()
@@ -228,7 +228,7 @@ func (e *Elevator) updateElevatorStateOnline() {
 	if elevatorState.State != e.System.Elevators[e.Ip].State {
 		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = elevatorState.State
-		elevatorCopy.IsAlive = true // TODO i am not sure if i need it here, but just want to be sure
+		elevatorCopy.IsAlive = true
 		e.System.Elevators[e.Ip] = elevatorCopy
 
 		eMsg := message.ElevatorMessage{
@@ -244,10 +244,6 @@ func (e *Elevator) updateElevatorStateOnline() {
 	} else {
 		e.System.Mutex.Unlock()
 	}
-
-	// if e.shouldMarkRecoveryVerified() {
-	// 	e.markRecoveryVerified()
-	// }
 }
 
 func (e *Elevator) updateElevatorStateOffline() {
@@ -339,7 +335,7 @@ func (e *Elevator) updateElevatorStateOffline() {
 			e.System.Mutex.Lock()
 			elevatorCopy := e.System.Elevators[e.Ip]
 			elevatorCopy.IsMotorWorking = false
-			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp} // TODO should i not remove target, and set to initialized when I am offline?
+			elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 			e.System.Elevators[e.Ip] = elevatorCopy
 			e.System.Mutex.Unlock()
 		}
@@ -360,17 +356,11 @@ func (e *Elevator) updateElevatorStateOffline() {
 		return
 	}
 
-	// if e.shouldMarkRecoveryVerified() {
-	// 	e.markRecoveryVerified()
-	// }
-
 	if dir != elevio.MD_Stop {
 		elevatorStatus.Direction = dir
 	}
 
 	elevio.SetMotorDirection(dir)
-
-	// e.checkOfflineRestart()
 
 	e.System.Mutex.Lock()
 	e.System.Elevators[e.Ip] = elevatorStatus
@@ -413,7 +403,6 @@ func (e *Elevator) finishedTask(state types.ElevatorState) {
 	_, elevs := e.System.Snapshot()
 
 	elevatorCopy := elevs[e.Ip]
-	// elevatorCopy.State = state
 	elevatorCopy.Target = elevio.ButtonEvent{Floor: -1, Button: elevio.BT_HallUp}
 	elevs[e.Ip] = elevatorCopy
 	e.System.Elevators[e.Ip] = elevatorCopy

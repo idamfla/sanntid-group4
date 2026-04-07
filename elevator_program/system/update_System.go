@@ -4,7 +4,6 @@ import (
 	"elevator_program/elevio"
 	"elevator_program/message"
 	"elevator_program/types"
-	"fmt"
 )
 
 func (s *System) SetStatusReport(ip string, elevator types.ElevatorsStatus) {
@@ -82,18 +81,14 @@ func (s *System) RegisterAndSyncElevator(
 		old := s.Elevators[eMsg.Addr].CabRequests
 
 		for i := range numFloors {
-			if old[i] != types.NotActive || eMsg.Elevators[eMsg.Addr].CabRequests[i] != types.NotActive { // TODO does the new one be able to turn something to running??
+			if old[i] != types.NotActive || eMsg.Elevators[eMsg.Addr].CabRequests[i] != types.NotActive {
 				newElevator.CabRequests[i] = types.Pending
 			}
 		}
 	}
-	// TODO need this one for syncing
-	// else {
-	// 	copy(newElevator.CabRequests, eMsg.Elevators[eMsg.Addr].CabRequests)
-	// }
 
 	hallCopy := make([][2]types.ButtonStatus, len(s.HallRequests))
-	copy(hallCopy, s.HallRequests) // TODO temp for without syncing
+	copy(hallCopy, s.HallRequests)
 
 	hallCopy = s.Intersect(hallCopy, eMsg.HallRequests)
 
@@ -101,15 +96,12 @@ func (s *System) RegisterAndSyncElevator(
 	for ip, e := range s.Elevators {
 		elevCopy[ip] = e
 	}
-	// elevCopy[eMsg.Addr] = eMsg.Elevators[eMsg.Addr]
 	mergedElev := eMsg.Elevators[eMsg.Addr]
 	mergedElev.CabRequests = newElevator.CabRequests
 	elevCopy[eMsg.Addr] = mergedElev
 
 	newMessage.HallRequests = hallCopy
 	newMessage.Elevators = elevCopy
-
-	fmt.Println("Trying to sync, \n\n\n", newMessage)
 
 	return newMessage
 }
@@ -138,8 +130,6 @@ func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 
 	if s.Elevators[ip].Target.Floor != -1 {
 		oldTarget := s.Elevators[ip].Target
-		// Only revert old target to Pending if it is actually Running.
-		// This prevents phantom Pending from stale target data.
 		if oldTarget.Button == elevio.BT_Cab {
 			if s.Elevators[ip].CabRequests[oldTarget.Floor] == types.Running {
 				s.SetRequestStatus(ip, types.Pending, oldTarget)
@@ -165,7 +155,6 @@ func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 }
 
 func (s *System) Intersect(currentHallrequest [][2]types.ButtonStatus, incommingHallRequest [][2]types.ButtonStatus) [][2]types.ButtonStatus {
-	// TODO need this one for syncing
 	for f, row := range currentHallrequest {
 		for b, btnStatus := range row {
 			if btnStatus == types.Running {

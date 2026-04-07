@@ -22,12 +22,11 @@ func (srv *Server) QueueWhoIsAliveMsg() {
 }
 
 func (srv *Server) QueueIAmMasterMsg() {
-	activeElevs := make(map[string]types.ElevatorsStatus) // TODO Need to go through the peers and add every elevator who is alive to the elevator map
+	activeElevs := make(map[string]types.ElevatorsStatus)
 	for _, p := range srv.peers.peers {
 		_, addr, _, active, _, _ := p.Snapshot()
 		if active {
-			// Use the ip part of the adress to add it to the elevator
-			IpString := addr.String() // Maybe have addr.IP.string()
+			IpString := addr.String()
 			activeElevs[IpString] = types.ElevatorsStatus{Ip: IpString, IsAlive: true}
 		}
 	}

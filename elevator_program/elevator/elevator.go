@@ -13,7 +13,6 @@ import (
 type Elevator struct {
 	Id string
 	Ip string
-	// IpRegistery map[string]string
 
 	scheduleRestart bool
 
@@ -39,7 +38,7 @@ type Elevator struct {
 	FaultMsg chan message.FaultMessage
 
 	IsMaster          bool
-	connectedToMaster bool // TODO i am not sure what we actually do with this one?
+	connectedToMaster bool
 	IsOnline          bool
 
 	System          system.System
@@ -53,17 +52,6 @@ type Elevator struct {
 
 	motorWatchdogFloor int
 	motorWatchdogTimer time.Time
-
-	// recoveryCfg RecoveryConfig
-
-	// restartReason         RestartReason
-	// softRestartInProgress bool
-	// softRestartAttempts   int
-
-	// recoveryAwaitingProof bool
-	// recoveryVerified      bool
-	// lastRecoveryAttempt   time.Time
-	// recoveryMu            sync.Mutex
 }
 
 func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip string, port int) {
@@ -80,15 +68,11 @@ func (e *Elevator) InitElevator(id string, numFloors int, initFloor int, ip stri
 
 	e.System.InitSystem(id, ip, numFloors)
 
-	// e.IpRegistery = make(map[string]string)
-
 	e.SendToCoordinator = make(chan message.ElevatorMessage, 10)
 	e.FaultMsg = make(chan message.FaultMessage, 20)
 
 	e.hardwareEventsCh = make(chan HardwareEvent, 20)
 
-	// e.recoveryCfg = DefaultRecoveryConfig
-	// e.restartReason = RestartReasonNone
 	e.IsOnline = false
 
 	e.clearAllLamps(elevio.BT_HallUp, elevio.BT_HallDown, elevio.BT_Cab)
@@ -116,7 +100,6 @@ func (e *Elevator) RunElevatorProgram() {
 	go e.RunHardwareEventLoop()
 	go e.RunDoorStateMachine()
 	go e.RunElevatorStateMachine()
-	// go e.fault_loop()
 
 	e.isRunning = true
 }
@@ -138,7 +121,6 @@ func (e *Elevator) resetRuntimeState(numFloors int) {
 	e.connectedToMaster = false
 	e.IsOnline = false
 	e.currentMasterID = ""
-	// e.IpRegistery = make(map[string]string)
 
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetStopLamp(false)

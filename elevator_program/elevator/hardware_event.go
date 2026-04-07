@@ -49,7 +49,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		e.System.Mutex.Lock()
 		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = types.ES_EmergencyStop
-		elevatorCopy.IsAlive = true // TODO maybe don't need
+		elevatorCopy.IsAlive = true
 		e.System.Elevators[e.Ip] = elevatorCopy
 		eMsg := message.ElevatorMessage{
 			EMsgType: message.EMSG_T_StatusReport,
@@ -67,7 +67,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		connected := e.connectedToMaster
 		e.mu.Unlock()
 		if !connected {
-			println("Not connected to master, cannot accept buttonpress") // TODO not sure if we need this one
+			println("Not connected to master, cannot accept buttonpress")
 			return
 		}
 		task := elevio.ButtonEvent{
@@ -90,20 +90,10 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 				},
 			}
 
-			// if e.IsMaster && task.Button != elevio.BT_Cab {
-			// 	taskElevatorIp := e.ClosestToTarget(elevators, task)
-			// 	if taskElevatorIp != e.Ip && taskElevatorIp != "" {
-			// 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
-			// 		eMsg.BtnStatus = types.Running
-			// 		eMsg.Addr = taskElevatorIp
-			// 		eMsg.ID = ""
-			// 	}
-			// }
 			if e.IsMaster {
 				if task.Button == elevio.BT_Cab {
 					if e.IsNewTargetBetterCab(task, elevators[e.Ip]) {
 						eMsg.BtnStatus = types.Running
-						// e.System.SetRequestAsTarget(e.Ip, task)
 					}
 				} else {
 					taskElevatorIp := e.ClosestToTarget(elevators, task)
@@ -135,7 +125,6 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevatorCopy.IsMotorWorking = true
 			elevatorCopy.IsAlive = true
 			e.System.Elevators[e.Ip] = elevatorCopy
-			// _, elevs := e.System.Snapshot()
 			e.System.Mutex.Unlock()
 
 			eMsg := message.ElevatorMessage{
@@ -176,8 +165,6 @@ func (e *Elevator) handleHardwareEventOffline(hwEvent HardwareEvent) {
 			e.System.Elevators[e.Ip].CabRequests[hwEvent.Floor] = types.Pending
 			e.System.Mutex.Unlock()
 		} else {
-			// fmt.Println("Elevator is offline, can not accept order")
-			// return
 			e.System.Mutex.Lock()
 			e.System.HallRequests[hwEvent.Floor][hwEvent.Button] = types.Pending
 			e.System.Mutex.Unlock()

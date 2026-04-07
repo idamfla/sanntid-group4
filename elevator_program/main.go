@@ -73,10 +73,4 @@ func main() {
 	defer closeProgram(&c1)
 
 	e1.RunElevatorProgram()
-
-	// msg := message.ElevatorMessage{
-	// 	EMsgType: message.EMSG_T_NewToChannel,
-	// 	ID:       e1.Id,
-	// }
-	// e1.SendToCoordinator <- msg
 }

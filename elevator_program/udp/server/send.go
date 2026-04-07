@@ -10,13 +10,11 @@ import (
 func (srv *Server) Send(
 	ses *session.Session,
 	pktType packet.PacketType,
-	// eMsg message.ElevatorMessage,
 	outMsg packet.OutgoingMessage,
 ) error {
 	senderAddr := srv.GetRecvString()
 
-	data, err := ses.GenerateDataPacket(senderAddr, pktType, outMsg) // TODO needs to include the origin
-	// data, err := ses.GenerateDataPacket(senderAddr, pktType, eMsg) // TODO needs to include the origin
+	data, err := ses.GenerateDataPacket(senderAddr, pktType, outMsg)
 	if err != nil {
 		fmt.Println("Encode error:", err)
 		return err
@@ -98,7 +96,7 @@ func (srv *Server) dispatchSyncComplete(outMsg packet.OutgoingMessage) {
 func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 	mstr := srv.getMasterPeer()
 	if mstr == nil {
-		fmt.Println(srv.GetAlias(), "dosen't know who master is") // TODO remove later,
+		fmt.Println(srv.GetAlias(), "dosen't know who master is")
 		srv.QueueWhoIsAliveMsg()
 		return
 	}
@@ -108,8 +106,7 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 
 // --- start sessions ---
 
-func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
-	// ses := srv.createSession(remoteAddr, nil)
+func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) {
 	ses := srv.getOrCreateSession(remoteAddr, nil)
 	if ses == nil {
 		fmt.Printf("Server %s: could not start session, failed to getOrCreate ...\n", srv.GetAlias())
@@ -119,7 +116,7 @@ func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingM
 }
 
 // Initiate the broadcast message chain
-func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) { // TODO could probably just take a outMsg and then extract the pktType and eMsg
+func (srv *Server) startStateBroadcast(outMsg packet.OutgoingMessage) {
 	quorum := srv.countAlivePeers()
 	bs := srv.createBroadcastSession(quorum)
 	bs.QueueDirectMsg(outMsg.PktType, outMsg)

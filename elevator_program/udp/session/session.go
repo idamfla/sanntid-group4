@@ -24,7 +24,6 @@ type Session struct {
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
 	outgoingMsgCh chan packet.OutgoingMessage
-	// outgoingMsgCh chan outgoingMessage
 
 	// --- external systems ---
 	elevDone  chan struct{}

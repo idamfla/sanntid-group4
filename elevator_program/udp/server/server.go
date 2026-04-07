@@ -22,11 +22,6 @@ type Server struct {
 	incPktCh      chan packet.Packet
 	outgoingMsgCh chan packet.OutgoingMessage
 
-	// closeReq chan uint32
-
-	// stop      chan struct{}
-	// wg        sync.WaitGroup
-	// closeOnce sync.Once
 	lifecycle *ServerLifecycle
 
 	elevator *ElevatorInterface
@@ -54,8 +49,7 @@ func NewServer(ip string, port int, alias string, elevRecv chan ElevatorPacket) 
 		sessions:  NewSessionManager(),
 		peers:     NewPeerManager(),
 		lifecycle: NewServerLifecycle(),
-		// closeReq: make(chan uint32, CHANNEL_BUF),
-		// stop:     make(chan struct{}, 1),
+
 		elevator: NewElevatorInterface(elevRecv),
 	}
 
@@ -72,7 +66,6 @@ func (srv *Server) Start() {
 		srv.Alias, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
-	// srv.createMasterElectionSession()
 	srv.getOrCreateMasterElectionSession()
 
 	go srv.run()
@@ -87,7 +80,7 @@ func (srv *Server) Close() {
 
 		srv.WgWait() // wait for goroutines
 
-		srv.sessions.Close() // TODO make function closeAllSessions
+		srv.sessions.Close()
 
 		fmt.Println(srv.Alias, "is synced:", srv.isSynced())
 		srv.PrintPeers()

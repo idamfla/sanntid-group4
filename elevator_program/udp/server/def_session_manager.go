@@ -79,14 +79,12 @@ func (sm *SessionManager) GetOrCreateSession(srv *Server, senderAddr *net.UDPAdd
 		}
 
 		ses, exists := sm.sessions[*sesID]
-		// ses, exists := sm.getSession(*sesID)
 		if exists {
 			sm.unlock()
 			return ses
 		}
 	}
 
-	// return srv.createSession(senderAddr, sesID)
 	ses := sm.createSessionUnsafe(srv, senderAddr, sesID)
 	if ses == nil {
 		sm.unlock()
@@ -98,7 +96,7 @@ func (sm *SessionManager) GetOrCreateSession(srv *Server, senderAddr *net.UDPAdd
 	return ses
 }
 
-func (sm *SessionManager) GetOrCreateMasterElectionSession(srv *Server) SessionHandler { // TODO move into sessionManager
+func (sm *SessionManager) GetOrCreateMasterElectionSession(srv *Server) SessionHandler {
 	sm.lock()
 	bs, exists := sm.sessions[MASTER_ELECTION_SESSSION_ID]
 	if exists {
@@ -117,13 +115,10 @@ func (sm *SessionManager) GetOrCreateMasterElectionSession(srv *Server) SessionH
 }
 
 func (sm *SessionManager) createSessionUnsafe(srv *Server, remoteAddr *net.UDPAddr, sesID *uint32) *session.Session {
-	// sm.lock()
-
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
 
-		// sm.unlock()
 		return nil
 	}
 
@@ -137,10 +132,6 @@ func (sm *SessionManager) createSessionUnsafe(srv *Server, remoteAddr *net.UDPAd
 	ses := session.NewSession(id, remoteAddr, srv)
 	sm.addSessionUnsafe(ses)
 	fmt.Printf("Server %s: new session: %d\n", srv.GetAlias(), id)
-
-	// sm.unlock()
-
-	// ses.Start()
 	return ses
 }
 
@@ -150,16 +141,10 @@ func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
 }
 
 func (sm *SessionManager) createMasterElectionSessionUnsafe(srv *Server) SessionHandler {
-	// sm.lock()
-
 	id := MASTER_ELECTION_SESSSION_ID
 	ws := session.NewWhoIsAliveBroadcast(id, srv)
 	sm.addSessionUnsafe(ws)
 	fmt.Printf("Server %s: new WhoIsAlive session: %d\n", srv.GetAlias(), id)
-
-	// sm.unlock()
-
-	// ws.Start()
 
 	return ws
 }

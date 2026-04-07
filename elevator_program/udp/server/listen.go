@@ -58,7 +58,7 @@ func (srv *Server) receivePacket(pkt packet.Packet) {
 
 // --- handle incomming ---
 
-func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt, should this be with session?
+func (srv *Server) handleIncPkt(pkt packet.Packet) {
 	senderAddr, err := srv.resolveSenderAddr(pkt.Header.SenderAddr)
 	if err != nil {
 		return
@@ -69,7 +69,7 @@ func (srv *Server) handleIncPkt(pkt packet.Packet) { // TODO rename handleIncPkt
 	srv.deliverToSession(senderAddr, pkt)
 }
 
-// helper
+// --- helper ---
 func (srv *Server) resolveSenderAddr(replyAddr string) (*net.UDPAddr, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", replyAddr)
 	if err != nil {

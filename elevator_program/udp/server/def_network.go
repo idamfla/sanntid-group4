@@ -41,7 +41,6 @@ func NewServerNetwork(addr *net.UDPAddr) (*ServerNetwork, error) {
 	}
 
 	bcAddr := &net.UDPAddr{
-		// IP: net.ParseIP("127.0.0.1"),
 		IP:   net.ParseIP(udp.BroadcastIP),
 		Port: udp.BROADCAST_PORT,
 	}

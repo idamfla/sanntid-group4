@@ -58,7 +58,7 @@ func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
  And that's just lonely
 `)
 
-		ws.queueElevatorCommand(message.EMSG_T_IAmAlone) // TODO need a type for telling elevator we are offline
+		ws.queueElevatorCommand(message.EMSG_T_IAmAlone)
 		ws.clearAllPeerSynced()
 		ws.clearMasterPeer()
 		ws.queueWhoIsAliveMsg()

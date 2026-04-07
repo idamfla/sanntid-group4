@@ -23,23 +23,6 @@ func DecodePacket(buf []byte, n int) (Packet, error) {
 	return pck, nil
 }
 
-// helper to encode & send a packet
-// func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, pck Packet) error {
-// 	// data, err := pck.encodePacket()
-// 	// if err != nil {
-// 	// 	fmt.Println("Encode error:", err)
-// 	// 	return err
-// 	// }
-
-// 	// _, err = conn.WriteToUDP(data, addr)
-// 	// if err != nil {
-// 	// 	fmt.Println("Send error:", err)
-// 	// 	return err
-// 	// }
-
-// 	// return nil
-// }
-
 func IsBroadcastPkt(t PacketType) bool {
 	switch t {
 	case PKT_T_BroadcastUpdate,
