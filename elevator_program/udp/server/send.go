@@ -35,7 +35,7 @@ func (srv *Server) Send(
 func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 	defer srv.WgDone()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
+	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster, packet.PKT_T_ElectedMasterIs:
 		srv.dispatchMasterElectionMsg(outMsg)
 
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
@@ -58,7 +58,9 @@ func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 			oldMstr.ClearMaster()
 		}
 
-		// srv.QueueElevatorCommand() // TODO something about who is alive, also need something similair of the recv end
+		ready := make(chan struct{}, 1)
+		ready <- struct{}{}
+		srv.QueueElevatorTask(outMsg.EMsg, nil, ready)
 
 		srv.setSelfAsMaster()
 		srv.setSynced()

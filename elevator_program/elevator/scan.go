@@ -168,7 +168,7 @@ func (e *Elevator) GetNextTargetFloor(elevator types.ElevatorsStatus, hallReques
 		return elevio.ButtonEvent{Floor: -1}
 	}
 
-	if elevator.State == types.ES_Idle || elevator.Direction == elevio.MD_Stop {
+	if elevator.Direction == elevio.MD_Stop {
 		return e.getClosestFloor(elevator, hallRequests)
 	} else if elevator.Direction == elevio.MD_Up {
 		return upScan()

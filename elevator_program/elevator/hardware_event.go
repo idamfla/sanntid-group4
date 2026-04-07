@@ -52,10 +52,12 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 		elevatorCopy.IsAlive = true // TODO maybe don't need
 		e.System.Elevators[e.Ip] = elevatorCopy
 		eMsg := message.ElevatorMessage{
-			EMsgType:  message.EMSG_T_StatusReport,
-			ID:        e.Id,
-			Addr:      e.Ip,
-			Elevators: e.System.Elevators,
+			EMsgType: message.EMSG_T_StatusReport,
+			ID:       e.Id,
+			Addr:     e.Ip,
+			Elevators: map[string]types.ElevatorsStatus{
+				e.Ip: elevatorCopy,
+			},
 		}
 		e.System.Mutex.Unlock()
 		e.SendToCoordinator <- eMsg
@@ -133,14 +135,16 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 			elevatorCopy.IsMotorWorking = true
 			elevatorCopy.IsAlive = true
 			e.System.Elevators[e.Ip] = elevatorCopy
-			_, elevs := e.System.Snapshot()
+			// _, elevs := e.System.Snapshot()
 			e.System.Mutex.Unlock()
 
 			eMsg := message.ElevatorMessage{
-				EMsgType:  message.EMSG_T_StatusReport,
-				ID:        e.Id,
-				Addr:      e.Ip,
-				Elevators: elevs,
+				EMsgType: message.EMSG_T_StatusReport,
+				ID:       e.Id,
+				Addr:     e.Ip,
+				Elevators: map[string]types.ElevatorsStatus{
+					e.Ip: elevatorCopy,
+				},
 			}
 			e.SendToCoordinator <- eMsg
 		}

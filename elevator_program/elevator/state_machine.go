@@ -219,6 +219,12 @@ func (e *Elevator) updateElevatorStateOnline() {
 	elevio.SetMotorDirection(dir)
 
 	e.System.Mutex.Lock()
+	if dir != elevio.MD_Stop {
+		elevatorCopy := e.System.Elevators[e.Ip]
+		elevatorCopy.Direction = dir
+		e.System.Elevators[e.Ip] = elevatorCopy
+	}
+
 	if elevatorState.State != e.System.Elevators[e.Ip].State {
 		elevatorCopy := e.System.Elevators[e.Ip]
 		elevatorCopy.State = elevatorState.State
@@ -357,6 +363,11 @@ func (e *Elevator) updateElevatorStateOffline() {
 	// if e.shouldMarkRecoveryVerified() {
 	// 	e.markRecoveryVerified()
 	// }
+
+	if dir != elevio.MD_Stop {
+		elevatorStatus.Direction = dir
+	}
+
 	elevio.SetMotorDirection(dir)
 
 	// e.checkOfflineRestart()

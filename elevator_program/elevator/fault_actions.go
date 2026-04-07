@@ -33,8 +33,12 @@ func (e *Elevator) checkMotorWatchdog() bool {
 func (e *Elevator) UpdateWhoIsALive(ipAdresses []string) {
 	for ip, elev := range e.System.Elevators {
 		if !slices.Contains(ipAdresses, ip) {
-			fmt.Println("Elevator %d is dead", ip)
-			elev.IsAlive = false // TODO maybe i need to remove the task from this elevator, but don't think that is very important
+			if e.Ip == ip {
+				elev.IsAlive = true
+			} else {
+				fmt.Println("Elevator %d is dead", ip)
+				elev.IsAlive = false // TODO maybe i need to remove the task from this elevator, but don't think that is very important
+			}
 		} else {
 			elev.IsAlive = true
 		}

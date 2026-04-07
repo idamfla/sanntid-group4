@@ -59,22 +59,8 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.UpdateBtnLamp(eMsg.Addr, eMsg.BtnStatus, eMsg.Task.Floor, eMsg.Task.Button)
 		}
 
-	case message.EMSG_T_SyncSystem: // TODO fix this one to be working for the target and not the target, need to update msgSend as well
-		e.System.Mutex.Lock()
-		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
-		e.System.HallRequests = hallCopy
-		e.System.Mutex.Unlock()
-		e.UpdateMapOfLamps(hallCopy)
-
-		if e.Ip == eMsg.Addr {
-			e.System.InitializeFromSystemState(eMsg) // TODO Should i merge with my local cabcalls as well?
-		} else {
-			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
-		}
-
 	case message.EMSG_T_IAmMaster:
 		if !e.ConnectedToMaster() { // TODO is this wrong?
-			fmt.Println("Lol basenhagen", eMsg)
 			e.SetConnectionState(eMsg)
 			e.System.Mutex.RLock()
 			newMsg := message.ElevatorMessage{
@@ -91,15 +77,20 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 		e.TurnToSlave()
-		var ipAdresses []string
-		for ip, elev := range eMsg.Elevators {
-			if elev.IsAlive {
-				ipAdresses = append(ipAdresses, ip)
-			}
-		}
+
+	case message.EMSG_T_SyncSystem: // TODO fix this one to be working for the target and not the target, need to update msgSend as well
 		e.System.Mutex.Lock()
-		e.UpdateWhoIsALive(ipAdresses)
+		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
+		e.System.HallRequests = hallCopy
 		e.System.Mutex.Unlock()
+		e.UpdateMapOfLamps(hallCopy)
+
+		if e.Ip == eMsg.Addr {
+			e.System.InitializeFromSystemState(eMsg) // TODO Should i merge with my local cabcalls as well?
+		} else {
+			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+		}
+		c.askForTask(e, false)
 	}
 }
 
@@ -235,6 +226,8 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.Mutex.Unlock()
 		e.UpdateMapOfLamps(hallCopy)
 		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
+
+		c.askForTask(e, true)
 	}
 }
 
@@ -244,4 +237,35 @@ func (c *Coordinator) takeoverAsMaster(e *elevator.Elevator) {
 	_, elevs := e.System.Snapshot()
 	e.System.Mutex.RUnlock()
 	c.TaskMonitor.transferTaskMonitor(elevs, e)
+}
+
+func (c *Coordinator) askForTask(e *elevator.Elevator, isMaster bool) {
+	e.System.Mutex.RLock()
+	hallRequests, elevs := e.System.Snapshot()
+	currentTask := e.System.Elevators[e.Ip].Target
+	e.System.Mutex.RUnlock()
+
+	if currentTask.Floor == -1 {
+		eMsg := message.ElevatorMessage{
+			ID:   e.Id,
+			Addr: e.Ip,
+		}
+
+		if isMaster {
+			task := e.GetNextTargetFloor(elevs[e.Ip], hallRequests)
+			if task.Floor != -1 {
+				eMsg.EMsgType = message.EMSG_T_ButtonPress
+				eMsg.Task = task
+				eMsg.BtnStatus = types.Running
+
+				hallcopy := make([][2]types.ButtonStatus, len(hallRequests))
+				copy(hallcopy, hallRequests)
+				eMsg.HallRequests = hallcopy // TODO don't think i need this anymore
+
+			}
+		} else {
+			eMsg.EMsgType = message.EMSG_T_ButtonPress
+		}
+		e.SendToCoordinator <- eMsg
+	}
 }
