@@ -43,8 +43,8 @@ func (e *Elevator) UpdateMapOfLamps(hallRequests [][2]types.ButtonStatus) {
 
 func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.mu.Lock()
-	e.Id = eMsg.ID
-	e.Ip = eMsg.Addr
+	// e.Id = eMsg.ID
+	// e.Ip = eMsg.Addr
 	e.IsMaster = false
 	e.connectedToMaster = true
 	e.IsOnline = true

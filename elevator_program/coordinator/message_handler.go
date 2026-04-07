@@ -73,8 +73,8 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 	case message.EMSG_T_IAmMaster:
-		e.TurnToSlave()
 		if !e.ConnectedToMaster() { // TODO is this wrong?
+			fmt.Println("Lol basenhagen", eMsg)
 			e.SetConnectionState(eMsg)
 			e.System.Mutex.RLock()
 			newMsg := message.ElevatorMessage{
@@ -90,6 +90,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.SendToCoordinator <- newMsg
 		}
 
+		e.TurnToSlave()
 		var ipAdresses []string
 		for ip, elev := range eMsg.Elevators {
 			if elev.IsAlive {

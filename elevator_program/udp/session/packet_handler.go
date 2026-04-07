@@ -95,12 +95,12 @@ func (ses *Session) queueElevatorRequest() {
 // fire-and-forget, reponse will appear in another session
 func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	ses.notifyTaskReady()
-	eMsg := message.ElevatorMessage{
-		Addr:     ses.peerAddr.String(),
-		EMsgType: eMsgType,
-	}
+	// eMsg := message.ElevatorMessage{
+	// 	Addr:     ses.peerAddr.String(),
+	// 	EMsgType: eMsgType,
+	// }
 
-	ses.queueElevatorTask(eMsg, nil)
+	ses.queueElevatorTask(ses.pendingPkt.Payload, nil)
 }
 
 func (ses *Session) handleStateBSUpdate() {

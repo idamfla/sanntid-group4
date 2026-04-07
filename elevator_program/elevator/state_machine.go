@@ -76,7 +76,7 @@ func (e *Elevator) uninitializedAction(isMotorWorking bool) elevio.MotorDirectio
 	floor := e.currentFloor
 	e.mu.Unlock()
 
-	if floor == -1 || isMotorWorking {
+	if floor == -1 || !isMotorWorking {
 		return elevio.MD_Down
 	}
 	if floor < e.initFloor {

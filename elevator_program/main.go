@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 )
 
@@ -52,10 +53,12 @@ func main() {
 		io.Copy(mw, pr)
 	}()
 
+	portstr := strconv.Itoa(*udpPort)
+
 	elevio.Init(fmt.Sprintf("localhost:%d", *simPort), 4)
 
 	e1 := elevator.Elevator{}
-	e1.InitElevator(*id, 4, 3, *localIP, *udpPort)
+	e1.InitElevator(*id, 4, 3, *localIP+":"+portstr, *udpPort)
 	c1 := coordinator.Coordinator{}
 	c1.InitCoordinator()
 	err = c1.StartServer(*localIP, *udpPort, *id)

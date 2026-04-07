@@ -101,6 +101,7 @@ func (s *System) RegisterAndSyncElevator(
 	for ip, e := range s.Elevators {
 		elevCopy[ip] = e
 	}
+	elevCopy[eMsg.Addr] = eMsg.Elevators[eMsg.Addr]
 
 	newMessage.HallRequests = hallCopy
 	newMessage.Elevators = elevCopy
