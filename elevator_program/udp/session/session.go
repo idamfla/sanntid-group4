@@ -73,9 +73,6 @@ func (ses *Session) Close() {
 
 		close(ses.elevDone)
 		close(ses.taskReady)
-
-		// Clear pending packet
-		ses.clearPendingMsg()
 	})
 }
 

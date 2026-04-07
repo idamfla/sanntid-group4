@@ -22,7 +22,7 @@ func (srv *Server) updatePeer(peerAddr *net.UDPAddr, origin packet.Identity) {
 		peer = NewPeer(peerAlias, peerAddr)
 
 		srv.addPeer(key, peer)
-		fmt.Printf("Server %s: new peer made: %s\n (aka. %s)", srv.GetAlias(), key, peerAlias)
+		fmt.Printf("Server %s: new peer made: %s (aka. %s)\n", srv.GetAlias(), key, peerAlias)
 		isNew = true
 	}
 

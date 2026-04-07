@@ -33,14 +33,97 @@ func (sm *SessionManager) Close() {
 	}
 }
 
-func (sm *SessionManager) createSession(srv *Server, remoteAddr *net.UDPAddr, sesID *uint32) *session.Session {
+func (sm *SessionManager) CountSessions() int {
 	sm.lock()
+	defer sm.unlock()
+	return len(sm.sessions)
+}
+
+func (sm *SessionManager) PrintSessions() {
+	sm.lock()
+	defer sm.unlock()
+
+	for id := range sm.sessions {
+		fmt.Println(" -", id)
+	}
+}
+
+func (sm *SessionManager) CreateBroadcastSession(srv *Server, expectedResponses int) SessionHandler {
+	sm.lock()
+
+	id := sm.generateSessionIDUnsafe()
+	sbs := session.NewStateBroadcast(id, srv, expectedResponses)
+	sm.addSessionUnsafe(sbs)
+	fmt.Printf("Server %s: new StateBroadcast session: %d\n", srv.GetAlias(), id)
+
+	sm.unlock()
+
+	sbs.Start()
+
+	return sbs
+}
+
+func (sm *SessionManager) GetSession(sesID uint32) (SessionHandler, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sh, exists := sm.sessions[sesID]
+	return sh, exists
+}
+
+func (sm *SessionManager) GetOrCreateSession(srv *Server, senderAddr *net.UDPAddr, sesID *uint32) SessionHandler {
+	sm.lock()
+	if sesID != nil {
+		if *sesID == MASTER_ELECTION_SESSSION_ID {
+			sm.unlock()
+			return sm.GetOrCreateMasterElectionSession(srv)
+		}
+
+		ses, exists := sm.sessions[*sesID]
+		// ses, exists := sm.getSession(*sesID)
+		if exists {
+			sm.unlock()
+			return ses
+		}
+	}
+
+	// return srv.createSession(senderAddr, sesID)
+	ses := sm.createSessionUnsafe(srv, senderAddr, sesID)
+	if ses == nil {
+		sm.unlock()
+		return nil
+	}
+	sm.unlock()
+
+	ses.Start()
+	return ses
+}
+
+func (sm *SessionManager) GetOrCreateMasterElectionSession(srv *Server) SessionHandler { // TODO move into sessionManager
+	sm.lock()
+	bs, exists := sm.sessions[MASTER_ELECTION_SESSSION_ID]
+	if exists {
+		sm.unlock()
+		return bs
+	}
+
+	bs = sm.createMasterElectionSessionUnsafe(srv)
+	if bs == nil {
+		return nil
+	}
+	sm.unlock()
+
+	bs.Start()
+	return bs
+}
+
+func (sm *SessionManager) createSessionUnsafe(srv *Server, remoteAddr *net.UDPAddr, sesID *uint32) *session.Session {
+	// sm.lock()
 
 	if srv.isLocalAddr(remoteAddr) {
 		err := fmt.Errorf("Tried to send to oneself %s", remoteAddr.String())
 		fmt.Println(err)
 
-		sm.unlock()
+		// sm.unlock()
 		return nil
 	}
 
@@ -52,12 +135,12 @@ func (sm *SessionManager) createSession(srv *Server, remoteAddr *net.UDPAddr, se
 	}
 
 	ses := session.NewSession(id, remoteAddr, srv)
-	sm.addSession(ses)
+	sm.addSessionUnsafe(ses)
 	fmt.Printf("Server %s: new session: %d\n", srv.GetAlias(), id)
 
-	sm.unlock()
+	// sm.unlock()
 
-	ses.Start()
+	// ses.Start()
 	return ses
 }
 
@@ -66,40 +149,19 @@ func (srv *Server) isLocalAddr(addr *net.UDPAddr) bool {
 	return addr.IP.Equal(local.IP) && addr.Port == local.Port
 }
 
-func (sm *SessionManager) createBroadcastSession(srv *Server, expectedResponses int) SessionHandler {
-	sm.lock()
-
-	id := sm.generateSessionIDUnsafe()
-	sbs := session.NewStateBroadcast(id, srv, expectedResponses)
-	sm.addSession(sbs)
-	fmt.Printf("Server %s: new StateBroadcast session: %d\n", srv.GetAlias(), id)
-
-	sm.unlock()
-
-	sbs.Start()
-
-	return sbs
-}
-func (sm *SessionManager) createMasterElectionSession(srv *Server) SessionHandler {
-	sm.lock()
+func (sm *SessionManager) createMasterElectionSessionUnsafe(srv *Server) SessionHandler {
+	// sm.lock()
 
 	id := MASTER_ELECTION_SESSSION_ID
 	ws := session.NewWhoIsAliveBroadcast(id, srv)
-	sm.addSession(ws)
+	sm.addSessionUnsafe(ws)
 	fmt.Printf("Server %s: new WhoIsAlive session: %d\n", srv.GetAlias(), id)
 
-	sm.unlock()
+	// sm.unlock()
 
-	ws.Start()
+	// ws.Start()
 
 	return ws
-}
-
-func (sm *SessionManager) getSession(sesID uint32) (SessionHandler, bool) {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sh, exists := sm.sessions[sesID]
-	return sh, exists
 }
 
 func (sm *SessionManager) closeSession(sesID uint32) {
@@ -120,7 +182,7 @@ func (sm *SessionManager) closeSession(sesID uint32) {
 
 // --- unsafe ---
 
-func (sm *SessionManager) addSession(sh SessionHandler) {
+func (sm *SessionManager) addSessionUnsafe(sh SessionHandler) {
 	sm.sessions[sh.GetID()] = sh
 }
 
@@ -146,23 +208,6 @@ func generateID() (uint32, error) {
 		return 0, err
 	}
 	return binary.LittleEndian.Uint32(b[:]), nil
-}
-
-// --- helpers ---
-
-func (sm *SessionManager) countSessions() int {
-	sm.lock()
-	defer sm.unlock()
-	return len(sm.sessions)
-}
-
-func (sm *SessionManager) printSessions() {
-	sm.lock()
-	defer sm.unlock()
-
-	for id := range sm.sessions {
-		fmt.Println(" -", id)
-	}
 }
 
 func (sm *SessionManager) lock()   { sm.mu.Lock() }

@@ -6,24 +6,24 @@ const (
 	PKT_T_Heartbeat PacketType = iota
 	PKT_T_LostConn
 
-	PKT_T_WhoIsAlive
+	PKT_T_WhoIsAlive // initiater
 	PKT_T_IAmAlive
-	PKT_T_IAmMaster
+	PKT_T_IAmMaster // initiater
 
 	PKT_T_ElectedMasterIs // if this is you, respond with IAmMaster
 	PKT_T_MasterAck
 
-	PKT_T_SyncMsg
+	PKT_T_SyncMsg // initiater
 	PKT_T_SyncMsgAck
 	PKT_T_SyncMsgCommit
 	PKT_T_SyncComplete
 
-	PKT_T_BroadcastUpdate
+	PKT_T_BroadcastUpdate // initiater
 	PKT_T_BroadcastAck
 	PKT_T_BroadcastCommit
 	PKT_T_BroadcastDone
 
-	PKT_T_RequestTaskExecution
+	PKT_T_RequestTaskExecution // initiater
 	PKT_T_RequestTaskExecutionAck
 
 	PKT_T_ElevatorFailed // TODO do i need this?

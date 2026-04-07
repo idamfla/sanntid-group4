@@ -1,49 +1,24 @@
 package server
 
 import (
-	"elevator_program/udp/session"
 	"fmt"
 	"net"
 )
 
 func (srv *Server) getOrCreateSession(senderAddr *net.UDPAddr, sesID *uint32) SessionHandler {
-	if sesID != nil {
-		if *sesID == MASTER_ELECTION_SESSSION_ID {
-			return srv.getOrCreateMasterElectionSession()
-		}
-
-		ses, exists := srv.getSession(*sesID)
-		if exists {
-			return ses
-		}
-	}
-
-	return srv.createSession(senderAddr, sesID)
+	return srv.sessions.GetOrCreateSession(srv, senderAddr, sesID)
 }
 
 func (srv *Server) getOrCreateMasterElectionSession() SessionHandler {
-	bs, exists := srv.getSession(MASTER_ELECTION_SESSSION_ID)
-	if exists {
-		return bs
-	}
-
-	return srv.createMasterElectionSession()
-}
-
-func (srv *Server) createSession(senderAddr *net.UDPAddr, sesID *uint32) *session.Session {
-	return srv.sessions.createSession(srv, senderAddr, sesID)
-}
-
-func (srv *Server) createMasterElectionSession() SessionHandler {
-	return srv.sessions.createMasterElectionSession(srv)
+	return srv.sessions.GetOrCreateMasterElectionSession(srv)
 }
 
 func (srv *Server) createBroadcastSession(expectedResponses int) SessionHandler {
-	return srv.sessions.createBroadcastSession(srv, expectedResponses)
+	return srv.sessions.CreateBroadcastSession(srv, expectedResponses)
 }
 
 func (srv *Server) getSession(sesID uint32) (SessionHandler, bool) {
-	return srv.sessions.getSession(sesID)
+	return srv.sessions.GetSession(sesID)
 }
 
 func (srv *Server) closeSession(sesID uint32) {
@@ -52,7 +27,7 @@ func (srv *Server) closeSession(sesID uint32) {
 }
 
 func (srv *Server) PrintSessions() {
-	fmt.Printf("%s, Active sessions (%d):\n", srv.GetAlias(), srv.sessions.countSessions())
+	fmt.Printf("%s, Active sessions (%d):\n", srv.GetAlias(), srv.sessions.CountSessions())
 
-	srv.sessions.printSessions()
+	srv.sessions.PrintSessions()
 }

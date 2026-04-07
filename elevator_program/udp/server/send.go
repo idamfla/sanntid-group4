@@ -35,7 +35,7 @@ func (srv *Server) Send(
 func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 	defer srv.WgDone()
 	switch outMsg.PktType {
-	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
+	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster, packet.PKT_T_ElectedMasterIs:
 		srv.dispatchMasterElectionMsg(outMsg)
 
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncMsg:
@@ -51,6 +51,9 @@ func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
 
 func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 	ws := srv.getOrCreateMasterElectionSession()
+	if ws == nil {
+		return
+	}
 
 	switch outMsg.PktType {
 	case packet.PKT_T_IAmMaster:
@@ -103,7 +106,12 @@ func (srv *Server) dispatchToMasterMsg(outMsg packet.OutgoingMessage) {
 // --- start sessions ---
 
 func (srv *Server) startSession(remoteAddr *net.UDPAddr, outMsg packet.OutgoingMessage) { // TODO move some parts into createSession, rest is a queueMsg or something
-	ses := srv.createSession(remoteAddr, nil)
+	// ses := srv.createSession(remoteAddr, nil)
+	ses := srv.getOrCreateSession(remoteAddr, nil)
+	if ses == nil {
+		fmt.Printf("Server %s: could not start session, failed to getOrCreate ...\n", srv.GetAlias())
+		return
+	}
 	ses.QueueDirectMsg(outMsg.PktType, outMsg)
 }
 

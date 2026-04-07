@@ -47,6 +47,7 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
 		sbs.queueElevatorRequest()
 		sbs.startResponseTimer()
+
 	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
 		sbs.startResponseTimer()
 	}
@@ -58,19 +59,12 @@ func (sbs *StateBroadcast) HandleIncPkt(pkt packet.Packet) error {
 	pktType := h.PktType
 	peerKey := h.SenderAddr
 
-	if h.Seq != sbs.getSeq()+1 {
-		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d), retrying last packet\n",
-			sbs.ID, h.Seq, sbs.getSeq()+1)
-		fmt.Println(err)
-		return err
-	}
-
 	sbs.addResponder(peerKey)
-
 	isQuorum := sbs.countResponders() >= sbs.expectedResponses
 
-	if isQuorum {
-		sbs.incrementSeq()
+	_, err := sbs.shouldIncrementSeq(h.Seq, isQuorum)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
@@ -93,6 +87,7 @@ func (sbs *StateBroadcast) handleStateBSAck(pktType packet.PacketType) {
 	switch pktType {
 	case packet.PKT_T_BroadcastAck:
 		sbs.queueReply(packet.PKT_T_BroadcastCommit)
+
 	case packet.PKT_T_SyncMsgAck:
 		sbs.queueReply(packet.PKT_T_SyncMsgCommit)
 	}

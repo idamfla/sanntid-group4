@@ -8,14 +8,12 @@ import (
 func (ses *Session) GenerateDataPacket(
 	senderAddr string,
 	pktType packet.PacketType,
-	// eMsg message.ElevatorMessage,
 	outMsg packet.OutgoingMessage,
 ) ([]byte, error) {
 	outMsg.Origin.ID = ses.ID
 
 	pkt := packet.Packet{
 		Header: packet.Header{
-			// SessionID:     ses.ID,
 			Origin:        outMsg.Origin,
 			Seq:           ses.getSeq(),
 			PktType:       pktType,
@@ -57,21 +55,25 @@ func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior Session
 		return
 	}
 
+	ses.handleFistLastOutgoing(outMsg)
+
+	behavior.OnSend(outMsg.PktType)
+}
+
+func (ses *Session) handleFistLastOutgoing(outMsg packet.OutgoingMessage) {
 	pktType := outMsg.PktType
 	switch pktType {
 	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster,
 		packet.PKT_T_RequestTaskExecution,
 		packet.PKT_T_BroadcastUpdate,
 		packet.PKT_T_SyncMsg:
-		ses.setPendingMsg(&outMsg)
+		ses.setPendingMsg(outMsg)
 
 	case packet.PKT_T_MasterAck,
 		packet.PKT_T_RequestTaskExecutionAck,
 		packet.PKT_T_SyncComplete,
 		packet.PKT_T_BroadcastDone:
-		ses.clearPendingMsg()
+		// ses.clearPendingMsg()
 		ses.clearLastMsg()
 	}
-
-	behavior.OnSend(pktType)
 }

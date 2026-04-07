@@ -2,7 +2,6 @@ package server
 
 import (
 	"elevator_program/udp/packet"
-	"elevator_program/udp/session"
 	"fmt"
 	"net"
 )
@@ -33,7 +32,7 @@ type Server struct {
 	elevator *ElevatorInterface
 }
 
-func NewServer(ip string, port int, alias string, elevRecv chan session.ElevatorPacket) (*Server, error) {
+func NewServer(ip string, port int, alias string, elevRecv chan ElevatorPacket) (*Server, error) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(ip), // parse the string IP
 		Port: port,
@@ -73,7 +72,8 @@ func (srv *Server) Start() {
 		srv.Alias, srv.GetRecvString(), srv.getBroadcastConn().LocalAddr().String(),
 	)
 
-	srv.createMasterElectionSession()
+	// srv.createMasterElectionSession()
+	srv.getOrCreateMasterElectionSession()
 
 	go srv.run()
 	go srv.sendTaskLoop()
