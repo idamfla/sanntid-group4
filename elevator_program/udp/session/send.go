@@ -17,7 +17,7 @@ func (ses *Session) GenerateDataPacket(
 		Header: packet.Header{
 			// SessionID:     ses.ID,
 			Origin:        outMsg.Origin,
-			Seq:           ses.seq,
+			Seq:           ses.getSeq(),
 			PktType:       pktType,
 			RecipientAddr: ses.peerAddr.String(),
 			SenderAddr:    senderAddr,
@@ -65,10 +65,12 @@ func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior Session
 		packet.PKT_T_SyncMsg:
 		ses.setPendingMsg(&outMsg)
 
-	case packet.PKT_T_RequestTaskExecutionAck,
+	case packet.PKT_T_MasterAck,
+		packet.PKT_T_RequestTaskExecutionAck,
 		packet.PKT_T_SyncComplete,
 		packet.PKT_T_BroadcastDone:
 		ses.clearPendingMsg()
+		ses.clearLastMsg()
 	}
 
 	behavior.OnSend(pktType)

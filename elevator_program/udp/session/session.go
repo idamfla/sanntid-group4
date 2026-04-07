@@ -22,13 +22,14 @@ type Session struct {
 	selfAddr string
 	peerAddr *net.UDPAddr // addr of original sender
 
-	seq uint32 // TODO remove ... maybe??
+	// seq uint32 // TODO remove ... maybe??
 
-	// --- protocol state ---
-	pendingMsg *packet.OutgoingMessage
-	lastOutMsg packet.OutgoingMessage
-	// lastOutMsg outgoingMessage
-	hasLastPkt bool
+	// // --- protocol state ---
+	// pendingMsg *packet.OutgoingMessage
+	// lastOutMsg packet.OutgoingMessage
+	// // lastOutMsg outgoingMessage
+	// hasLastPkt bool
+	state *SessionState
 
 	// --- timer ---
 	shutdownTimer *utilities.Timer
@@ -59,9 +60,10 @@ func NewSession(id uint32,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
 		// seq:                seq, // TODO have it set on init ...
-		pendingMsg:    &packet.OutgoingMessage{},
-		lastOutMsg:    packet.OutgoingMessage{},
-		hasLastPkt:    false,
+		// pendingMsg:    &packet.OutgoingMessage{},
+		// lastOutMsg:    packet.OutgoingMessage{},
+		// hasLastPkt:    false,
+		state:         NewSessionState(),
 		shutdownTimer: utilities.NewTimer(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
@@ -106,10 +108,6 @@ func (ses *Session) GetID() uint32 {
 	return ses.ID
 }
 
-func (ses *Session) GetSeq() uint32 {
-	return ses.seq
-}
-
 func (ses *Session) GetPeerAddr() *net.UDPAddr {
 	return ses.peerAddr
 }
@@ -118,12 +116,6 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
 }
-
-func (ses *Session) setPendingMsg(pendingMsg *packet.OutgoingMessage) { ses.pendingMsg = pendingMsg }
-func (ses *Session) clearPendingMsg()                                 { ses.pendingMsg = nil }
-
-func (ses *Session) setHasLastPacket()   { ses.hasLastPkt = true }
-func (ses *Session) clearHasLastPacket() { ses.hasLastPkt = false }
 
 func (ses *Session) startShutdownTimer() {
 	ses.shutdownTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {

@@ -20,8 +20,8 @@ type ServerAPI interface {
 }
 
 func (ses *Session) send(outMsg packet.OutgoingMessage) error {
-	ses.seq++
-	ses.lastOutMsg = outMsg
+	ses.incrementSeq()
+	ses.setLastOutMsg(outMsg)
 	return ses.srv.Send(
 		ses,
 		outMsg.PktType,

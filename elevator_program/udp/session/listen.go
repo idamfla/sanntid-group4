@@ -45,9 +45,9 @@ func (ses *Session) listen(behavior SessionBehavior) {
 }
 
 func (ses *Session) handleRetry(retryCounter int) (int, bool) {
-	if ses.hasLastPkt {
+	if ses.hasLastMsg() {
 		fmt.Println("No answer so far ... retry:", retryCounter)
-		ses.sendRetry(ses.lastOutMsg)
+		ses.sendRetry(ses.getLastOutMsg())
 
 		retryCounter++
 

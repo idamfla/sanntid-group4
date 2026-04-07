@@ -91,7 +91,6 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 	}
 
 	ws.queueElevatorCommand(message.EMSG_T_IAmMaster) // TODO how should task look
-	ws.clearHasLastPacket()
 	ws.queueReply(packet.PKT_T_MasterAck)
 }
 
@@ -108,7 +107,7 @@ func (ws *WhoIsAliveBroadcast) handleMasterAck() {
 		fmt.Printf("MstrAck: %d/%d\n", ws.countResponders(), ws.expectedResponses)
 
 		if ws.countResponders() >= ws.expectedResponses {
-			ws.clearHasLastPacket()
+			ws.clearLastMsg()
 			ws.stopResponseTimer()
 		}
 	}

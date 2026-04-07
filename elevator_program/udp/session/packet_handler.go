@@ -13,14 +13,14 @@ func (ses *Session) HandleIncPkt(pkt packet.Packet) error { // TODO rename Handl
 
 	h := pkt.Header
 
-	if h.Seq != ses.seq+1 {
+	if h.Seq != ses.getSeq()+1 {
 		err := fmt.Errorf("Session %d: seq mismatch (got %d, expected %d)...\n",
-			ses.ID, h.Seq, ses.seq+1)
+			ses.ID, h.Seq, ses.getSeq()+1)
 		fmt.Println(err)
 		return err
 	}
 
-	ses.seq = pkt.Header.Seq
+	ses.incrementSeq()
 
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
@@ -77,14 +77,14 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 
 // expects a response/completion from elevator
 func (ses *Session) queueElevatorRequest() {
-	ses.queueElevatorTask(ses.pendingMsg.EMsg)
+	ses.queueElevatorTask(ses.getPendingMsg().EMsg)
 }
 
 // fire-and-forget, reponse will appear in another session
 func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	ses.notifyTaskReady()
 
-	eMsg := ses.pendingMsg.EMsg
+	eMsg := ses.getPendingMsg().EMsg
 	eMsg.Addr = ses.peerAddr.String()
 	eMsg.EMsgType = eMsgType
 
@@ -109,7 +109,7 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_SyncMsgCommit:
-		ses.queueSyncCompleteMsg(*ses.pendingMsg)
+		ses.queueSyncCompleteMsg(ses.getPendingMsg())
 		// ses.queueReply(packet.PKT_T_SyncComplete) // TODO when sending this you need to set self as synced if the origin is the same as you
 	case packet.PKT_T_BroadcastCommit:
 		ses.queueReply(packet.PKT_T_BroadcastDone)
