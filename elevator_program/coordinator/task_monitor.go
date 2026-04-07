@@ -102,3 +102,9 @@ func (tm *TaskMonitor) transferTaskMonitor(elevators map[string]types.ElevatorsS
 		}
 	}
 }
+
+func (tm *TaskMonitor) TurnOffTaskMonitor(e *elevator.Elevator) {
+	for taskKey, _ := range tm.tasks {
+		tm.FinishTask(taskKey)
+	}
+}

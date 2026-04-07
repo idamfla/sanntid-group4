@@ -269,3 +269,20 @@ func (c *Coordinator) askForTask(e *elevator.Elevator, isMaster bool) {
 		e.SendToCoordinator <- eMsg
 	}
 }
+
+func (c *Coordinator) disconnect(e *elevator.Elevator, isMaster bool) {
+	e.TurnOffline()
+	if isMaster {
+		c.TaskMonitor.TurnOffTaskMonitor(e)
+	}
+	e.System.Mutex.Lock()
+	for f, row := range e.System.HallRequests {
+		for b, btnStatus := range row {
+			task := elevio.ButtonEvent{Floor: f, Button: elevio.ButtonType(b)}
+			if btnStatus == types.Running && e.System.Elevators[e.Ip].Target != task {
+				e.System.HallRequests[f][b] = types.Pending
+			}
+		}
+	}
+	e.System.Mutex.Unlock()
+}

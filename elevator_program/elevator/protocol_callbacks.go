@@ -51,17 +51,24 @@ func (e *Elevator) SetConnectionState(eMsg message.ElevatorMessage) {
 	e.mu.Unlock()
 }
 
-func (e *Elevator) ClearTarget() {
-	clearedTarget := elevio.ButtonEvent{
-		Floor:  -1,
-		Button: elevio.BT_HallUp,
-	}
-	e.System.Mutex.Lock()
-	elevatorCopy := e.System.Elevators[e.Ip]
-	elevatorCopy.Target = clearedTarget
-	e.System.Elevators[e.Ip] = elevatorCopy
-	e.System.Mutex.Unlock()
+func (e *Elevator) TurnOffline() {
+	e.mu.Lock()
+	e.IsMaster = false
+	e.IsOnline = false
+	e.mu.Unlock()
 }
+
+// func (e *Elevator) ClearTarget() {
+// 	clearedTarget := elevio.ButtonEvent{
+// 		Floor:  -1,
+// 		Button: elevio.BT_HallUp,
+// 	}
+// 	e.System.Mutex.Lock()
+// 	elevatorCopy := e.System.Elevators[e.Ip]
+// 	elevatorCopy.Target = clearedTarget
+// 	e.System.Elevators[e.Ip] = elevatorCopy
+// 	e.System.Mutex.Unlock()
+// }
 
 func (e *Elevator) TurnToMaster() {
 	e.mu.Lock()
