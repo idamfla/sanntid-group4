@@ -9,7 +9,7 @@ import (
 )
 
 func (ses *Session) listen(behavior SessionBehavior) {
-	defer ses.wg.Done()
+	defer ses.WgDone()
 
 	ticker := time.NewTicker(udp.RETRY_INTERVAL)
 	defer ticker.Stop()
@@ -18,7 +18,7 @@ func (ses *Session) listen(behavior SessionBehavior) {
 
 	for {
 		select {
-		case <-ses.stop:
+		case <-ses.stopCh():
 			return
 
 		case pkt, ok := <-ses.packetInCh:

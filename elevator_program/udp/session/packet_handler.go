@@ -120,7 +120,7 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 func (ses *Session) notifyTaskReady() {
 	select {
-	case <-ses.stop:
+	case <-ses.stopCh():
 	case ses.taskReady <- struct{}{}:
 	default:
 		fmt.Println("Notifications full, could not notify to elevator that task is ready")
@@ -143,7 +143,7 @@ func (ses *Session) waitForElevatorDone() error {
 	defer timer.Stop()
 
 	select { // wait for completion
-	case <-ses.stop:
+	case <-ses.stopCh():
 		return fmt.Errorf("Session stopped")
 
 	case <-ses.elevDone:

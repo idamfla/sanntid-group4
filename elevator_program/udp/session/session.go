@@ -1,11 +1,8 @@
 package session
 
 import (
-	"elevator_program/udp"
 	"elevator_program/udp/packet"
-	"elevator_program/utilities"
 	"net"
-	"sync"
 )
 
 const (
@@ -22,17 +19,7 @@ type Session struct {
 	selfAddr string
 	peerAddr *net.UDPAddr // addr of original sender
 
-	// seq uint32 // TODO remove ... maybe??
-
-	// // --- protocol state ---
-	// pendingMsg *packet.OutgoingMessage
-	// lastOutMsg packet.OutgoingMessage
-	// // lastOutMsg outgoingMessage
-	// hasLastPkt bool
 	state *SessionState
-
-	// --- timer ---
-	shutdownTimer *utilities.Timer
 
 	// --- internal communication ---
 	packetInCh    chan packet.Packet
@@ -45,10 +32,12 @@ type Session struct {
 	srv       ServerAPI // <-- session uses this to reply
 
 	// --- session control ---
-	closeReq  chan<- uint32 // make the server/owner close this session
-	stop      chan struct{}
-	wg        sync.WaitGroup
-	closeOnce sync.Once
+	// shutdownTimer *utilities.Timer
+	// closeReq      chan<- uint32 // make the server/owner close this session
+	// stop          chan struct{}
+	// wg            sync.WaitGroup
+	// closeOnce     sync.Once
+	lifecycle *SessionLifecycle
 }
 
 func NewSession(id uint32,
@@ -59,42 +48,37 @@ func NewSession(id uint32,
 		ID:       id,
 		selfAddr: srv.GetRecvString(),
 		peerAddr: peerAddr,
-		// seq:                seq, // TODO have it set on init ...
-		// pendingMsg:    &packet.OutgoingMessage{},
-		// lastOutMsg:    packet.OutgoingMessage{},
-		// hasLastPkt:    false,
-		state:         NewSessionState(),
-		shutdownTimer: utilities.NewTimer(),
+		state:    NewSessionState(),
+		// shutdownTimer: utilities.NewTimer(),
 		packetInCh:    make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
-		// outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
 
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
 		srv:       srv,
 
-		stop:     make(chan struct{}, CHANNEL_BUF),
-		closeReq: srv.GetCloseReqCh(),
+		lifecycle: NewSessionLifecycle(srv.GetCloseReqCh()),
+
+		// stop:     make(chan struct{}, CHANNEL_BUF),
+		// closeReq: srv.GetCloseReqCh(),
 	}
 
 	return ses
 }
 
 func (ses *Session) Start() {
-	ses.wg.Add(2)
+	ses.WgAdd(2)
 	go ses.listen(ses)
 	go ses.sendLoop(ses)
 }
 
 func (ses *Session) Close() {
-	ses.closeOnce.Do(func() {
-		if ses.shutdownTimer != nil {
-			ses.shutdownTimer.Stop()
-		}
+	ses.lifecycle.CloseOnce.Do(func() {
+		ses.stopShutdownTimer()
 
 		// stop base session goroutines
-		close(ses.stop)
-		ses.wg.Wait()
+		close(ses.lifecycle.Stop)
+		ses.WgWait()
 
 		close(ses.elevDone)
 		close(ses.taskReady)
@@ -115,21 +99,4 @@ func (ses *Session) GetPeerAddr() *net.UDPAddr {
 // just the string version of the peerAddr
 func (ses *Session) getPeerAddrString() string {
 	return ses.GetPeerAddr().String()
-}
-
-func (ses *Session) startShutdownTimer() {
-	ses.shutdownTimer.Restart(udp.SHUTDOWN_TIMEOUT, func() {
-		ses.requestClose()
-	})
-}
-
-func (ses *Session) stopShutdownTimer() {
-	ses.shutdownTimer.Stop()
-}
-
-func (ses *Session) requestClose() {
-	select {
-	case <-ses.stop:
-	case ses.closeReq <- ses.ID:
-	}
 }

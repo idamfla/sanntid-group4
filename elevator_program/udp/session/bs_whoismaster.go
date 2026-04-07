@@ -21,7 +21,7 @@ func NewWhoIsAliveBroadcast(id uint32, srv ServerAPI) *WhoIsAliveBroadcast {
 }
 
 func (ws *WhoIsAliveBroadcast) Start() {
-	ws.wg.Add(2)
+	ws.WgAdd(2)
 	go ws.listen(ws)
 	go ws.sendLoop(ws)
 
@@ -139,7 +139,7 @@ func (ws *WhoIsAliveBroadcast) runElection() (string, error) {
 	lowest := ""
 	for addr := range ws.responders {
 		select {
-		case <-ws.stop:
+		case <-ws.stopCh():
 			err := fmt.Errorf("Election abortet since session stopped")
 			return lowest, err
 		default:

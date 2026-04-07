@@ -37,11 +37,11 @@ func (ses *Session) GenerateDataPacket(
 func (ses *Session) OnSend(pktType packet.PacketType) {}
 
 func (ses *Session) sendLoop(behavior SessionBehavior) {
-	defer ses.wg.Done()
+	defer ses.WgDone()
 
 	for {
 		select {
-		case <-ses.stop:
+		case <-ses.stopCh():
 			return
 
 		case outPkt := <-ses.outgoingMsgCh:

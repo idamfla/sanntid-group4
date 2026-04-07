@@ -22,7 +22,7 @@ func NewStateBroadcast(
 }
 
 func (sbs *StateBroadcast) Start() {
-	sbs.wg.Add(2)
+	sbs.WgAdd(2)
 	go sbs.listen(sbs)
 	go sbs.sendLoop(sbs)
 }
