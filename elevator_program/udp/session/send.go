@@ -63,12 +63,12 @@ func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior Session
 		packet.PKT_T_RequestTaskExecution,
 		packet.PKT_T_BroadcastUpdate,
 		packet.PKT_T_SyncMsg:
-		ses.setPendingPkt(&outMsg)
+		ses.setPendingMsg(&outMsg)
 
 	case packet.PKT_T_RequestTaskExecutionAck,
 		packet.PKT_T_SyncComplete,
 		packet.PKT_T_BroadcastDone:
-		ses.clearPendingPkt()
+		ses.clearPendingMsg()
 	}
 
 	behavior.OnSend(pktType)

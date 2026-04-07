@@ -54,6 +54,12 @@ func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 
 	switch outMsg.PktType {
 	case packet.PKT_T_IAmMaster:
+		if oldMstr := srv.getMasterPeer(); oldMstr != nil {
+			oldMstr.ClearMaster()
+		}
+
+		// srv.QueueElevatorCommand() // TODO something about who is alive, also need something similair of the recv end
+
 		srv.setSelfAsMaster()
 		srv.setSynced()
 	case packet.PKT_T_WhoIsAlive:

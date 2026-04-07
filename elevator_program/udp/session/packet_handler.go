@@ -50,7 +50,7 @@ func (ses *Session) HandleIncPkt(pkt packet.Packet) error { // TODO rename Handl
 func (ses *Session) handleFirstIncomming(pkt packet.Packet) {
 	h := pkt.Header
 
-	ses.setPendingPkt(
+	ses.setPendingMsg(
 		&packet.OutgoingMessage{
 			Origin:  h.Origin,
 			PktType: h.PktType,
@@ -77,14 +77,14 @@ func (ses *Session) handleRequestTaskExecution(eMsgType message.ElevatorMessageT
 
 // expects a response/completion from elevator
 func (ses *Session) queueElevatorRequest() {
-	ses.queueElevatorTask(ses.pendingPkt.EMsg)
+	ses.queueElevatorTask(ses.pendingMsg.EMsg)
 }
 
 // fire-and-forget, reponse will appear in another session
 func (ses *Session) queueElevatorCommand(eMsgType message.ElevatorMessageType) {
 	ses.notifyTaskReady()
 
-	eMsg := ses.pendingPkt.EMsg
+	eMsg := ses.pendingMsg.EMsg
 	eMsg.Addr = ses.peerAddr.String()
 	eMsg.EMsgType = eMsgType
 
@@ -109,7 +109,7 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 
 	switch pktType {
 	case packet.PKT_T_SyncMsgCommit:
-		ses.queueSyncCompleteMsg(*ses.pendingPkt)
+		ses.queueSyncCompleteMsg(*ses.pendingMsg)
 		// ses.queueReply(packet.PKT_T_SyncComplete) // TODO when sending this you need to set self as synced if the origin is the same as you
 	case packet.PKT_T_BroadcastCommit:
 		ses.queueReply(packet.PKT_T_BroadcastDone)
