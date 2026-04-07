@@ -68,6 +68,7 @@ func (srv *Server) dispatchMasterElectionMsg(outMsg packet.OutgoingMessage) {
 		srv.setSelfAsMaster()
 		srv.setSynced()
 	case packet.PKT_T_WhoIsAlive:
+		srv.clearSelfAsMaster()
 		srv.clearAllAlive()
 	}
 

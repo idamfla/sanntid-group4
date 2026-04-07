@@ -42,6 +42,7 @@ func (srv *Server) clearAllAlive()                 { srv.peers.ClearAllAlive() }
 func (srv *Server) countAlivePeers() int           { return srv.peers.CountAlivePeers() }
 
 func (srv *Server) getMasterPeer() *PeerInfo { return srv.peers.GetMasterPeer() }
+func (srv *Server) ClearMasterPeer()         { srv.peers.ClearMasterPeer() }
 
 func (srv *Server) setPeerSynced(peerKey string) { srv.peers.SetSynced(peerKey) } // TODO use this function
 

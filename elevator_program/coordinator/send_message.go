@@ -52,17 +52,17 @@ func (c *Coordinator) sendAsMaster(eMsg message.ElevatorMessage) {
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
 		eMsg.EMsgType = message.EMSG_T_StatusReportBroadcast
-		c.Server.QueueSyncMsg(eMsg)
+		c.Server.QueueBSUpdateMsg(eMsg)
 		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
 
 	case message.EMSG_T_ButtonPress:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
 		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
-		c.Server.QueueSyncMsg(eMsg)
+		c.Server.QueueBSUpdateMsg(eMsg)
 
 	case message.EMSG_T_TaskRequest:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
-		c.Server.QueueSyncMsg(eMsg)
+		c.Server.QueueBSUpdateMsg(eMsg)
 		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
 
 	case message.EMSG_T_NewToChannel:

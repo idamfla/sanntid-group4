@@ -16,6 +16,8 @@ type Coordinator struct {
 	portRegistery map[string]int
 	TaskMonitor   TaskMonitor
 
+	isConnected bool
+
 	wg   sync.WaitGroup
 	stop chan struct{}
 }
@@ -24,6 +26,7 @@ func (c *Coordinator) InitCoordinator() {
 	c.msgRecieveCh = make(chan server.ElevatorPacket, 20)
 	c.msgSendCh = make(chan message.ElevatorMessage, 20)
 	c.TaskMonitor = NewTaskMonitor(10 * time.Second)
+	c.isConnected = false
 }
 
 func (c *Coordinator) StartServer(ip string, port int, id string) error {

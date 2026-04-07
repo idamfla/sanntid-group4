@@ -17,6 +17,7 @@ const (
 	EMSG_T_SyncedElevator // TODO Is supposed to don't do shit
 	EMSG_T_IAmMaster
 	EMSG_T_SyncSystem
+	EMSG_T_IAmAlone
 )
 
 type ElevatorMessage struct {

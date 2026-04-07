@@ -60,6 +60,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 		}
 
 	case message.EMSG_T_IAmMaster:
+		c.isConnected = true
 		if !e.ConnectedToMaster() { // TODO is this wrong?
 			e.SetConnectionState(eMsg)
 			e.System.Mutex.RLock()
@@ -91,6 +92,9 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 			e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 		}
 		c.askForTask(e, false)
+
+	case message.EMSG_T_IAmAlone:
+		c.disconnect(e, false)
 	}
 }
 
@@ -207,6 +211,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		fmt.Println("I am not supposed to do anything here, \n\n\n")
 
 	case message.EMSG_T_IAmMaster:
+		c.isConnected = true
 		c.takeoverAsMaster(e)
 		var ipAdresses []string
 		for ip, elev := range eMsg.Elevators {
@@ -228,6 +233,9 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
 
 		c.askForTask(e, true)
+
+	case message.EMSG_T_IAmAlone:
+		c.disconnect(e, true)
 	}
 }
 
@@ -271,6 +279,10 @@ func (c *Coordinator) askForTask(e *elevator.Elevator, isMaster bool) {
 }
 
 func (c *Coordinator) disconnect(e *elevator.Elevator, isMaster bool) {
+	if !c.isConnected {
+		return
+	}
+	c.isConnected = false
 	e.TurnOffline()
 	if isMaster {
 		c.TaskMonitor.TurnOffTaskMonitor(e)

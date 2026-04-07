@@ -22,10 +22,10 @@ const (
 	// HomeBroadcastIP = "192.168.86.255"
 	// BroadcastIP     = HomeBroadcastIP
 	OtherBroadcastIP    = "172.20.10.15"
-	NtnuBroadcastIP     = "10.22.119.255"
+	NtnuBroadcastIP     = "10.100.23.255"
 	HomeBroadcastIP     = "192.168.10.255"
 	LoopbackBroadcastIP = "127.255.255.255"
-	BroadcastIP         = LoopbackBroadcastIP // Change to HomeBroadcastIP for network
+	BroadcastIP         = NtnuBroadcastIP // Change to HomeBroadcastIP for network
 	BROADCAST_PORT      = 3000
 )
 
