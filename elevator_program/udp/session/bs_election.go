@@ -24,13 +24,13 @@ func (e *Election) Start(ws *WhoIsAliveBroadcast) {
 	e.started = true
 	e.mu.Unlock()
 
-	ws.wg.Add(1)
+	ws.WgAdd(1)
 	go e.run(ws)
 }
 
 // run contains the election logic
 func (e *Election) run(ws *WhoIsAliveBroadcast) {
-	defer ws.wg.Done()
+	defer ws.WgDone()
 
 	defer e.clearStarted()
 
@@ -38,7 +38,7 @@ func (e *Election) run(ws *WhoIsAliveBroadcast) {
 	defer timer.Stop()
 
 	select {
-	case <-ws.stop:
+	case <-ws.stopCh():
 		return
 
 	case <-e.masterFound:
@@ -57,6 +57,8 @@ func (e *Election) runElection(ws *WhoIsAliveBroadcast) {
 		fmt.Printf(` But no one's listening
  And that's just lonely
 `)
+
+		// ws.queueElevatorCommand(IAmAlone) // TODO need a type for telling elevator we are offline
 		ws.queueWhoIsAliveMsg()
 		return
 	}

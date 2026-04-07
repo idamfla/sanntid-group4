@@ -50,7 +50,7 @@ func NewSession(id uint32,
 		elevDone:  make(chan struct{}, 1),
 		taskReady: make(chan struct{}, 1),
 
-		lifecycle: NewSessionLifecycle(srv.GetCloseReqCh()),
+		lifecycle: NewSessionLifecycle(srv.CloseReqCh()),
 		srv:       srv,
 	}
 

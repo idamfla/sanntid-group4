@@ -33,7 +33,7 @@ func (srv *Server) Send(
 
 // deciding how to output messages from the server, what type of session should start
 func (srv *Server) handleOutMsg(outMsg packet.OutgoingMessage) {
-	defer srv.wg.Done()
+	defer srv.WgDone()
 	switch outMsg.PktType {
 	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster:
 		srv.dispatchMasterElectionMsg(outMsg)

@@ -5,7 +5,6 @@ import (
 	"elevator_program/udp/session"
 	"fmt"
 	"net"
-	"sync"
 )
 
 const (
@@ -24,14 +23,13 @@ type Server struct {
 	incPktCh      chan packet.Packet
 	outgoingMsgCh chan packet.OutgoingMessage
 
-	closeReq chan uint32
+	// closeReq chan uint32
 
-	stop      chan struct{}
-	wg        sync.WaitGroup
-	closeOnce sync.Once
+	// stop      chan struct{}
+	// wg        sync.WaitGroup
+	// closeOnce sync.Once
+	lifecycle *ServerLifecycle
 
-	// elevatorRecv      chan session.ElevatorPacket
-	// elevatorTaskQueue chan ElevatorTask
 	elevator *ElevatorInterface
 }
 
@@ -52,24 +50,21 @@ func NewServer(ip string, port int, alias string, elevRecv chan session.Elevator
 		state:         &ServerState{},
 		incPktCh:      make(chan packet.Packet, CHANNEL_BUF),
 		outgoingMsgCh: make(chan packet.OutgoingMessage, CHANNEL_BUF),
-		// outgoingMsgCh: make(chan outgoingMessage, CHANNEL_BUF),
-		network: network,
+		network:       network,
 
-		sessions: NewSessionManager(),
-		peers:    NewPeerManager(),
-		// peers:             make(map[string]*PeerInfo),
-		closeReq: make(chan uint32, CHANNEL_BUF),
-		stop:     make(chan struct{}, CHANNEL_BUF),
+		sessions:  NewSessionManager(),
+		peers:     NewPeerManager(),
+		lifecycle: NewServerLifecycle(),
+		// closeReq: make(chan uint32, CHANNEL_BUF),
+		// stop:     make(chan struct{}, 1),
 		elevator: NewElevatorInterface(elevRecv),
-		// elevatorRecv:      elevRecv,
-		// elevatorTaskQueue: make(chan ElevatorTask, CHANNEL_BUF),
 	}
 
 	return srv, nil
 }
 
 func (srv *Server) Start() {
-	srv.wg.Add(4)
+	srv.WgAdd(4)
 	go srv.readLoop(srv.getRecvConn())
 	go srv.readLoop(srv.getBroadcastConn())
 	fmt.Printf(`Server %s: listening on %s
@@ -85,12 +80,12 @@ func (srv *Server) Start() {
 }
 
 func (srv *Server) Close() {
-	srv.closeOnce.Do(func() {
-		close(srv.stop) // signal shutdown
+	srv.lifecycle.CloseOnce.Do(func() {
+		close(srv.lifecycle.Stop) // signal shutdown
 
 		srv.network.Close()
 
-		srv.wg.Wait() // wait for goroutines
+		srv.WgWait() // wait for goroutines
 
 		srv.sessions.Close() // TODO make function closeAllSessions
 
@@ -107,25 +102,21 @@ func (srv *Server) GetIdentity() packet.Identity {
 	}
 }
 
-func (srv *Server) GetCloseReqCh() chan uint32 {
-	return srv.closeReq
-}
-
 func (srv *Server) run() {
-	defer srv.wg.Done()
+	defer srv.WgDone()
 	for {
 		select {
-		case <-srv.stop:
+		case <-srv.stopCh():
 			return
 
-		case id := <-srv.closeReq:
+		case id := <-srv.CloseReqCh():
 			srv.closeSession(id)
 
 		case incPkt := <-srv.incPktCh:
 			srv.handleIncPkt(incPkt)
 
 		case outMsg := <-srv.outgoingMsgCh:
-			srv.wg.Add(1)
+			srv.WgAdd(1)
 			go srv.handleOutMsg(outMsg)
 
 		}

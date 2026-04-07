@@ -29,11 +29,11 @@ func (srv *Server) taskQueueCh() chan ElevatorTask            { return srv.eleva
 func (srv *Server) elevRecvCh() chan<- session.ElevatorPacket { return srv.elevator.Recv }
 
 func (srv *Server) sendTaskLoop() {
-	defer srv.wg.Done()
+	defer srv.WgDone()
 
 	for {
 		select {
-		case <-srv.stop:
+		case <-srv.stopCh():
 			fmt.Println(srv.GetAlias(), "task loop stopped ...")
 			return
 
@@ -48,7 +48,7 @@ func (srv *Server) sendTaskLoop() {
 			case <-time.After(udp.TASK_READY_TIMEOUT):
 				fmt.Println(srv.GetAlias(), "task never became ready, skipping")
 
-			case <-srv.stop:
+			case <-srv.stopCh():
 				fmt.Println(srv.GetAlias(), "task loop stopped during wait")
 				return
 

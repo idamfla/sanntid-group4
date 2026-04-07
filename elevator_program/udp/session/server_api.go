@@ -16,7 +16,7 @@ type ServerAPI interface {
 	QueueElevatorTask(eMsg message.ElevatorMessage, elevDone chan<- struct{}, taskReady <-chan struct{})
 	GetRecvString() string
 	GetBroadcastAddr() *net.UDPAddr
-	GetCloseReqCh() chan uint32
+	CloseReqCh() chan uint32
 }
 
 func (ses *Session) send(outMsg packet.OutgoingMessage) error {

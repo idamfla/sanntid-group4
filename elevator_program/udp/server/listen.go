@@ -8,7 +8,7 @@ import (
 )
 
 func (srv *Server) readLoop(conn *net.UDPConn) {
-	defer srv.wg.Done()
+	defer srv.WgDone()
 	buf := make([]byte, 2048)
 
 	for {
@@ -48,7 +48,7 @@ func (srv *Server) readPacket(conn *net.UDPConn, buf []byte) (pkt packet.Packet,
 
 func (srv *Server) receivePacket(pkt packet.Packet) {
 	select {
-	case <-srv.stop:
+	case <-srv.stopCh():
 		return
 	case srv.incPktCh <- pkt:
 	default:

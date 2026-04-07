@@ -18,7 +18,7 @@ func NewSessionLifecycle(closeReq chan<- uint32) *SessionLifecycle {
 	return &SessionLifecycle{
 		ShutdownTimer: utilities.NewTimer(),
 		CloseReq:      closeReq,
-		Stop:          make(chan struct{}, CHANNEL_BUF),
+		Stop:          make(chan struct{}, 1),
 	}
 }
 
