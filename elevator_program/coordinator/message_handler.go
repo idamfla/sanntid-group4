@@ -69,9 +69,7 @@ func (c *Coordinator) handleAsSlave(e *elevator.Elevator, eMsg message.ElevatorM
 				ID:           e.Id,
 				Addr:         e.Ip,
 				HallRequests: e.System.HallRequests,
-				Elevators: map[string]types.ElevatorsStatus{
-					e.Ip: e.System.Elevators[e.Ip],
-				},
+				Elevators:    e.System.Elevators,
 			}
 			e.System.Mutex.RUnlock()
 			e.SendToCoordinator <- newMsg
@@ -228,6 +226,20 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.Mutex.Lock()
 		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
 		e.System.HallRequests = hallCopy
+
+		elev, exist := eMsg.Elevators[e.Ip]
+		if exist {
+			for f, btnStatus := range elev.CabRequests {
+				if e.System.Elevators[e.Ip].CabRequests[f] != types.Running {
+					if btnStatus != types.NotActive {
+						elevatorCopy := e.System.Elevators[e.Ip]
+						elevatorCopy.CabRequests[f] = types.Pending
+						elevio.SetButtonLamp(elevio.BT_Cab, f, true)
+					}
+				}
+			}
+		}
+
 		e.System.Mutex.Unlock()
 		e.UpdateMapOfLamps(hallCopy)
 		e.System.SetStatusReport(eMsg.Addr, eMsg.Elevators[eMsg.Addr])
