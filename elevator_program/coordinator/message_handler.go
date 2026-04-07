@@ -28,10 +28,10 @@ func (c *Coordinator) MessageListener(e *elevator.Elevator) {
 
 func (c *Coordinator) MessageHandler(e *elevator.Elevator, msg message.ElevatorMessage) {
 	if c.Server.IsMaster() {
-		// e.TurnToMaster()         // TODO it is a bit waste to have it here
+		e.TurnToMaster()
 		c.handleAsMaster(e, msg) // TODO when a new master is elected, it needs to reset the timer on every running task, so no task is lost
 	} else {
-		// e.TurnToSlave() // TODO have it something like this, just that we only change if e.master is the oposite
+		// e.TurnToSlave()
 		c.handleAsSlave(e, msg)
 	}
 }
@@ -174,7 +174,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 			task := e.GetNextTargetFloor(elevs[eMsg.Addr], hallRequests)
 			if task.Floor != -1 {
 				assignMsg := message.ElevatorMessage{
-					EMsgType:  message.EMSG_T_TaskUpdate,
+					EMsgType:  message.EMSG_T_ButtonPress,
 					ID:        e.Id,
 					Addr:      eMsg.Addr,
 					Task:      task,
@@ -228,6 +228,7 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.Mutex.Unlock()
 
 	case message.EMSG_T_SyncSystem:
+		fmt.Println("Do I ever get back here \n\n\n\n\n\n\n\n\n\n", eMsg)
 		e.System.Mutex.Lock()
 		hallCopy := e.System.Intersect(e.System.HallRequests, eMsg.HallRequests)
 		e.System.HallRequests = hallCopy

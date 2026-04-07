@@ -3,7 +3,6 @@ package coordinator
 import (
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp/packet"
 	"elevator_program/udp/server"
 	"elevator_program/udp/session"
 	"fmt"
@@ -47,9 +46,9 @@ func (c *Coordinator) Start(e *elevator.Elevator) {
 	// go c.stateMonitor(e)
 }
 
-func (c *Coordinator) QueueMessage(protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
-	// c.Server.QueueMessage(protoPktType, msg)
-}
+// func (c *Coordinator) QueueMessage(protoPktType packet.ProtocolPacketType, msg message.ElevatorMessage) {
+// c.Server.QueueMessage(protoPktType, msg)
+// }
 
 func (c *Coordinator) Close() {
 

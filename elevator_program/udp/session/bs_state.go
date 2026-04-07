@@ -47,7 +47,10 @@ func (sbs *StateBroadcast) OnSend(pktType packet.PacketType) {
 	case packet.PKT_T_BroadcastUpdate, packet.PKT_T_SyncComplete:
 		sbs.queueElevatorRequest()
 		sbs.startResponseTimer()
-	case packet.PKT_T_BroadcastCommit, packet.PKT_T_SyncMsgCommit:
+	case packet.PKT_T_BroadcastCommit:
+		sbs.startResponseTimer()
+	case packet.PKT_T_SyncMsgCommit:
+		sbs.queueElevatorRequest()
 		sbs.startResponseTimer()
 	}
 

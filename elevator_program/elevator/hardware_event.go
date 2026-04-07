@@ -105,8 +105,7 @@ func (e *Elevator) handleHardwareEventOnline(hwEvent HardwareEvent) {
 					}
 				} else {
 					taskElevatorIp := e.ClosestToTarget(elevators, task)
-					if taskElevatorIp != "" { // TODO don't think i need this:  && taskElevatorIp != e.Ip
-						eMsg.EMsgType = message.EMSG_T_TaskUpdate
+					if taskElevatorIp != "" {
 						eMsg.BtnStatus = types.Running
 						eMsg.Addr = taskElevatorIp
 					}

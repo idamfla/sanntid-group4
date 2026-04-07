@@ -3,7 +3,6 @@ package coordinator
 import (
 	"elevator_program/elevator"
 	"elevator_program/message"
-	"elevator_program/udp/packet"
 	"fmt"
 )
 
@@ -23,46 +22,54 @@ func (c *Coordinator) routeOutgoingMessage(e *elevator.Elevator, msg message.Ele
 }
 
 func (c *Coordinator) sendAsSlave(eMsg message.ElevatorMessage) {
-	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
+	// msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
-		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		// msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		c.Server.QueueRequestTaskExecution(eMsg)
 
 	case message.EMSG_T_ButtonPress:
-		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		// msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		c.Server.QueueRequestTaskExecution(eMsg)
 
 	case message.EMSG_T_TaskRequest:
-		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		// msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		c.Server.QueueRequestTaskExecution(eMsg)
 
 	case message.EMSG_T_IAmMaster: // TODO fix stuff here
 		eMsg.EMsgType = message.EMSG_T_NewToChannel
-		msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
+		c.Server.QueueRequestTaskExecution(eMsg)
+		// msgPacket = packet.PROTO_PKT_T_RequestTaskExecution
 		// msgPacket = packet.PROTO_PKT_T_WhoIsAlive // TODO ask ida how election works now
 	}
-	c.QueueMessage(msgPacket, eMsg)
+	// c.QueueMessage(msgPacket, eMsg)
 }
 
 func (c *Coordinator) sendAsMaster(eMsg message.ElevatorMessage) {
-	msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
+	// msgPacket := packet.PROTO_PKT_T_BroadcastUpdate
 
 	switch eMsg.EMsgType {
 	case message.EMSG_T_StatusReport:
 		eMsg.EMsgType = message.EMSG_T_StatusReportBroadcast
-		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
+		c.Server.QueueSyncMsg(eMsg)
+		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
 
 	case message.EMSG_T_ButtonPress:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
-		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
+		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
+		c.Server.QueueSyncMsg(eMsg)
 
 	case message.EMSG_T_TaskRequest:
 		eMsg.EMsgType = message.EMSG_T_TaskUpdate
-		msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
+		c.Server.QueueSyncMsg(eMsg)
+		// msgPacket = packet.PROTO_PKT_T_BroadcastUpdate
 
 	case message.EMSG_T_NewToChannel:
 		eMsg.EMsgType = message.EMSG_T_SyncSystem
-		msgPacket = packet.PROTO_PKT_T_SyncMsg
+		c.Server.QueueSyncMsg(eMsg)
+		// msgPacket = packet.PROTO_PKT_T_SyncMsg
 	}
 
-	c.QueueMessage(msgPacket, eMsg)
+	// c.QueueMessage(msgPacket, eMsg)
 }

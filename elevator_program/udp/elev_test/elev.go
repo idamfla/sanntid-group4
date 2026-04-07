@@ -50,7 +50,7 @@ func (e *Elev) listen() {
 			case message.EMSG_T_IAmMaster:
 				fmt.Println(e.srv.GetAlias(), "took snapshot")
 				e.isMaster = false
-				e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // intersect button map
+				// e.srv.QueueRequestTaskExecution(message.EMSG_T_ButtonPress) // intersect button map
 
 			case message.EMSG_T_ButtonPress:
 				fmt.Println(e.srv.GetAlias(), "intersect, asked by", msg.EMsg.Addr)

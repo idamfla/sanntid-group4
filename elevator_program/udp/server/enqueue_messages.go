@@ -2,6 +2,7 @@ package server
 
 import (
 	"elevator_program/message"
+	"elevator_program/types"
 	"elevator_program/udp/packet"
 	"fmt"
 )
@@ -11,7 +12,21 @@ func (srv *Server) QueueWhoIsAliveMsg() {
 }
 
 func (srv *Server) QueueIAmMasterMsg() {
-	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_IAmMaster, message.ElevatorMessage{})
+	activeElevs := make(map[string]types.ElevatorsStatus) // TODO Need to go through the peers and add every elevator who is alive to the elevator map
+	for _, p := range srv.peers.peers {
+		_, addr, _, active, _, _ := p.Snapshot()
+		if active {
+			// Use the ip part of the adress to add it to the elevator
+			IpString := addr.String() // Maybe have addr.IP.string()
+			activeElevs[IpString] = types.ElevatorsStatus{Ip: IpString, IsAlive: true}
+		}
+	}
+
+	eMsg := message.ElevatorMessage{
+		EMsgType:  message.EMSG_T_IAmMaster,
+		Elevators: activeElevs,
+	}
+	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_IAmMaster, eMsg)
 }
 
 func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
@@ -27,14 +42,14 @@ func (srv *Server) QueueElectedMasterMsg(masterAddr string) {
 	srv.queueMessage(srv.GetIdentity(), packet.PROTO_PKT_T_ElectedMasterIs, message.ElevatorMessage{Addr: addr.String()})
 }
 
-func (srv *Server) QueueRequestTaskExecution(eMsgType message.ElevatorMessageType) {
+func (srv *Server) QueueRequestTaskExecution(eMsg message.ElevatorMessage) {
 	srv.queueMessage(
 		srv.GetIdentity(),
 		packet.PROTO_PKT_T_RequestTaskExecution,
-		message.ElevatorMessage{
-			EMsgType: eMsgType,
-			Addr:     srv.GetRecvString(),
-		},
+		// message.ElevatorMessage{
+		// 	EMsgType: eMsgType,
+		// 	Addr:     srv.GetRecvString(),
+		eMsg,
 	)
 }
 
