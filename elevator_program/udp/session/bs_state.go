@@ -67,6 +67,8 @@ func (sbs *StateBroadcast) HandleIncPkt(pkt packet.Packet) error {
 		return err
 	}
 
+	sbs.clearLastMsg()
+
 	fmt.Printf("%s: %d/%d\n", pktType, sbs.countResponders(), sbs.expectedResponses)
 	if isQuorum {
 		switch pktType {

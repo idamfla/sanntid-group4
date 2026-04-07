@@ -97,7 +97,7 @@ func (ws *WhoIsAliveBroadcast) handleIAmMaster() {
 
 func (ws *WhoIsAliveBroadcast) handleElectedMasterIs(pkt packet.Packet) {
 	addr := pkt.Payload.Addr
-	if addr == ws.selfAddr {
+	if addr == ws.selfAddr && !ws.isMaster() {
 		fmt.Println("I was elected master", ws.selfAddr) // TODO db, remove
 		ws.queueIamMasterMsg()
 	}

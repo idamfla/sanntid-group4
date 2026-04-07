@@ -15,6 +15,8 @@ func (ses *Session) HandleIncPkt(pkt packet.Packet) error { // TODO rename Handl
 		return err
 	}
 
+	ses.clearLastMsg()
+
 	switch h.PktType {
 	case packet.PKT_T_Heartbeat:
 		fmt.Printf("%s sent %s\n", h.SenderAddr, h.PktType) // TODO remove db, although ... heatbeat should not end up here
@@ -74,8 +76,8 @@ func (ses *Session) handleStateBSCommit(pktType packet.PacketType) {
 		case ErrElevatorTimeout:
 			fmt.Println("Elevator failed to commit …")
 			ses.queueReply(packet.PKT_T_ElevatorFailed)
-
 		}
+
 	} else {
 		switch pktType {
 		case packet.PKT_T_SyncMsgCommit:

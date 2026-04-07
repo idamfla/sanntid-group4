@@ -55,12 +55,6 @@ func (ses *Session) handleOutPkt(outMsg packet.OutgoingMessage, behavior Session
 		return
 	}
 
-	ses.handleFistLastOutgoing(outMsg)
-
-	behavior.OnSend(outMsg.PktType)
-}
-
-func (ses *Session) handleFistLastOutgoing(outMsg packet.OutgoingMessage) {
 	pktType := outMsg.PktType
 	switch pktType {
 	case packet.PKT_T_WhoIsAlive, packet.PKT_T_IAmMaster,
@@ -73,7 +67,8 @@ func (ses *Session) handleFistLastOutgoing(outMsg packet.OutgoingMessage) {
 		packet.PKT_T_RequestTaskExecutionAck,
 		packet.PKT_T_SyncComplete,
 		packet.PKT_T_BroadcastDone:
-		// ses.clearPendingMsg()
 		ses.clearLastMsg()
 	}
+
+	behavior.OnSend(outMsg.PktType)
 }

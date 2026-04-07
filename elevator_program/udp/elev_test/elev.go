@@ -50,12 +50,15 @@ func (e *Elev) listen() {
 
 			case message.EMSG_T_ButtonPress:
 				fmt.Println(e.srv.GetAlias(), "intersect, asked by", msg.EMsg.Addr)
-				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mst send out again syncMsg
+				e.srv.QueueSyncMsg(msg.EMsg) // button map // TODO NB! have only mstr send out again syncMsg
 				// e.srv.QueueBSUpdateMsg(msg.EMsg)
 			}
 
 			if msg.Done != nil {
-				msg.Done <- struct{}{}
+				select {
+				case msg.Done <- struct{}{}:
+				default:
+				}
 			}
 
 		case <-e.stop:
