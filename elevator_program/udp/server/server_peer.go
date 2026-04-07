@@ -1,6 +1,7 @@
 package server
 
 import (
+	"elevator_program/message"
 	"elevator_program/udp/packet"
 	"fmt"
 	"net"
@@ -38,8 +39,17 @@ func (srv *Server) getPeer(peerKey string) (*PeerInfo, bool) { return srv.peers.
 func (srv *Server) addPeer(peerKey string, p *PeerInfo)      { srv.peers.AddPeer(peerKey, p) }
 
 func (srv *Server) setPeerAliveNow(peerKey string) { srv.peers.SetAliveNow(peerKey) }
-func (srv *Server) clearAllAlive()                 { srv.peers.ClearAllAlive() }
-func (srv *Server) countAlivePeers() int           { return srv.peers.CountAlivePeers() }
+func (srv *Server) clearAllAlive() {
+	srv.peers.ClearAllAlive()
+	ready := make(chan struct{}, 1)
+	select {
+	case ready <- struct{}{}:
+	default:
+	}
+
+	srv.QueueElevatorTask(message.ElevatorMessage{EMsgType: message.EMSG_T_IAmAlone}, nil, ready)
+}
+func (srv *Server) countAlivePeers() int { return srv.peers.CountAlivePeers() }
 
 func (srv *Server) getMasterPeer() *PeerInfo { return srv.peers.GetMasterPeer() }
 func (srv *Server) ClearMasterPeer()         { srv.peers.ClearMasterPeer() }

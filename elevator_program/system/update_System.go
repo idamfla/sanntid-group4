@@ -130,6 +130,12 @@ func (s *System) SetRequestAsTarget(ip string, task elevio.ButtonEvent) {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
+	if len(s.Elevators[ip].CabRequests) < 1 {
+		elevatorCopy := s.Elevators[ip]
+		elevatorCopy.CabRequests = make([]types.ButtonStatus, 4)
+		s.Elevators[ip] = elevatorCopy
+	}
+
 	if s.Elevators[ip].Target.Floor != -1 {
 		oldTarget := s.Elevators[ip].Target
 		// Only revert old target to Pending if it is actually Running.

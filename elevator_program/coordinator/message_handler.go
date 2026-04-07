@@ -200,8 +200,13 @@ func (c *Coordinator) handleAsMaster(e *elevator.Elevator, eMsg message.Elevator
 		e.System.Mutex.Lock()
 		numFloors := e.NumFloors
 		e.IsOnline = true
+		elev, exist := eMsg.Elevators[e.Ip]
 		e.System.Mutex.Unlock()
 		eMsg := e.System.RegisterAndSyncElevator(eMsg, numFloors)
+
+		if exist {
+			eMsg.Elevators[e.Ip] = elev
+		}
 
 		e.SendToCoordinator <- eMsg
 
