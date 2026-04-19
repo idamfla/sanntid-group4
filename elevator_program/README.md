@@ -10,20 +10,20 @@
 
 
 ## Overview
-![Class diagram over elevator program](images/class_diagram_elevator_program.png)
-[Download full PDF](images/class_diagram_elevator_program.pdf)
+![Class diagram over elevator program](images/cd_elevator_program.png)
+[Download full PDF](images/cd_elevator_program.pdf)
 
-![Class diagram over network](images/class_diagram_udp.png)
-[Download full PDF](images/class_diagram_udp.pdf)
+![Class diagram over network](images/cd_udp.png)
+[Download full PDF](images/cd_udp.pdf)
 
-![Class diagram over packet](images/class_diagram_packet.png)
-[Download full PDF](images/class_diagram_packet.pdf)
+![Class diagram over packet](images/cd_packet.png)
+[Download full PDF](images/cd_packet.pdf)
 
-![Sequence diagram over messageExchange](images/sequence_diagram_messageExchange.png)
-[Download full PDF](images/sequence_diagram_messageExchange.pdf)
+![Sequence diagram over messageExchange](images/sd_message_exchange.png)
+[Download full PDF](images/sd_message_exchange.pdf)
 
-![Sequence diagram over whoIsAlive](images/sequence_diagram_whoIsAlive.png)
-[Download full PDF](images/sequence_diagram_whoIsAlive.pdf)
+![Sequence diagram over whoIsAlive](images/sd_who_is_alive.png)
+[Download full PDF](images/sd_who_is_alive.pdf)
 
 ## Run Elevator Simulation
 
