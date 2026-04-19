@@ -11,7 +11,19 @@
 
 ## Overview
 ![Class diagram over elevator program](images/class_diagram_elevator_program.png)
-[Download full PDG](images/class_diagram_elevator_program.pdf)
+[Download full PDF](images/class_diagram_elevator_program.pdf)
+
+![Class diagram over network](images/class_diagram_udp.png)
+[Download full PDF](images/class_diagram_udp.pdf)
+
+![Class diagram over packet](images/class_diagram_packet.png)
+[Download full PDF](images/class_diagram_packet.pdf)
+
+![Sequence diagram over messageExchange](images/sequence_diagram_messageExchange.png)
+[Download full PDF](images/sequence_diagram_messageExchange.pdf)
+
+![Sequence diagram over whoIsAlive](images/sequence_diagram_whoIsAlive.png)
+[Download full PDF](images/sequence_diagram_whoIsAlive.pdf)
 
 ## Run Elevator Simulation
 
