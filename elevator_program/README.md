@@ -1,12 +1,17 @@
 # Elevator Program
 
 - [Elevator Program](#elevator-program)
+  - [Overview](#overview)
   - [Run Elevator Simulation](#run-elevator-simulation)
     - [Default buttons](#default-buttons)
   - [Run the elevator at the lab](#run-the-elevator-at-the-lab)
   - [Running several elevators at the lab](#running-several-elevators-at-the-lab)
   - [Running multiple simulators](#running-multiple-simulators)
 
+
+## Overview
+![Class diagram over elevator program](images/class_diagram_elevator_program.png)
+[Download full PDG](images/class_diagram_elevator_program.pdf)
 
 ## Run Elevator Simulation
 
